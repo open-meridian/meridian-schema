@@ -584,3 +584,829 @@ pub struct UnresolvedHolding {
     #[prost(bool, tag = "9")]
     pub escalated: bool,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RegisterRequest {
+    /// Stable for the life of this instance, supplied by whatever started it.
+    #[prost(string, tag = "1")]
+    pub instance_id: ::prost::alloc::string::String,
+    /// The role being served, e.g. "custody". Decides which grants apply.
+    #[prost(string, tag = "2")]
+    pub role: ::prost::alloc::string::String,
+    /// Additional grant-bearing labels beyond the role.
+    #[prost(string, repeated, tag = "3")]
+    pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The schema version the plugin was built against. A mismatch is worth
+    /// refusing at the door rather than discovering in a decode failure later.
+    #[prost(string, tag = "4")]
+    pub schema_version: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RegisterReply {
+    #[prost(bool, tag = "1")]
+    pub admitted: bool,
+    /// Populated when admitted. Scopes everything the plugin subsequently does.
+    #[prost(string, tag = "2")]
+    pub deployment_id: ::prost::alloc::string::String,
+    /// Populated when not. Names what is missing, in terms the operator can act
+    /// on: a grant, a version, or access control not yet loaded.
+    #[prost(string, tag = "3")]
+    pub refusal_reason: ::prost::alloc::string::String,
+    /// The topic patterns this plugin may publish on and subscribe to. Returned so
+    /// a plugin can fail at startup rather than at the first refused publish.
+    #[prost(string, repeated, tag = "4")]
+    pub publish_grants: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "5")]
+    pub subscribe_grants: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// The plugin supplies the payload, the topic, and the causal links it knows
+/// about. It does not supply its own identity or its own timestamps: a component
+/// that can forge its provenance makes the audit trail decorative. The sidecar
+/// stamps those.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PublishRequest {
+    #[prost(string, tag = "1")]
+    pub topic: ::prost::alloc::string::String,
+    /// Fully-qualified name of the payload message.
+    #[prost(string, tag = "2")]
+    pub payload_type: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "3")]
+    pub payload: ::prost::alloc::vec::Vec<u8>,
+    /// The action this message belongs to. Empty starts a new one.
+    #[prost(string, tag = "4")]
+    pub correlation_id: ::prost::alloc::string::String,
+    /// The message this one is a consequence of. Empty when nothing caused it.
+    #[prost(string, tag = "5")]
+    pub causation_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PublishReply {
+    #[prost(bool, tag = "1")]
+    pub accepted: bool,
+    #[prost(string, tag = "2")]
+    pub message_id: ::prost::alloc::string::String,
+    /// Populated when refused: names the grant that was missing.
+    #[prost(string, tag = "3")]
+    pub refusal_reason: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SubscribeRequest {
+    /// A topic pattern. `*` matches one segment, `**` matches one or more.
+    #[prost(string, tag = "1")]
+    pub pattern: ::prost::alloc::string::String,
+}
+/// One message delivered to a subscriber.
+///
+/// No acknowledgement. Delivery is at-most-once in this slice: a message lost to
+/// a slow consumer is dropped rather than queued indefinitely, because unbounded
+/// queueing turns one stuck plugin into a stuck deployment. Adding an ack later
+/// is additive; removing one would not be.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Delivery {
+    #[prost(message, optional, tag = "1")]
+    pub envelope: ::core::option::Option<Envelope>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CallRequest {
+    #[prost(string, tag = "1")]
+    pub topic: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub payload_type: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "3")]
+    pub payload: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "4")]
+    pub correlation_id: ::prost::alloc::string::String,
+    /// Bounded by construction. A caller cannot wait forever, because the surface
+    /// does not offer it. Zero means the sidecar's default.
+    #[prost(int32, tag = "5")]
+    pub timeout_ms: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CallReply {
+    #[prost(bool, tag = "1")]
+    pub ok: bool,
+    #[prost(string, tag = "2")]
+    pub payload_type: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "3")]
+    pub payload: ::prost::alloc::vec::Vec<u8>,
+    /// Populated when ok is false. Distinguishes a timeout from a refusal from a
+    /// handler that answered with an error, because the caller's next move differs
+    /// for each.
+    #[prost(enumeration = "CallFailure", tag = "4")]
+    pub failure: i32,
+    #[prost(string, tag = "5")]
+    pub failure_detail: ::prost::alloc::string::String,
+}
+/// Self-reported, and therefore only half the picture. A plugin that has stopped
+/// sending these at all is the more informative signal, and the sidecar is what
+/// notices.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HeartbeatRequest {
+    #[prost(bool, tag = "1")]
+    pub healthy: bool,
+    /// Why not, when not. Diagnostic; nothing branches on it.
+    #[prost(string, tag = "2")]
+    pub detail: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct HeartbeatReply {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LeaveRequest {
+    /// Why the plugin is stopping. Distinguishes a planned stop from a failure,
+    /// which the timeout path cannot do.
+    #[prost(string, tag = "1")]
+    pub reason: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct LeaveReply {}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CallFailure {
+    Unspecified = 0,
+    Timeout = 1,
+    Refused = 2,
+    NoHandler = 3,
+    HandlerError = 4,
+}
+impl CallFailure {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "CALL_FAILURE_UNSPECIFIED",
+            Self::Timeout => "CALL_FAILURE_TIMEOUT",
+            Self::Refused => "CALL_FAILURE_REFUSED",
+            Self::NoHandler => "CALL_FAILURE_NO_HANDLER",
+            Self::HandlerError => "CALL_FAILURE_HANDLER_ERROR",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "CALL_FAILURE_UNSPECIFIED" => Some(Self::Unspecified),
+            "CALL_FAILURE_TIMEOUT" => Some(Self::Timeout),
+            "CALL_FAILURE_REFUSED" => Some(Self::Refused),
+            "CALL_FAILURE_NO_HANDLER" => Some(Self::NoHandler),
+            "CALL_FAILURE_HANDLER_ERROR" => Some(Self::HandlerError),
+            _ => None,
+        }
+    }
+}
+/// Generated client implementations.
+pub mod sidecar_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct SidecarServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl SidecarServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> SidecarServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> SidecarServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            SidecarServiceClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        /// Nothing else may be called until this succeeds.
+        pub async fn register(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RegisterRequest>,
+        ) -> std::result::Result<tonic::Response<super::RegisterReply>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/Register",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "Register"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn publish(
+            &mut self,
+            request: impl tonic::IntoRequest<super::PublishRequest>,
+        ) -> std::result::Result<tonic::Response<super::PublishReply>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/Publish",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "Publish"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn subscribe(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SubscribeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<tonic::codec::Streaming<super::Delivery>>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/Subscribe",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "Subscribe"));
+            self.inner.server_streaming(req, path, codec).await
+        }
+        /// A question with an answer, bounded in time.
+        pub async fn call(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CallRequest>,
+        ) -> std::result::Result<tonic::Response<super::CallReply>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/Call",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "Call"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn heartbeat(
+            &mut self,
+            request: impl tonic::IntoRequest<super::HeartbeatRequest>,
+        ) -> std::result::Result<tonic::Response<super::HeartbeatReply>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/Heartbeat",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "Heartbeat"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Optional by nature: a crash skips it.
+        pub async fn leave(
+            &mut self,
+            request: impl tonic::IntoRequest<super::LeaveRequest>,
+        ) -> std::result::Result<tonic::Response<super::LeaveReply>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/Leave",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "Leave"));
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod sidecar_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with SidecarServiceServer.
+    #[async_trait]
+    pub trait SidecarService: std::marker::Send + std::marker::Sync + 'static {
+        /// Nothing else may be called until this succeeds.
+        async fn register(
+            &self,
+            request: tonic::Request<super::RegisterRequest>,
+        ) -> std::result::Result<tonic::Response<super::RegisterReply>, tonic::Status>;
+        async fn publish(
+            &self,
+            request: tonic::Request<super::PublishRequest>,
+        ) -> std::result::Result<tonic::Response<super::PublishReply>, tonic::Status>;
+        /// Server streaming response type for the Subscribe method.
+        type SubscribeStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::Delivery, tonic::Status>,
+            >
+            + std::marker::Send
+            + 'static;
+        async fn subscribe(
+            &self,
+            request: tonic::Request<super::SubscribeRequest>,
+        ) -> std::result::Result<tonic::Response<Self::SubscribeStream>, tonic::Status>;
+        /// A question with an answer, bounded in time.
+        async fn call(
+            &self,
+            request: tonic::Request<super::CallRequest>,
+        ) -> std::result::Result<tonic::Response<super::CallReply>, tonic::Status>;
+        async fn heartbeat(
+            &self,
+            request: tonic::Request<super::HeartbeatRequest>,
+        ) -> std::result::Result<tonic::Response<super::HeartbeatReply>, tonic::Status>;
+        /// Optional by nature: a crash skips it.
+        async fn leave(
+            &self,
+            request: tonic::Request<super::LeaveRequest>,
+        ) -> std::result::Result<tonic::Response<super::LeaveReply>, tonic::Status>;
+    }
+    #[derive(Debug)]
+    pub struct SidecarServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> SidecarServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for SidecarServiceServer<T>
+    where
+        T: SidecarService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/meridian.v1.SidecarService/Register" => {
+                    #[allow(non_camel_case_types)]
+                    struct RegisterSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::UnaryService<super::RegisterRequest>
+                    for RegisterSvc<T> {
+                        type Response = super::RegisterReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RegisterRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::register(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RegisterSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/Publish" => {
+                    #[allow(non_camel_case_types)]
+                    struct PublishSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::UnaryService<super::PublishRequest>
+                    for PublishSvc<T> {
+                        type Response = super::PublishReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PublishRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::publish(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PublishSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/Subscribe" => {
+                    #[allow(non_camel_case_types)]
+                    struct SubscribeSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::ServerStreamingService<super::SubscribeRequest>
+                    for SubscribeSvc<T> {
+                        type Response = super::Delivery;
+                        type ResponseStream = T::SubscribeStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SubscribeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::subscribe(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SubscribeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/Call" => {
+                    #[allow(non_camel_case_types)]
+                    struct CallSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::UnaryService<super::CallRequest> for CallSvc<T> {
+                        type Response = super::CallReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CallRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::call(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CallSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/Heartbeat" => {
+                    #[allow(non_camel_case_types)]
+                    struct HeartbeatSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::UnaryService<super::HeartbeatRequest>
+                    for HeartbeatSvc<T> {
+                        type Response = super::HeartbeatReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::HeartbeatRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::heartbeat(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = HeartbeatSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/Leave" => {
+                    #[allow(non_camel_case_types)]
+                    struct LeaveSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::UnaryService<super::LeaveRequest> for LeaveSvc<T> {
+                        type Response = super::LeaveReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::LeaveRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::leave(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = LeaveSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for SidecarServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "meridian.v1.SidecarService";
+    impl<T> tonic::server::NamedService for SidecarServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}

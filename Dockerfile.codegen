@@ -11,6 +11,8 @@
 
 ARG PROTOC_VERSION=29.3
 ARG RUST_VERSION=1.90
+ARG PYTHON_VERSION=3.12
+ARG GRPCIO_TOOLS_VERSION=1.68.1
 
 # ─────────────────────────────────────────────────────────────────────────────
 # protoc, and the Python bindings it can emit directly
@@ -34,16 +36,18 @@ RUN case "${TARGETARCH}" in \
  && rm /tmp/protoc.zip \
  && protoc --version
 
-FROM protoc AS python-gen
+FROM python:${PYTHON_VERSION}-slim AS python-gen
+ARG GRPCIO_TOOLS_VERSION
+# grpcio-tools carries its own pinned protoc, so Python generation is
+# self-contained and reproducible from this one version.
+RUN pip install --no-cache-dir "grpcio-tools==${GRPCIO_TOOLS_VERSION}"
 WORKDIR /src
 COPY proto/ proto/
-# The protos declare messages and no services, so there is no gRPC plumbing to
-# generate. Type stubs come along because they cost nothing and make the
-# generated package usable from a type-checked codebase.
 RUN mkdir -p /out/python \
- && protoc -I proto \
+ && python -m grpc_tools.protoc -I proto \
       --python_out=/out/python \
       --pyi_out=/out/python \
+      --grpc_python_out=/out/python \
       $(find proto -name '*.proto' | sort) \
  && find /out/python -type d -exec touch {}/__init__.py \;
 # The package root is `meridian`, so a consumer writes
@@ -63,6 +67,21 @@ COPY proto/ proto/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/codegen/target \
     cd codegen && cargo run --release --locked
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Does the generated crate actually build?
+#
+# A build stage rather than a bind-mounted `docker run`: mounting a
+# just-created host directory into the VM raced, and cargo intermittently
+# failed to create its own target directory. Copying into the image has no
+# such window, and makes the check reproducible on any host.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM rust:${RUST_VERSION}-slim-bookworm AS pb-check
+WORKDIR /w
+COPY gen/rust/ ./
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/w/target \
+    cargo build --release
 
 # ─────────────────────────────────────────────────────────────────────────────
 # What `make codegen` extracts

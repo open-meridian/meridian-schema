@@ -1,0 +1,179 @@
+// The surface a plugin binds to. Its entire contract with the platform.
+//
+// Derived from workflow W4 (plugin lifecycle and bus access). Every message
+// here traces to a matrix row; see matrix/matrix.tsv.
+//
+// A plugin reaches this on its own loopback address and reaches nothing else.
+// It never learns the bus address, never holds a broker credential, and never
+// discovers another plugin. See decisions/004.
+//
+// Deliberately six operations. The temptation is to add typed, role-specific
+// calls here so a plugin author gets a named method per business action. That
+// is how a thin boundary becomes thousands of hand-written wrappers: those
+// belong in generated code above this layer, derived from the matrix.
+
+syntax = "proto3";
+
+package meridian.v1;
+
+import "meridian/v1/envelope.proto";
+
+service SidecarService {
+  // Nothing else may be called until this succeeds.
+  rpc Register(RegisterRequest) returns (RegisterReply);
+
+  rpc Publish(PublishRequest) returns (PublishReply);
+
+  rpc Subscribe(SubscribeRequest) returns (stream Delivery);
+
+  // A question with an answer, bounded in time.
+  rpc Call(CallRequest) returns (CallReply);
+
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatReply);
+
+  // Optional by nature: a crash skips it.
+  rpc Leave(LeaveRequest) returns (LeaveReply);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.1 — admission
+// ─────────────────────────────────────────────────────────────────────────────
+
+message RegisterRequest {
+  // Stable for the life of this instance, supplied by whatever started it.
+  string instance_id = 1;
+
+  // The role being served, e.g. "custody". Decides which grants apply.
+  string role = 2;
+
+  // Additional grant-bearing labels beyond the role.
+  repeated string tags = 3;
+
+  // The schema version the plugin was built against. A mismatch is worth
+  // refusing at the door rather than discovering in a decode failure later.
+  string schema_version = 4;
+}
+
+message RegisterReply {
+  bool admitted = 1;
+
+  // Populated when admitted. Scopes everything the plugin subsequently does.
+  string deployment_id = 2;
+
+  // Populated when not. Names what is missing, in terms the operator can act
+  // on: a grant, a version, or access control not yet loaded.
+  string refusal_reason = 3;
+
+  // The topic patterns this plugin may publish on and subscribe to. Returned so
+  // a plugin can fail at startup rather than at the first refused publish.
+  repeated string publish_grants = 4;
+  repeated string subscribe_grants = 5;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.2 — publish
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The plugin supplies the payload, the topic, and the causal links it knows
+// about. It does not supply its own identity or its own timestamps: a component
+// that can forge its provenance makes the audit trail decorative. The sidecar
+// stamps those.
+message PublishRequest {
+  string topic = 1;
+
+  // Fully-qualified name of the payload message.
+  string payload_type = 2;
+  bytes payload = 3;
+
+  // The action this message belongs to. Empty starts a new one.
+  string correlation_id = 4;
+
+  // The message this one is a consequence of. Empty when nothing caused it.
+  string causation_id = 5;
+}
+
+message PublishReply {
+  bool accepted = 1;
+  string message_id = 2;
+
+  // Populated when refused: names the grant that was missing.
+  string refusal_reason = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.3 — subscribe
+// ─────────────────────────────────────────────────────────────────────────────
+
+message SubscribeRequest {
+  // A topic pattern. `*` matches one segment, `**` matches one or more.
+  string pattern = 1;
+}
+
+// One message delivered to a subscriber.
+//
+// No acknowledgement. Delivery is at-most-once in this slice: a message lost to
+// a slow consumer is dropped rather than queued indefinitely, because unbounded
+// queueing turns one stuck plugin into a stuck deployment. Adding an ack later
+// is additive; removing one would not be.
+message Delivery {
+  Envelope envelope = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.4 — call
+// ─────────────────────────────────────────────────────────────────────────────
+
+message CallRequest {
+  string topic = 1;
+  string payload_type = 2;
+  bytes payload = 3;
+  string correlation_id = 4;
+
+  // Bounded by construction. A caller cannot wait forever, because the surface
+  // does not offer it. Zero means the sidecar's default.
+  int32 timeout_ms = 5;
+}
+
+message CallReply {
+  bool ok = 1;
+  string payload_type = 2;
+  bytes payload = 3;
+
+  // Populated when ok is false. Distinguishes a timeout from a refusal from a
+  // handler that answered with an error, because the caller's next move differs
+  // for each.
+  CallFailure failure = 4;
+  string failure_detail = 5;
+}
+
+enum CallFailure {
+  CALL_FAILURE_UNSPECIFIED = 0;
+  CALL_FAILURE_TIMEOUT = 1;
+  CALL_FAILURE_REFUSED = 2;
+  CALL_FAILURE_NO_HANDLER = 3;
+  CALL_FAILURE_HANDLER_ERROR = 4;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.5, W4.6 — liveness and departure
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Self-reported, and therefore only half the picture. A plugin that has stopped
+// sending these at all is the more informative signal, and the sidecar is what
+// notices.
+message HeartbeatRequest {
+  bool healthy = 1;
+
+  // Why not, when not. Diagnostic; nothing branches on it.
+  string detail = 2;
+}
+
+message HeartbeatReply {}
+
+message LeaveRequest {
+  // Why the plugin is stopping. Distinguishes a planned stop from a failure,
+  // which the timeout path cannot do.
+  string reason = 1;
+}
+
+message LeaveReply {}
