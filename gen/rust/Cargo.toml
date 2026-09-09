@@ -7,3 +7,4 @@ description = "Generated Meridian wire types"
 
 [dependencies]
 prost = "0.13"
+tonic = "0.13"

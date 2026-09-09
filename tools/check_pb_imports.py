@@ -91,12 +91,37 @@ def main() -> int:
     if not hasattr(holdings.RecordHoldingRequest, "DESCRIPTOR"):
         problems.append("generated messages carry no descriptor")
 
+    # The sidecar service. Generating only its messages would leave every
+    # consumer hand-rolling the transport the contract already specifies, so the
+    # stubs existing is the thing worth checking.
+    try:
+        grpc_mod = importlib.import_module("meridian.v1.sidecar_pb2_grpc")
+    except ImportError as exc:
+        print(f"check-pb-imports FAILED: sidecar service stubs missing: {exc}", file=sys.stderr)
+        return 1
+
+    for side in ("SidecarServiceStub", "SidecarServiceServicer"):
+        if not hasattr(grpc_mod, side):
+            problems.append(f"generated gRPC module has no {side}")
+
+    # Every operation W4 declares must be callable. A method quietly missing
+    # here is a workflow step with no way to perform it.
+    expected = {"Register", "Publish", "Subscribe", "Call", "Heartbeat", "Leave"}
+    servicer = getattr(grpc_mod, "SidecarServiceServicer", None)
+    if servicer is not None:
+        missing = sorted(m for m in expected if not hasattr(servicer, m))
+        if missing:
+            problems.append(f"sidecar service is missing operations: {', '.join(missing)}")
+
     for problem in problems:
         print(f"check-pb-imports FAILED: {problem}", file=sys.stderr)
     if problems:
         return 1
 
-    print("check-pb-imports OK: package imports, messages round-trip, cross-file import resolves")
+    print(
+        "check-pb-imports OK: package imports, messages round-trip, cross-file import\n"
+        "                   resolves, sidecar service exposes all six operations"
+    )
     return 0
 
 

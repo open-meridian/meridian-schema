@@ -23,13 +23,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // order would make every regeneration look like a change.
     protos.sort();
 
-    let mut config = prost_build::Config::new();
-    config.out_dir(&out_dir);
+    // tonic-build rather than prost-build: sidecar.proto declares a service, and
+    // generating only its messages would leave every consumer hand-rolling the
+    // transport that the contract already specifies.
+    let mut config = tonic_build::Config::new();
     // No extra derives. prost already gives messages Clone, Debug and PartialEq,
     // and adding PartialOrd here collided with the one prost derives on enums.
     // A wire type that needs more than that is a wire type being used as a
     // domain type, which is what the SDK layer exists to prevent.
-    config.compile_protos(&protos, &[proto_root.clone()])?;
+    tonic_build::configure()
+        .out_dir(&out_dir)
+        .build_server(true)
+        .build_client(true)
+        .compile_protos_with_config(config, &protos, &[proto_root.clone()])?;
 
     // prost names the file after the proto package. One package, one module.
     let generated = out_dir.join("meridian.v1.rs");
@@ -54,7 +60,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
          edition = \"2021\"\n\
          description = \"Generated Meridian wire types\"\n\n\
          [dependencies]\n\
-         prost = \"0.13\"\n",
+         prost = \"0.13\"\n\
+         tonic = \"0.13\"\n",
     )?;
 
     println!("generated {} proto file(s)", protos.len());

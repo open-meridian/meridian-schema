@@ -5,7 +5,6 @@ PY    := python3
 # Regeneration happens in a pinned container, so the host needs only Docker.
 GEN_DIR   := gen
 SCRATCH   := .codegen-scratch
-SCRATCH_BUILD := .scratch
 RUST_VERSION  := 1.90
 DOCKER    := DOCKER_BUILDKIT=1 docker
 
@@ -60,12 +59,10 @@ check-codegen:
 # Generated output that does not build is worse than none: it fails downstream,
 # far from the schema change that caused it. Both checks are cheap and run here.
 check-pb-compiles:
-	@mkdir -p $(SCRATCH_BUILD) && rm -rf $(SCRATCH_BUILD)/rust
-	@cp -R $(GEN_DIR)/rust $(SCRATCH_BUILD)/rust
-	@docker run --rm -v "$(CURDIR)/$(SCRATCH_BUILD)/rust":/w -w /w \
-		rust:$(RUST_VERSION)-slim-bookworm cargo build --release --quiet \
-		|| { echo "check-pb-compiles FAILED: generated Rust does not compile" >&2; exit 1; }
-	@rm -rf $(SCRATCH_BUILD)/rust
+	@$(DOCKER) build -f Dockerfile.codegen --target pb-check . >/dev/null 2>&1 \
+		|| { echo "check-pb-compiles FAILED: generated Rust does not compile;" >&2; \
+		     echo "  see it with: DOCKER_BUILDKIT=1 docker build -f Dockerfile.codegen --target pb-check ." >&2; \
+		     exit 1; }
 	@echo "check-pb-compiles OK: generated Rust crate builds"
 
 check-pb-imports:
@@ -76,4 +73,4 @@ install-hooks:
 	@echo "hooks installed: git push now runs 'make ci-local' first"
 
 clean:
-	@rm -rf $(SCRATCH) $(SCRATCH_BUILD)
+	@rm -rf $(SCRATCH)
