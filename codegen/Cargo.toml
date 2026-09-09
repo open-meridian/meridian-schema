@@ -1,0 +1,12 @@
+[package]
+name = "meridian-codegen"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Pinned exactly. The generated output is vendored and reviewed, so a patch bump
+# that reformats it would show up as unexplained churn in a diff.
+[dependencies]
+prost-build = "=0.13.4"
+
+[workspace]
