@@ -9,3 +9,5 @@ node_modules/
 *.log
 .env
 .env.*
+.codegen-scratch/
+.scratch/

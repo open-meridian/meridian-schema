@@ -17,7 +17,7 @@ syntax = "proto3";
 
 package meridian.v1;
 
-import "v1/reference.proto";
+import "meridian/v1/reference.proto";
 
 // Scale factor for every *_scaled_1e8 field: the value is the real amount
 // multiplied by 100,000,000. A quantity of 1.5 shares is 150000000.
