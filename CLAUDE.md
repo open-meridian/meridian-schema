@@ -1,7 +1,7 @@
 # meridian-schema
 
 Protobuf wire definitions and the code generation that turns them into Rust and
-Go types.
+Python types.
 
 ## The rule that governs this repo
 

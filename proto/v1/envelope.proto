@@ -1,0 +1,61 @@
+// Bus envelope. Every message on the bus is wrapped in one.
+//
+// Justified by decisions/003-every-bus-message-carries-an-envelope.md rather
+// than by a workflow step: the envelope is not an operation, it is the frame
+// every operation travels in. It is recorded in matrix/proto-carve-outs.tsv
+// with that reference.
+
+syntax = "proto3";
+
+package meridian.v1;
+
+// MessageMeta travels with every bus message.
+//
+// Kept deliberately small. Each field earns its place by being needed to
+// route, correlate or audit a message; anything a handler could look up
+// instead does not belong here, because the envelope is paid for on every
+// single message.
+message MessageMeta {
+  // Unique per message. The idempotency key: a handler that has seen this id
+  // may drop the message.
+  string message_id = 1;
+
+  // Constant across every message caused by one originating action, so an
+  // operator can follow a broker sync all the way to a position update.
+  string correlation_id = 2;
+
+  // The message_id of the message that caused this one. correlation_id gives
+  // the set; causation_id gives the shape of the tree inside it.
+  string causation_id = 3;
+
+  // The instance that published this. Provenance, and the reply address for a
+  // request.
+  string publisher_instance_id = 4;
+
+  // The topic this was published on. Present so a message stays interpretable
+  // once it has been captured away from its subscription.
+  string topic = 5;
+
+  // Publisher wall clock at publish, epoch nanoseconds UTC. Observation time,
+  // not event time: when something happened in the world belongs on the
+  // payload, because only the payload knows what "happened" means.
+  string schema_version = 6;
+  int64 published_at_ns = 7;
+}
+
+// Envelope wraps one payload.
+//
+// The payload is opaque bytes rather than a oneof over every message type. A
+// oneof would make the envelope a compile-time dependency of every message in
+// the system, so adding any message would rebuild everything and the bus could
+// not carry a payload it had not been compiled against.
+message Envelope {
+  MessageMeta meta = 1;
+
+  // Fully-qualified name of the payload message, e.g. "meridian.v1.Position".
+  // A subscriber checks this before decoding rather than guessing from topic.
+  string payload_type = 2;
+
+  // The serialized payload.
+  bytes payload = 3;
+}
