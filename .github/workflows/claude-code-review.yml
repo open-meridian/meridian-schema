@@ -93,6 +93,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
           since="$REVIEW_STARTED_AT"
@@ -117,15 +118,47 @@ jobs:
           echo "posted since $since: $summary summary, $reviews review(s), $inline inline"
 
           if [ "$total" -eq 0 ]; then
-            echo "::error::The reviewer posted nothing. This check is red because" >&2
-            echo "a green tick with no review is worse than no tick at all." >&2
+            # One cause is structural and expected, so name it rather than
+            # making the reader work through a list. The action refuses to run a
+            # workflow, or trust a CLAUDE.md, that differs from the base branch,
+            # because a pull request must not be able to rewrite the thing
+            # judging it. Any pull request editing either file hits this, always.
+            edits_reviewer=""
+            for f in .github/workflows/claude-code-review.yml CLAUDE.md; do
+              if ! gh api "/repos/$REPO/contents/$f?ref=$BASE" -q '.content' 2>/dev/null \
+                   | base64 -d 2>/dev/null | diff -q - "$f" >/dev/null 2>&1; then
+                edits_reviewer="${edits_reviewer} $f"
+              fi
+            done
+
+            if [ -n "$edits_reviewer" ]; then
+              echo "::error::No review ran, and the reason is structural." >&2
+              echo >&2
+              echo "This pull request changes:$edits_reviewer" >&2
+              echo >&2
+              echo "The action refuses to run a workflow, or trust instructions," >&2
+              echo "that differ from $BASE, so that a pull request cannot rewrite" >&2
+              echo "the thing reviewing it. Every pull request touching those" >&2
+              echo "files lands here. There is no configuration that avoids it." >&2
+              echo >&2
+              echo "So this change needs a human reader instead of a review." >&2
+              echo "After it merges, a small unrelated pull request is the only" >&2
+              echo "way to see what the reviewer now does." >&2
+              exit 1
+            fi
+
+            echo "::error::The reviewer posted nothing, and this diff does not" >&2
+            echo "touch the reviewer's own files, so the usual excuse does not" >&2
+            echo "apply. A green tick with no review is worse than no tick." >&2
             echo >&2
-            echo "Three known causes:" >&2
-            echo "  1. The workflow or CLAUDE.md differs from the default branch," >&2
-            echo "     so the action skipped itself. Expected on a pull request" >&2
-            echo "     that edits either. Merge it and retest on a throwaway one." >&2
-            echo "  2. A tool the reviewer needed was not in allowedTools." >&2
-            echo "  3. The run genuinely failed. Read the step above." >&2
+            echo "Read the action step above. Known causes:" >&2
+            echo "  1. A tool the reviewer needed was not in allowedTools; the" >&2
+            echo "     denial shows as a rejected tool result." >&2
+            echo "  2. The run ended while waiting on something, in which case" >&2
+            echo "     its last recorded result says so." >&2
+            echo "  3. The run genuinely failed." >&2
+            echo >&2
+            echo "show_full_output: true makes any of those readable." >&2
             exit 1
           fi
 
