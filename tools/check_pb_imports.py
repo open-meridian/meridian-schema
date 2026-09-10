@@ -39,10 +39,6 @@ def main() -> int:
 
     try:
         import google.protobuf  # noqa: F401
-    except Exception:
-        return 0
-    try:
-        import google.protobuf  # noqa: F401
     except ImportError:
         print(
             "check-pb-imports: the protobuf runtime is not installed.\n"
