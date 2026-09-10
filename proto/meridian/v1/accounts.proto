@@ -1,0 +1,215 @@
+// Who may act on the platform, and on what.
+//
+// Derived from workflow W5 (platform accounts and access). Every message here
+// traces to a matrix row; see matrix/matrix.tsv.
+//
+// The governing idea: the identity provider proves a person controls an account
+// and answers nothing else. Nothing in this file carries a role, a group or an
+// organisation claim taken from a token, because no authorisation decision is
+// permitted to read one. v1 recorded what that costs when it is not enforced.
+//
+// Two shapes that look similar are deliberately not the same. A membership is
+// always scoped to an organisation. A staff grant never is. Merging them would
+// make the most dangerous privilege in the system a row in the same table as the
+// most ordinary one, distinguished by a blank column.
+
+syntax = "proto3";
+
+package meridian.v1;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vocabulary
+// ─────────────────────────────────────────────────────────────────────────────
+
+// What a person may do inside one organisation.
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+
+  // Administers the organisation, including its membership. An organisation
+  // always has at least one, and the last one cannot be removed.
+  ROLE_OWNER = 1;
+
+  // Administers deployments and keys, not membership.
+  ROLE_ADMIN = 2;
+
+  // Reads.
+  ROLE_MEMBER = 3;
+}
+
+// What an Open Meridian employee may do across organisations.
+//
+// Deliberately short. Each value here is authority nobody in a customer
+// organisation granted, so the list is the argument for its own size.
+enum StaffCapability {
+  STAFF_CAPABILITY_UNSPECIFIED = 0;
+
+  // Maintain the security master: the five instrument operations of W1.
+  STAFF_CAPABILITY_ADMINISTER_SECURITY_MASTER = 1;
+
+  // Grant the owner role on a customer organisation to a named person, for a
+  // customer who has lost access and cannot restore it themselves. Adds only;
+  // see W5.7 for what it deliberately cannot do.
+  STAFF_CAPABILITY_RESTORE_ORGANISATION_OWNER = 2;
+
+  // Grant and revoke staff capabilities.
+  STAFF_CAPABILITY_ADMINISTER_STAFF = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W5.2 — organisations
+// ─────────────────────────────────────────────────────────────────────────────
+
+message CreateOrganisationRequest {
+  // Display name. Not an identifier: two organisations may share one, and the
+  // platform never resolves anything by it.
+  string name = 1;
+}
+
+message OrganisationRecord {
+  string organisation_id = 1;
+  string name = 2;
+
+  // Stamped by the store. A caller cannot supply or back-date it.
+  int64 created_at_ns = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W5.3 — membership
+// ─────────────────────────────────────────────────────────────────────────────
+
+message AddMemberRequest {
+  string organisation_id = 1;
+
+  // Must already be a person on the platform, meaning they have signed in at
+  // least once. Membership never conjures an identity from an address.
+  string person_id = 2;
+
+  Role role = 3;
+}
+
+message MembershipRecord {
+  string membership_id = 1;
+  string organisation_id = 2;
+  string person_id = 3;
+  Role role = 4;
+  int64 created_at_ns = 5;
+
+  // Who made this membership exist. A restoration performed by staff and a
+  // grant made by an owner are both memberships, and only this tells them
+  // apart afterwards.
+  string granted_by_person_id = 6;
+}
+
+message RemoveMemberRequest {
+  string organisation_id = 1;
+  string person_id = 2;
+}
+
+message RemoveMemberReply {
+  // False when the person held no membership. Removal is idempotent; asking
+  // twice is not an error.
+  bool removed = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W5.4, W5.5 — deployments and their keys
+// ─────────────────────────────────────────────────────────────────────────────
+
+message RegisterDeploymentRequest {
+  string organisation_id = 1;
+
+  // Operator-chosen, for telling one deployment from another on a screen.
+  string name = 2;
+}
+
+message DeploymentRecord {
+  string deployment_id = 1;
+  string organisation_id = 2;
+  string name = 3;
+  int64 created_at_ns = 4;
+
+  // When this deployment last presented a valid assertion. Zero means never.
+  // Recorded so an operator can tell a deployment that is quiet from one that
+  // was never wired up.
+  int64 last_seen_at_ns = 5;
+}
+
+message RegisterDeploymentKeyRequest {
+  string deployment_id = 1;
+
+  // The public half only. The deployment generated the pair and keeps the
+  // private half; the platform never receives it and could not store it if
+  // offered. A dump of this table lets an attacker verify signatures and forge
+  // none.
+  string public_key_pem = 2;
+
+  // Operator-chosen, so a key can be named in a rotation rather than
+  // identified by fingerprint alone.
+  string label = 3;
+}
+
+message DeploymentKeyRecord {
+  string key_id = 1;
+  string deployment_id = 2;
+  string label = 3;
+
+  // Of the public key, so the operator can confirm the deployment holds the
+  // pair they think it does.
+  string fingerprint = 4;
+
+  int64 created_at_ns = 5;
+}
+
+message RevokeDeploymentKeyRequest {
+  string deployment_id = 1;
+  string key_id = 2;
+}
+
+message RevokeDeploymentKeyReply {
+  // Revocation takes effect on the next request. There is no token to expire
+  // and no cache to drain, which is the reason this contract has no token
+  // endpoint at all.
+  bool revoked = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W5.6, W5.7 — staff authority
+// ─────────────────────────────────────────────────────────────────────────────
+
+message GrantStaffCapabilityRequest {
+  string person_id = 1;
+  StaffCapability capability = 2;
+}
+
+// Note what is absent: an organisation. A grant scoped to one would be a
+// membership, and this is the other kind.
+message StaffGrantRecord {
+  string grant_id = 1;
+  string person_id = 2;
+  StaffCapability capability = 3;
+  int64 created_at_ns = 4;
+  string granted_by_person_id = 5;
+}
+
+message RevokeStaffCapabilityRequest {
+  string grant_id = 1;
+}
+
+message RevokeStaffCapabilityReply {
+  bool revoked = 1;
+}
+
+message RestoreOrganisationOwnerRequest {
+  string organisation_id = 1;
+
+  // Must already be a person on the platform, and must not be the employee
+  // making the request. Both are refusals rather than warnings: the first stops
+  // an owner being conjured from an address, the second removes the
+  // single-actor path to taking control of a customer's account.
+  string person_id = 2;
+
+  // Why, in the employee's own words. Recorded and sent to the organisation's
+  // existing owners, because a restoration nobody hears about is
+  // indistinguishable from a quiet takeover.
+  string reason = 3;
+}
