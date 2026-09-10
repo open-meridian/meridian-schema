@@ -85,13 +85,6 @@ jobs:
           # A maintained comment, so a run always leaves a trace even when the
           # agent concludes there is nothing to report.
           use_sticky_comment: true
-          # Temporary, for one diagnostic cycle. Two runs finished with a
-          # permission denial and posted nothing, and the action hides its
-          # output by default, so the cause is inference rather than
-          # observation. This repo is public and reviews its own diff, so
-          # there is nothing here the log does not already carry. Remove it
-          # once the reviewer is posting reliably.
-          show_full_output: true
 
       # The gate. Runs whatever the step above did, including skipping itself.
       - name: A green check must mean a review happened
