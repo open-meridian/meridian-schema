@@ -48,11 +48,15 @@ jobs:
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          # The reviewer needs to be able to say nothing found, not only to
-          # annotate lines. On 2026-09-10 a run finished with one permission
-          # denial and posted nothing anywhere, with only the inline-comment
-          # tool allowed.
-          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*)"'
+          # Skill first, and it is the one that matters. allowedTools is a
+          # strict allowlist, and the plugin above IS a skill, so omitting it
+          # meant the review itself was refused before it began: every run since
+          # this workflow arrived carried exactly one permission denial, and the
+          # 2026-09-10 diagnostic showed it as a rejected `Execute skill:
+          # code-review:code-review`. The agent improvised past the refusal on a
+          # diff with an obvious defect and gave up on a clean one, which is why
+          # this looked intermittent rather than broken.
+          claude_args: '--allowedTools "Skill,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*)"'
           # A maintained comment, so a run always leaves a trace even when the
           # agent concludes there is nothing to report.
           use_sticky_comment: true
