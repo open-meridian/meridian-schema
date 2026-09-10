@@ -32,6 +32,9 @@ def main() -> int:
         print(f"check-pb-imports FAILED: no {args.gen}; run 'make codegen'", file=sys.stderr)
         return 1
 
+    # Prepended, not appended: an installed package of the same name would
+    # otherwise shadow the generated one and the check would pass against
+    # code this repo did not produce.
     sys.path.insert(0, str(gen))
 
     try:
