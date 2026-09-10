@@ -84,6 +84,23 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Does the generated Python package import and round-trip?
+#
+# Built on python-gen rather than a fresh image, so the protobuf runtime the
+# check imports with is the exact one grpcio-tools pinned to generate the code.
+# Any other base would introduce a second version to keep in step.
+#
+# This ran on the host until CI proved the host was the problem: a developer
+# machine with protobuf installed passed, a clean runner exited 2 on a missing
+# runtime, and the gate's verdict depended on which one ran it.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM python-gen AS pb-imports
+WORKDIR /w
+COPY gen/python/ gen/python/
+COPY tools/check_pb_imports.py tools/
+RUN python3 tools/check_pb_imports.py --gen gen/python
+
+# ─────────────────────────────────────────────────────────────────────────────
 # What `make codegen` extracts
 # ─────────────────────────────────────────────────────────────────────────────
 FROM scratch AS export

@@ -66,7 +66,11 @@ check-pb-compiles:
 	@echo "check-pb-compiles OK: generated Rust crate builds"
 
 check-pb-imports:
-	@$(PY) tools/check_pb_imports.py --gen $(GEN_DIR)/python
+	@$(DOCKER) build -f Dockerfile.codegen --target pb-imports . >/dev/null 2>&1 \
+		|| { echo "check-pb-imports FAILED: generated Python does not import or round-trip;" >&2; \
+		     echo "  see it with: DOCKER_BUILDKIT=1 docker build -f Dockerfile.codegen --target pb-imports --progress=plain ." >&2; \
+		     exit 1; }
+	@echo "check-pb-imports OK: generated package imports and messages round-trip"
 
 install-hooks:
 	@git config core.hooksPath hooks
