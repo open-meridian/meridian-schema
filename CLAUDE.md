@@ -80,6 +80,12 @@ review returning thirty Nits trains its reader to skim.
 Excluded from review entirely: generated files, vendored dependencies, and
 anything a CI gate already enforces.
 
+**Always post a result, including when every pass is clean.** Say which
+passes ran and that nothing was found. Silence is indistinguishable from
+never having run, and a review nobody can tell apart from an absent one is
+the failure the review gate in this repo exists to catch. There is no diff
+small enough to be worth staying quiet about.
+
 People decide whether a finding merges or escalates, and whether the spec solves
 the problem it claims to. Those stay with a named person.
 
