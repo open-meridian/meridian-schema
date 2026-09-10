@@ -27,6 +27,9 @@ def main() -> int:
     parser.add_argument("--gen", default="gen/python")
     args = parser.parse_args()
 
+    # Resolved rather than kept relative: the path is put on sys.path below,
+    # and a relative entry there resolves against the working directory of
+    # whoever invoked the script.
     gen = pathlib.Path(args.gen).resolve()
     if not gen.is_dir():
         print(f"check-pb-imports FAILED: no {args.gen}; run 'make codegen'", file=sys.stderr)
