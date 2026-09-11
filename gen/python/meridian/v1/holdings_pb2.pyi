@@ -88,17 +88,17 @@ class StatementRecordedEvent(_message.Message):
     recorded_at_ns: int
     def __init__(self, statement_id: _Optional[str] = ..., source: _Optional[str] = ..., as_of_date: _Optional[str] = ..., rows_received: _Optional[int] = ..., rows_resolved: _Optional[int] = ..., rows_unresolved: _Optional[int] = ..., recorded_at_ns: _Optional[int] = ...) -> None: ...
 
-class PositionUpdatedEvent(_message.Message):
+class CustodialPositionUpdatedEvent(_message.Message):
     __slots__ = ("position", "statement_id", "previous_quantity_scaled_1e8")
     POSITION_FIELD_NUMBER: _ClassVar[int]
     STATEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     PREVIOUS_QUANTITY_SCALED_1E8_FIELD_NUMBER: _ClassVar[int]
-    position: Position
+    position: CustodialPosition
     statement_id: str
     previous_quantity_scaled_1e8: int
-    def __init__(self, position: _Optional[_Union[Position, _Mapping]] = ..., statement_id: _Optional[str] = ..., previous_quantity_scaled_1e8: _Optional[int] = ...) -> None: ...
+    def __init__(self, position: _Optional[_Union[CustodialPosition, _Mapping]] = ..., statement_id: _Optional[str] = ..., previous_quantity_scaled_1e8: _Optional[int] = ...) -> None: ...
 
-class Position(_message.Message):
+class CustodialPosition(_message.Message):
     __slots__ = ("account_id", "instrument_id", "quantity_scaled_1e8", "market_value_scaled_1e8", "currency", "last_statement_id", "as_of_date", "updated_at_ns")
     ACCOUNT_ID_FIELD_NUMBER: _ClassVar[int]
     INSTRUMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -118,7 +118,7 @@ class Position(_message.Message):
     updated_at_ns: int
     def __init__(self, account_id: _Optional[str] = ..., instrument_id: _Optional[str] = ..., quantity_scaled_1e8: _Optional[int] = ..., market_value_scaled_1e8: _Optional[int] = ..., currency: _Optional[str] = ..., last_statement_id: _Optional[str] = ..., as_of_date: _Optional[str] = ..., updated_at_ns: _Optional[int] = ...) -> None: ...
 
-class ListPositionsRequest(_message.Message):
+class ListCustodialPositionsRequest(_message.Message):
     __slots__ = ("account_id", "include_unresolved", "page_size", "cursor")
     ACCOUNT_ID_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_UNRESOLVED_FIELD_NUMBER: _ClassVar[int]
@@ -130,15 +130,15 @@ class ListPositionsRequest(_message.Message):
     cursor: str
     def __init__(self, account_id: _Optional[str] = ..., include_unresolved: bool = ..., page_size: _Optional[int] = ..., cursor: _Optional[str] = ...) -> None: ...
 
-class ListPositionsReply(_message.Message):
+class ListCustodialPositionsReply(_message.Message):
     __slots__ = ("positions", "unresolved", "next_cursor")
     POSITIONS_FIELD_NUMBER: _ClassVar[int]
     UNRESOLVED_FIELD_NUMBER: _ClassVar[int]
     NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
-    positions: _containers.RepeatedCompositeFieldContainer[Position]
+    positions: _containers.RepeatedCompositeFieldContainer[CustodialPosition]
     unresolved: _containers.RepeatedCompositeFieldContainer[UnresolvedHolding]
     next_cursor: str
-    def __init__(self, positions: _Optional[_Iterable[_Union[Position, _Mapping]]] = ..., unresolved: _Optional[_Iterable[_Union[UnresolvedHolding, _Mapping]]] = ..., next_cursor: _Optional[str] = ...) -> None: ...
+    def __init__(self, positions: _Optional[_Iterable[_Union[CustodialPosition, _Mapping]]] = ..., unresolved: _Optional[_Iterable[_Union[UnresolvedHolding, _Mapping]]] = ..., next_cursor: _Optional[str] = ...) -> None: ...
 
 class UnresolvedHolding(_message.Message):
     __slots__ = ("holding_id", "account_id", "identifiers", "quantity_scaled_1e8", "market_value_scaled_1e8", "currency", "source", "as_of_date", "escalated")

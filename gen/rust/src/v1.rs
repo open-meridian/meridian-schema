@@ -774,11 +774,11 @@ pub struct StatementRecordedEvent {
     #[prost(int64, tag = "7")]
     pub recorded_at_ns: i64,
 }
-/// A position that changed, and the statement that changed it.
+/// A custodial position that changed, and the statement that changed it.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct PositionUpdatedEvent {
+pub struct CustodialPositionUpdatedEvent {
     #[prost(message, optional, tag = "1")]
-    pub position: ::core::option::Option<Position>,
+    pub position: ::core::option::Option<CustodialPosition>,
     /// The statement that caused this. Lets a reader explain any position by
     /// pointing at what produced it.
     #[prost(string, tag = "2")]
@@ -788,9 +788,18 @@ pub struct PositionUpdatedEvent {
     #[prost(int64, tag = "3")]
     pub previous_quantity_scaled_1e8: i64,
 }
-/// A current position: what the deployment believes it holds.
+/// What the custodian says an account holds of an instrument, right now.
+///
+/// Custodial, and named so deliberately. This is the custodian's belief, arrived
+/// at by reading their statements; it is not what the deployment calculates from
+/// its own activity. Those are different numbers whose disagreement is the
+/// entire subject of reconciliation, and a message called `Position` would make
+/// a consumer guess which one it had.
+///
+/// Our own book does not exist yet. When it does it gets its own message and its
+/// own name, and no reader of this one silently changes meaning.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Position {
+pub struct CustodialPosition {
     #[prost(string, tag = "1")]
     pub account_id: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -801,8 +810,8 @@ pub struct Position {
     pub market_value_scaled_1e8: i64,
     #[prost(string, tag = "5")]
     pub currency: ::prost::alloc::string::String,
-    /// The statement this position was last confirmed by, and when. A position not
-    /// confirmed recently is not wrong, but it is worth showing differently.
+    /// The statement this was last stated by, and when. One not restated recently
+    /// is not wrong, but it is worth showing differently.
     #[prost(string, tag = "6")]
     pub last_statement_id: ::prost::alloc::string::String,
     #[prost(string, tag = "7")]
@@ -811,12 +820,13 @@ pub struct Position {
     pub updated_at_ns: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ListPositionsRequest {
+pub struct ListCustodialPositionsRequest {
     /// Empty means every account.
     #[prost(string, tag = "1")]
     pub account_id: ::prost::alloc::string::String,
     /// When true, the reply also carries holdings that never resolved, so one
-    /// request answers both "what do I hold" and "what could I not account for".
+    /// request answers both "what does the custodian say I hold" and "what could I
+    /// not account for".
     #[prost(bool, tag = "2")]
     pub include_unresolved: bool,
     #[prost(int32, tag = "3")]
@@ -825,9 +835,9 @@ pub struct ListPositionsRequest {
     pub cursor: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ListPositionsReply {
+pub struct ListCustodialPositionsReply {
     #[prost(message, repeated, tag = "1")]
-    pub positions: ::prost::alloc::vec::Vec<Position>,
+    pub positions: ::prost::alloc::vec::Vec<CustodialPosition>,
     /// Populated only when include_unresolved was set.
     #[prost(message, repeated, tag = "2")]
     pub unresolved: ::prost::alloc::vec::Vec<UnresolvedHolding>,
