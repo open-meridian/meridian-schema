@@ -74,6 +74,18 @@ message RecordHoldingsStatementRequest {
   string as_of_date = 3;
 
   int64 read_at_ns = 4;
+
+  // How many holding rows will follow, per W2.2.
+  //
+  // The only thing that marks the end of a statement. Nothing else in the
+  // sequence does: rows arrive as separate messages and none of them is
+  // distinguishable as the last. The kernel closes the statement when this many
+  // have landed, and a statement whose rows never all arrive stays open rather
+  // than publishing counts that are wrong.
+  //
+  // The connector holds the whole list before it publishes any of it, so it
+  // knows this without reading anything twice.
+  int32 expected_rows = 5;
 }
 
 message RecordHoldingsStatementReply {

@@ -688,6 +688,18 @@ pub struct RecordHoldingsStatementRequest {
     pub as_of_date: ::prost::alloc::string::String,
     #[prost(int64, tag = "4")]
     pub read_at_ns: i64,
+    /// How many holding rows will follow, per W2.2.
+    ///
+    /// The only thing that marks the end of a statement. Nothing else in the
+    /// sequence does: rows arrive as separate messages and none of them is
+    /// distinguishable as the last. The kernel closes the statement when this many
+    /// have landed, and a statement whose rows never all arrive stays open rather
+    /// than publishing counts that are wrong.
+    ///
+    /// The connector holds the whole list before it publishes any of it, so it
+    /// knows this without reading anything twice.
+    #[prost(int32, tag = "5")]
+    pub expected_rows: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RecordHoldingsStatementReply {

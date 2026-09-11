@@ -23,16 +23,18 @@ class SyncStatusEvent(_message.Message):
     def __init__(self, source: _Optional[str] = ..., account_id: _Optional[str] = ..., last_synced_at_ns: _Optional[int] = ..., connection_healthy: bool = ..., status_detail: _Optional[str] = ..., observed_at_ns: _Optional[int] = ...) -> None: ...
 
 class RecordHoldingsStatementRequest(_message.Message):
-    __slots__ = ("source", "external_statement_id", "as_of_date", "read_at_ns")
+    __slots__ = ("source", "external_statement_id", "as_of_date", "read_at_ns", "expected_rows")
     SOURCE_FIELD_NUMBER: _ClassVar[int]
     EXTERNAL_STATEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     AS_OF_DATE_FIELD_NUMBER: _ClassVar[int]
     READ_AT_NS_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_ROWS_FIELD_NUMBER: _ClassVar[int]
     source: str
     external_statement_id: str
     as_of_date: str
     read_at_ns: int
-    def __init__(self, source: _Optional[str] = ..., external_statement_id: _Optional[str] = ..., as_of_date: _Optional[str] = ..., read_at_ns: _Optional[int] = ...) -> None: ...
+    expected_rows: int
+    def __init__(self, source: _Optional[str] = ..., external_statement_id: _Optional[str] = ..., as_of_date: _Optional[str] = ..., read_at_ns: _Optional[int] = ..., expected_rows: _Optional[int] = ...) -> None: ...
 
 class RecordHoldingsStatementReply(_message.Message):
     __slots__ = ("statement_id", "already_recorded")
