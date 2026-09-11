@@ -58,7 +58,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
          name = \"meridian-pb\"\n\
          version = \"0.1.0\"\n\
          edition = \"2021\"\n\
-         description = \"Generated Meridian wire types\"\n\n\
+         description = \"Generated Meridian wire types\"\n\
+         license = \"AGPL-3.0-or-later\"\n\n\
          [dependencies]\n\
          prost = \"0.13\"\n\
          tonic = \"0.13\"\n",
