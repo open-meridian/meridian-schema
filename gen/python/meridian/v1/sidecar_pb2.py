@@ -25,39 +25,39 @@ _sym_db = _symbol_database.Default()
 from meridian.v1 import envelope_pb2 as meridian_dot_v1_dot_envelope__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19meridian/v1/sidecar.proto\x12\x0bmeridian.v1\x1a\x1ameridian/v1/envelope.proto\"Z\n\x0fRegisterRequest\x12\x13\n\x0binstance_id\x18\x01 \x01(\t\x12\x0c\n\x04role\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x03(\t\x12\x16\n\x0eschema_version\x18\x04 \x01(\t\"\x82\x01\n\rRegisterReply\x12\x10\n\x08\x61\x64mitted\x18\x01 \x01(\x08\x12\x15\n\rdeployment_id\x18\x02 \x01(\t\x12\x16\n\x0erefusal_reason\x18\x03 \x01(\t\x12\x16\n\x0epublish_grants\x18\x04 \x03(\t\x12\x18\n\x10subscribe_grants\x18\x05 \x03(\t\"t\n\x0ePublishRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x14\n\x0cpayload_type\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x16\n\x0e\x63orrelation_id\x18\x04 \x01(\t\x12\x14\n\x0c\x63\x61usation_id\x18\x05 \x01(\t\"L\n\x0cPublishReply\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\x08\x12\x12\n\nmessage_id\x18\x02 \x01(\t\x12\x16\n\x0erefusal_reason\x18\x03 \x01(\t\"#\n\x10SubscribeRequest\x12\x0f\n\x07pattern\x18\x01 \x01(\t\"3\n\x08\x44\x65livery\x12\'\n\x08\x65nvelope\x18\x01 \x01(\x0b\x32\x15.meridian.v1.Envelope\"o\n\x0b\x43\x61llRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x14\n\x0cpayload_type\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x16\n\x0e\x63orrelation_id\x18\x04 \x01(\t\x12\x12\n\ntimeout_ms\x18\x05 \x01(\x05\"\x81\x01\n\tCallReply\x12\n\n\x02ok\x18\x01 \x01(\x08\x12\x14\n\x0cpayload_type\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12)\n\x07\x66\x61ilure\x18\x04 \x01(\x0e\x32\x18.meridian.v1.CallFailure\x12\x16\n\x0e\x66\x61ilure_detail\x18\x05 \x01(\t\"3\n\x10HeartbeatRequest\x12\x0f\n\x07healthy\x18\x01 \x01(\x08\x12\x0e\n\x06\x64\x65tail\x18\x02 \x01(\t\"\x10\n\x0eHeartbeatReply\"\x1e\n\x0cLeaveRequest\x12\x0e\n\x06reason\x18\x01 \x01(\t\"\x0c\n\nLeaveReply*\x9c\x01\n\x0b\x43\x61llFailure\x12\x1c\n\x18\x43\x41LL_FAILURE_UNSPECIFIED\x10\x00\x12\x18\n\x14\x43\x41LL_FAILURE_TIMEOUT\x10\x01\x12\x18\n\x14\x43\x41LL_FAILURE_REFUSED\x10\x02\x12\x1b\n\x17\x43\x41LL_FAILURE_NO_HANDLER\x10\x03\x12\x1e\n\x1a\x43\x41LL_FAILURE_HANDLER_ERROR\x10\x04\x32\x9e\x03\n\x0eSidecarService\x12\x44\n\x08Register\x12\x1c.meridian.v1.RegisterRequest\x1a\x1a.meridian.v1.RegisterReply\x12\x41\n\x07Publish\x12\x1b.meridian.v1.PublishRequest\x1a\x19.meridian.v1.PublishReply\x12\x43\n\tSubscribe\x12\x1d.meridian.v1.SubscribeRequest\x1a\x15.meridian.v1.Delivery0\x01\x12\x38\n\x04\x43\x61ll\x12\x18.meridian.v1.CallRequest\x1a\x16.meridian.v1.CallReply\x12G\n\tHeartbeat\x12\x1d.meridian.v1.HeartbeatRequest\x1a\x1b.meridian.v1.HeartbeatReply\x12;\n\x05Leave\x12\x19.meridian.v1.LeaveRequest\x1a\x17.meridian.v1.LeaveReplyb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19meridian/v1/sidecar.proto\x12\x0bmeridian.v1\x1a\x1ameridian/v1/envelope.proto\"T\n\x0fRegisterRequest\x12\x16\n\x0eschema_version\x18\x04 \x01(\tJ\x04\x08\x01\x10\x02J\x04\x08\x02\x10\x03J\x04\x08\x03\x10\x04R\x0binstance_idR\x04roleR\x04tags\"\xb3\x01\n\rRegisterReply\x12\x10\n\x08\x61\x64mitted\x18\x01 \x01(\x08\x12\x15\n\rdeployment_id\x18\x02 \x01(\t\x12\x16\n\x0erefusal_reason\x18\x03 \x01(\t\x12\x16\n\x0epublish_grants\x18\x04 \x03(\t\x12\x18\n\x10subscribe_grants\x18\x05 \x03(\t\x12\x13\n\x0binstance_id\x18\x06 \x01(\t\x12\x0c\n\x04role\x18\x07 \x01(\t\x12\x0c\n\x04tags\x18\x08 \x03(\t\"t\n\x0ePublishRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x14\n\x0cpayload_type\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x16\n\x0e\x63orrelation_id\x18\x04 \x01(\t\x12\x14\n\x0c\x63\x61usation_id\x18\x05 \x01(\t\"L\n\x0cPublishReply\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\x08\x12\x12\n\nmessage_id\x18\x02 \x01(\t\x12\x16\n\x0erefusal_reason\x18\x03 \x01(\t\"#\n\x10SubscribeRequest\x12\x0f\n\x07pattern\x18\x01 \x01(\t\"3\n\x08\x44\x65livery\x12\'\n\x08\x65nvelope\x18\x01 \x01(\x0b\x32\x15.meridian.v1.Envelope\"o\n\x0b\x43\x61llRequest\x12\r\n\x05topic\x18\x01 \x01(\t\x12\x14\n\x0cpayload_type\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x16\n\x0e\x63orrelation_id\x18\x04 \x01(\t\x12\x12\n\ntimeout_ms\x18\x05 \x01(\x05\"\x81\x01\n\tCallReply\x12\n\n\x02ok\x18\x01 \x01(\x08\x12\x14\n\x0cpayload_type\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12)\n\x07\x66\x61ilure\x18\x04 \x01(\x0e\x32\x18.meridian.v1.CallFailure\x12\x16\n\x0e\x66\x61ilure_detail\x18\x05 \x01(\t\"3\n\x10HeartbeatRequest\x12\x0f\n\x07healthy\x18\x01 \x01(\x08\x12\x0e\n\x06\x64\x65tail\x18\x02 \x01(\t\"\x10\n\x0eHeartbeatReply\"\x1e\n\x0cLeaveRequest\x12\x0e\n\x06reason\x18\x01 \x01(\t\"\x0c\n\nLeaveReply*\x9c\x01\n\x0b\x43\x61llFailure\x12\x1c\n\x18\x43\x41LL_FAILURE_UNSPECIFIED\x10\x00\x12\x18\n\x14\x43\x41LL_FAILURE_TIMEOUT\x10\x01\x12\x18\n\x14\x43\x41LL_FAILURE_REFUSED\x10\x02\x12\x1b\n\x17\x43\x41LL_FAILURE_NO_HANDLER\x10\x03\x12\x1e\n\x1a\x43\x41LL_FAILURE_HANDLER_ERROR\x10\x04\x32\x9e\x03\n\x0eSidecarService\x12\x44\n\x08Register\x12\x1c.meridian.v1.RegisterRequest\x1a\x1a.meridian.v1.RegisterReply\x12\x41\n\x07Publish\x12\x1b.meridian.v1.PublishRequest\x1a\x19.meridian.v1.PublishReply\x12\x43\n\tSubscribe\x12\x1d.meridian.v1.SubscribeRequest\x1a\x15.meridian.v1.Delivery0\x01\x12\x38\n\x04\x43\x61ll\x12\x18.meridian.v1.CallRequest\x1a\x16.meridian.v1.CallReply\x12G\n\tHeartbeat\x12\x1d.meridian.v1.HeartbeatRequest\x1a\x1b.meridian.v1.HeartbeatReply\x12;\n\x05Leave\x12\x19.meridian.v1.LeaveRequest\x1a\x17.meridian.v1.LeaveReplyb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'meridian.v1.sidecar_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_CALLFAILURE']._serialized_start=944
-  _globals['_CALLFAILURE']._serialized_end=1100
+  _globals['_CALLFAILURE']._serialized_start=987
+  _globals['_CALLFAILURE']._serialized_end=1143
   _globals['_REGISTERREQUEST']._serialized_start=70
-  _globals['_REGISTERREQUEST']._serialized_end=160
-  _globals['_REGISTERREPLY']._serialized_start=163
-  _globals['_REGISTERREPLY']._serialized_end=293
-  _globals['_PUBLISHREQUEST']._serialized_start=295
-  _globals['_PUBLISHREQUEST']._serialized_end=411
-  _globals['_PUBLISHREPLY']._serialized_start=413
-  _globals['_PUBLISHREPLY']._serialized_end=489
-  _globals['_SUBSCRIBEREQUEST']._serialized_start=491
-  _globals['_SUBSCRIBEREQUEST']._serialized_end=526
-  _globals['_DELIVERY']._serialized_start=528
-  _globals['_DELIVERY']._serialized_end=579
-  _globals['_CALLREQUEST']._serialized_start=581
-  _globals['_CALLREQUEST']._serialized_end=692
-  _globals['_CALLREPLY']._serialized_start=695
-  _globals['_CALLREPLY']._serialized_end=824
-  _globals['_HEARTBEATREQUEST']._serialized_start=826
-  _globals['_HEARTBEATREQUEST']._serialized_end=877
-  _globals['_HEARTBEATREPLY']._serialized_start=879
-  _globals['_HEARTBEATREPLY']._serialized_end=895
-  _globals['_LEAVEREQUEST']._serialized_start=897
-  _globals['_LEAVEREQUEST']._serialized_end=927
-  _globals['_LEAVEREPLY']._serialized_start=929
-  _globals['_LEAVEREPLY']._serialized_end=941
-  _globals['_SIDECARSERVICE']._serialized_start=1103
-  _globals['_SIDECARSERVICE']._serialized_end=1517
+  _globals['_REGISTERREQUEST']._serialized_end=154
+  _globals['_REGISTERREPLY']._serialized_start=157
+  _globals['_REGISTERREPLY']._serialized_end=336
+  _globals['_PUBLISHREQUEST']._serialized_start=338
+  _globals['_PUBLISHREQUEST']._serialized_end=454
+  _globals['_PUBLISHREPLY']._serialized_start=456
+  _globals['_PUBLISHREPLY']._serialized_end=532
+  _globals['_SUBSCRIBEREQUEST']._serialized_start=534
+  _globals['_SUBSCRIBEREQUEST']._serialized_end=569
+  _globals['_DELIVERY']._serialized_start=571
+  _globals['_DELIVERY']._serialized_end=622
+  _globals['_CALLREQUEST']._serialized_start=624
+  _globals['_CALLREQUEST']._serialized_end=735
+  _globals['_CALLREPLY']._serialized_start=738
+  _globals['_CALLREPLY']._serialized_end=867
+  _globals['_HEARTBEATREQUEST']._serialized_start=869
+  _globals['_HEARTBEATREQUEST']._serialized_end=920
+  _globals['_HEARTBEATREPLY']._serialized_start=922
+  _globals['_HEARTBEATREPLY']._serialized_end=938
+  _globals['_LEAVEREQUEST']._serialized_start=940
+  _globals['_LEAVEREQUEST']._serialized_end=970
+  _globals['_LEAVEREPLY']._serialized_start=972
+  _globals['_LEAVEREPLY']._serialized_end=984
+  _globals['_SIDECARSERVICE']._serialized_start=1146
+  _globals['_SIDECARSERVICE']._serialized_end=1560
 # @@protoc_insertion_point(module_scope)

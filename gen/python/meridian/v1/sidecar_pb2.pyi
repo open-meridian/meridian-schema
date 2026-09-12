@@ -21,30 +21,30 @@ CALL_FAILURE_NO_HANDLER: CallFailure
 CALL_FAILURE_HANDLER_ERROR: CallFailure
 
 class RegisterRequest(_message.Message):
-    __slots__ = ("instance_id", "role", "tags", "schema_version")
-    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
-    ROLE_FIELD_NUMBER: _ClassVar[int]
-    TAGS_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("schema_version",)
     SCHEMA_VERSION_FIELD_NUMBER: _ClassVar[int]
-    instance_id: str
-    role: str
-    tags: _containers.RepeatedScalarFieldContainer[str]
     schema_version: str
-    def __init__(self, instance_id: _Optional[str] = ..., role: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., schema_version: _Optional[str] = ...) -> None: ...
+    def __init__(self, schema_version: _Optional[str] = ...) -> None: ...
 
 class RegisterReply(_message.Message):
-    __slots__ = ("admitted", "deployment_id", "refusal_reason", "publish_grants", "subscribe_grants")
+    __slots__ = ("admitted", "deployment_id", "refusal_reason", "publish_grants", "subscribe_grants", "instance_id", "role", "tags")
     ADMITTED_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     REFUSAL_REASON_FIELD_NUMBER: _ClassVar[int]
     PUBLISH_GRANTS_FIELD_NUMBER: _ClassVar[int]
     SUBSCRIBE_GRANTS_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    ROLE_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
     admitted: bool
     deployment_id: str
     refusal_reason: str
     publish_grants: _containers.RepeatedScalarFieldContainer[str]
     subscribe_grants: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, admitted: bool = ..., deployment_id: _Optional[str] = ..., refusal_reason: _Optional[str] = ..., publish_grants: _Optional[_Iterable[str]] = ..., subscribe_grants: _Optional[_Iterable[str]] = ...) -> None: ...
+    instance_id: str
+    role: str
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, admitted: bool = ..., deployment_id: _Optional[str] = ..., refusal_reason: _Optional[str] = ..., publish_grants: _Optional[_Iterable[str]] = ..., subscribe_grants: _Optional[_Iterable[str]] = ..., instance_id: _Optional[str] = ..., role: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class PublishRequest(_message.Message):
     __slots__ = ("topic", "payload_type", "payload", "correlation_id", "causation_id")
