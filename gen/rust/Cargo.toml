@@ -4,7 +4,7 @@ name = "meridian-pb"
 version = "0.1.0"
 edition = "2021"
 description = "Generated Meridian wire types"
-license = "AGPL-3.0-or-later"
+license = "Apache-2.0"
 
 [dependencies]
 prost = "0.13"

@@ -50,3 +50,21 @@ Python, with `gen/python` on the path:
 ```python
 from meridian.v1 import holdings_pb2
 ```
+
+## Licence
+
+Apache-2.0. Implement it, generate from it, ship what you build, keep what you
+change.
+
+Permissive on purpose, and the reasoning is worth a sentence because the runtime
+next door is not. A wire contract exists to be implemented by other people, and
+both generated packages are derived from these files, so a copyleft licence here
+would reach every plugin that imports the generated types. A specification that
+makes implementers nervous gets reimplemented badly, which is the outcome a
+contract is written to prevent. Apache rather than MIT for the patent grant,
+which is the clause that matters when somebody implements a protocol
+commercially.
+
+`meridian-core`, the deployment runtime, is AGPL. That is where the network
+clause earns its place.
+
