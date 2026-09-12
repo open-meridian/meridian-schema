@@ -112,6 +112,11 @@ def main() -> int:
 
     # Every operation W4 declares must be callable. A method quietly missing
     # here is a workflow step with no way to perform it.
+    #
+    # Presence, never absence. The surface grows as workflows demand it, per
+    # decisions/007, so an operation added here breaks nothing and one added to
+    # the proto without this list noticing is caught by check-derivation, which
+    # asks what workflow step it came from.
     expected = {"Register", "Publish", "Subscribe", "Call", "Heartbeat", "Leave"}
     servicer = getattr(grpc_mod, "SidecarServiceServicer", None)
     if servicer is not None:
@@ -126,7 +131,7 @@ def main() -> int:
 
     print(
         "check-pb-imports OK: package imports, messages round-trip, cross-file import\n"
-        "                   resolves, sidecar service exposes all six operations"
+        "                   resolves, sidecar service exposes every operation W4 declares"
     )
     return 0
 
