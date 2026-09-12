@@ -112,6 +112,99 @@ message RemoveMemberReply {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// W5.8, W5.9, W5.10 — joining an organisation
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// W5.3 takes a person identifier, and a person has one only after signing in,
+// so an owner adding a colleague would need an internal identifier for somebody
+// who may not exist yet. These are how somebody arrives in the first place.
+
+// What state an invitation is in. Refusals read better for naming which one.
+enum InvitationState {
+  INVITATION_STATE_UNSPECIFIED = 0;
+  INVITATION_STATE_PENDING = 1;
+  INVITATION_STATE_ACCEPTED = 2;
+  INVITATION_STATE_REVOKED = 3;
+
+  // Reached by time rather than by anybody acting, which is why it is a state
+  // and not an absence: an owner looking at a list needs to see that one ran
+  // out rather than find it silently gone.
+  INVITATION_STATE_EXPIRED = 4;
+}
+
+// Whether the message carrying an invitation actually left.
+//
+// Separate from the invitation's own state, because they answer different
+// questions and conflating them hides the case that matters. An invitation can
+// be perfectly pending and have reached nobody, and to an owner waiting for
+// somebody to arrive that looks exactly like a colleague who has not got round
+// to it. Only one of those is theirs to chase.
+enum InvitationDelivery {
+  INVITATION_DELIVERY_UNSPECIFIED = 0;
+  INVITATION_DELIVERY_SENT = 1;
+
+  // Handed to nothing yet. The invitation exists and the message has not been
+  // attempted, which is a real intermediate state and not an error.
+  INVITATION_DELIVERY_PENDING = 2;
+
+  // Attempted and refused. `delivery_detail` carries what the sender said, for
+  // an owner deciding whether the address was wrong or the service was down.
+  INVITATION_DELIVERY_FAILED = 3;
+}
+
+message InviteMemberRequest {
+  string organisation_id = 1;
+
+  // Where the invitation is sent, and the address the accepting identity has to
+  // carry. Delivery and identity at once, which is what makes a forwarded
+  // invitation useless to whoever received it.
+  string email = 2;
+
+  // Fixed here rather than chosen at acceptance, so an invitation that reaches
+  // the wrong hands cannot be used to ask for a larger role than was offered.
+  Role role = 3;
+}
+
+message InvitationRecord {
+  string invitation_id = 1;
+  string organisation_id = 2;
+  string email = 3;
+  Role role = 4;
+
+  InvitationState state = 5;
+  InvitationDelivery delivery = 6;
+
+  // What the sending service said when it refused. Empty otherwise.
+  string delivery_detail = 7;
+
+  int64 created_at_ns = 8;
+
+  // An invitation is a standing capability sitting in somebody else's mailbox,
+  // so it stops being one on its own rather than only when somebody remembers.
+  int64 expires_at_ns = 9;
+
+  string invited_by_person_id = 10;
+}
+
+message AcceptInvitationRequest {
+  // The invitation being taken up. Nothing else is carried: the address is not
+  // supplied by the caller but read from the verified identity signing in,
+  // because an address a caller states about itself decides nothing.
+  string invitation_id = 1;
+}
+
+message RevokeInvitationRequest {
+  string organisation_id = 1;
+  string invitation_id = 2;
+}
+
+message RevokeInvitationReply {
+  // False when it was not pending: already accepted, already revoked, or run
+  // out. Revoking is idempotent, and asking twice is not an error.
+  bool revoked = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // W5.4, W5.5 — deployments and their keys
 // ─────────────────────────────────────────────────────────────────────────────
 

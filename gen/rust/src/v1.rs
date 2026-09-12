@@ -60,6 +60,68 @@ pub struct RemoveMemberReply {
     pub removed: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InviteMemberRequest {
+    #[prost(string, tag = "1")]
+    pub organisation_id: ::prost::alloc::string::String,
+    /// Where the invitation is sent, and the address the accepting identity has to
+    /// carry. Delivery and identity at once, which is what makes a forwarded
+    /// invitation useless to whoever received it.
+    #[prost(string, tag = "2")]
+    pub email: ::prost::alloc::string::String,
+    /// Fixed here rather than chosen at acceptance, so an invitation that reaches
+    /// the wrong hands cannot be used to ask for a larger role than was offered.
+    #[prost(enumeration = "Role", tag = "3")]
+    pub role: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InvitationRecord {
+    #[prost(string, tag = "1")]
+    pub invitation_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub organisation_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub email: ::prost::alloc::string::String,
+    #[prost(enumeration = "Role", tag = "4")]
+    pub role: i32,
+    #[prost(enumeration = "InvitationState", tag = "5")]
+    pub state: i32,
+    #[prost(enumeration = "InvitationDelivery", tag = "6")]
+    pub delivery: i32,
+    /// What the sending service said when it refused. Empty otherwise.
+    #[prost(string, tag = "7")]
+    pub delivery_detail: ::prost::alloc::string::String,
+    #[prost(int64, tag = "8")]
+    pub created_at_ns: i64,
+    /// An invitation is a standing capability sitting in somebody else's mailbox,
+    /// so it stops being one on its own rather than only when somebody remembers.
+    #[prost(int64, tag = "9")]
+    pub expires_at_ns: i64,
+    #[prost(string, tag = "10")]
+    pub invited_by_person_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AcceptInvitationRequest {
+    /// The invitation being taken up. Nothing else is carried: the address is not
+    /// supplied by the caller but read from the verified identity signing in,
+    /// because an address a caller states about itself decides nothing.
+    #[prost(string, tag = "1")]
+    pub invitation_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RevokeInvitationRequest {
+    #[prost(string, tag = "1")]
+    pub organisation_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub invitation_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RevokeInvitationReply {
+    /// False when it was not pending: already accepted, already revoked, or run
+    /// out. Revoking is idempotent, and asking twice is not an error.
+    #[prost(bool, tag = "1")]
+    pub revoked: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterDeploymentRequest {
     #[prost(string, tag = "1")]
     pub organisation_id: ::prost::alloc::string::String,
@@ -258,6 +320,88 @@ impl StaffCapability {
                 Some(Self::RestoreOrganisationOwner)
             }
             "STAFF_CAPABILITY_ADMINISTER_STAFF" => Some(Self::AdministerStaff),
+            _ => None,
+        }
+    }
+}
+/// What state an invitation is in. Refusals read better for naming which one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum InvitationState {
+    Unspecified = 0,
+    Pending = 1,
+    Accepted = 2,
+    Revoked = 3,
+    /// Reached by time rather than by anybody acting, which is why it is a state
+    /// and not an absence: an owner looking at a list needs to see that one ran
+    /// out rather than find it silently gone.
+    Expired = 4,
+}
+impl InvitationState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "INVITATION_STATE_UNSPECIFIED",
+            Self::Pending => "INVITATION_STATE_PENDING",
+            Self::Accepted => "INVITATION_STATE_ACCEPTED",
+            Self::Revoked => "INVITATION_STATE_REVOKED",
+            Self::Expired => "INVITATION_STATE_EXPIRED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "INVITATION_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "INVITATION_STATE_PENDING" => Some(Self::Pending),
+            "INVITATION_STATE_ACCEPTED" => Some(Self::Accepted),
+            "INVITATION_STATE_REVOKED" => Some(Self::Revoked),
+            "INVITATION_STATE_EXPIRED" => Some(Self::Expired),
+            _ => None,
+        }
+    }
+}
+/// Whether the message carrying an invitation actually left.
+///
+/// Separate from the invitation's own state, because they answer different
+/// questions and conflating them hides the case that matters. An invitation can
+/// be perfectly pending and have reached nobody, and to an owner waiting for
+/// somebody to arrive that looks exactly like a colleague who has not got round
+/// to it. Only one of those is theirs to chase.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum InvitationDelivery {
+    Unspecified = 0,
+    Sent = 1,
+    /// Handed to nothing yet. The invitation exists and the message has not been
+    /// attempted, which is a real intermediate state and not an error.
+    Pending = 2,
+    /// Attempted and refused. `delivery_detail` carries what the sender said, for
+    /// an owner deciding whether the address was wrong or the service was down.
+    Failed = 3,
+}
+impl InvitationDelivery {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "INVITATION_DELIVERY_UNSPECIFIED",
+            Self::Sent => "INVITATION_DELIVERY_SENT",
+            Self::Pending => "INVITATION_DELIVERY_PENDING",
+            Self::Failed => "INVITATION_DELIVERY_FAILED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "INVITATION_DELIVERY_UNSPECIFIED" => Some(Self::Unspecified),
+            "INVITATION_DELIVERY_SENT" => Some(Self::Sent),
+            "INVITATION_DELIVERY_PENDING" => Some(Self::Pending),
+            "INVITATION_DELIVERY_FAILED" => Some(Self::Failed),
             _ => None,
         }
     }

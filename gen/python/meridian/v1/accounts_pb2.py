@@ -24,17 +24,21 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1ameridian/v1/accounts.proto\x12\x0bmeridian.v1\")\n\x19\x43reateOrganisationRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"R\n\x12OrganisationRecord\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x15\n\rcreated_at_ns\x18\x03 \x01(\x03\"_\n\x10\x41\x64\x64MemberRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x11\n\tperson_id\x18\x02 \x01(\t\x12\x1f\n\x04role\x18\x03 \x01(\x0e\x32\x11.meridian.v1.Role\"\xab\x01\n\x10MembershipRecord\x12\x15\n\rmembership_id\x18\x01 \x01(\t\x12\x17\n\x0forganisation_id\x18\x02 \x01(\t\x12\x11\n\tperson_id\x18\x03 \x01(\t\x12\x1f\n\x04role\x18\x04 \x01(\x0e\x32\x11.meridian.v1.Role\x12\x15\n\rcreated_at_ns\x18\x05 \x01(\x03\x12\x1c\n\x14granted_by_person_id\x18\x06 \x01(\t\"A\n\x13RemoveMemberRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x11\n\tperson_id\x18\x02 \x01(\t\"$\n\x11RemoveMemberReply\x12\x0f\n\x07removed\x18\x01 \x01(\x08\"B\n\x19RegisterDeploymentRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\"\x80\x01\n\x10\x44\x65ploymentRecord\x12\x15\n\rdeployment_id\x18\x01 \x01(\t\x12\x17\n\x0forganisation_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x15\n\rcreated_at_ns\x18\x04 \x01(\x03\x12\x17\n\x0flast_seen_at_ns\x18\x05 \x01(\x03\"\\\n\x1cRegisterDeploymentKeyRequest\x12\x15\n\rdeployment_id\x18\x01 \x01(\t\x12\x16\n\x0epublic_key_pem\x18\x02 \x01(\t\x12\r\n\x05label\x18\x03 \x01(\t\"w\n\x13\x44\x65ploymentKeyRecord\x12\x0e\n\x06key_id\x18\x01 \x01(\t\x12\x15\n\rdeployment_id\x18\x02 \x01(\t\x12\r\n\x05label\x18\x03 \x01(\t\x12\x13\n\x0b\x66ingerprint\x18\x04 \x01(\t\x12\x15\n\rcreated_at_ns\x18\x05 \x01(\x03\"C\n\x1aRevokeDeploymentKeyRequest\x12\x15\n\rdeployment_id\x18\x01 \x01(\t\x12\x0e\n\x06key_id\x18\x02 \x01(\t\"+\n\x18RevokeDeploymentKeyReply\x12\x0f\n\x07revoked\x18\x01 \x01(\x08\"b\n\x1bGrantStaffCapabilityRequest\x12\x11\n\tperson_id\x18\x01 \x01(\t\x12\x30\n\ncapability\x18\x02 \x01(\x0e\x32\x1c.meridian.v1.StaffCapability\"\x9e\x01\n\x10StaffGrantRecord\x12\x10\n\x08grant_id\x18\x01 \x01(\t\x12\x11\n\tperson_id\x18\x02 \x01(\t\x12\x30\n\ncapability\x18\x03 \x01(\x0e\x32\x1c.meridian.v1.StaffCapability\x12\x15\n\rcreated_at_ns\x18\x04 \x01(\x03\x12\x1c\n\x14granted_by_person_id\x18\x05 \x01(\t\"0\n\x1cRevokeStaffCapabilityRequest\x12\x10\n\x08grant_id\x18\x01 \x01(\t\"-\n\x1aRevokeStaffCapabilityReply\x12\x0f\n\x07revoked\x18\x01 \x01(\x08\"]\n\x1fRestoreOrganisationOwnerRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x11\n\tperson_id\x18\x02 \x01(\t\x12\x0e\n\x06reason\x18\x03 \x01(\t*M\n\x04Role\x12\x14\n\x10ROLE_UNSPECIFIED\x10\x00\x12\x0e\n\nROLE_OWNER\x10\x01\x12\x0e\n\nROLE_ADMIN\x10\x02\x12\x0f\n\x0bROLE_MEMBER\x10\x03*\xbc\x01\n\x0fStaffCapability\x12 \n\x1cSTAFF_CAPABILITY_UNSPECIFIED\x10\x00\x12/\n+STAFF_CAPABILITY_ADMINISTER_SECURITY_MASTER\x10\x01\x12/\n+STAFF_CAPABILITY_RESTORE_ORGANISATION_OWNER\x10\x02\x12%\n!STAFF_CAPABILITY_ADMINISTER_STAFF\x10\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1ameridian/v1/accounts.proto\x12\x0bmeridian.v1\")\n\x19\x43reateOrganisationRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"R\n\x12OrganisationRecord\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x15\n\rcreated_at_ns\x18\x03 \x01(\x03\"_\n\x10\x41\x64\x64MemberRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x11\n\tperson_id\x18\x02 \x01(\t\x12\x1f\n\x04role\x18\x03 \x01(\x0e\x32\x11.meridian.v1.Role\"\xab\x01\n\x10MembershipRecord\x12\x15\n\rmembership_id\x18\x01 \x01(\t\x12\x17\n\x0forganisation_id\x18\x02 \x01(\t\x12\x11\n\tperson_id\x18\x03 \x01(\t\x12\x1f\n\x04role\x18\x04 \x01(\x0e\x32\x11.meridian.v1.Role\x12\x15\n\rcreated_at_ns\x18\x05 \x01(\x03\x12\x1c\n\x14granted_by_person_id\x18\x06 \x01(\t\"A\n\x13RemoveMemberRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x11\n\tperson_id\x18\x02 \x01(\t\"$\n\x11RemoveMemberReply\x12\x0f\n\x07removed\x18\x01 \x01(\x08\"^\n\x13InviteMemberRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\r\n\x05\x65mail\x18\x02 \x01(\t\x12\x1f\n\x04role\x18\x03 \x01(\x0e\x32\x11.meridian.v1.Role\"\xb7\x02\n\x10InvitationRecord\x12\x15\n\rinvitation_id\x18\x01 \x01(\t\x12\x17\n\x0forganisation_id\x18\x02 \x01(\t\x12\r\n\x05\x65mail\x18\x03 \x01(\t\x12\x1f\n\x04role\x18\x04 \x01(\x0e\x32\x11.meridian.v1.Role\x12+\n\x05state\x18\x05 \x01(\x0e\x32\x1c.meridian.v1.InvitationState\x12\x31\n\x08\x64\x65livery\x18\x06 \x01(\x0e\x32\x1f.meridian.v1.InvitationDelivery\x12\x17\n\x0f\x64\x65livery_detail\x18\x07 \x01(\t\x12\x15\n\rcreated_at_ns\x18\x08 \x01(\x03\x12\x15\n\rexpires_at_ns\x18\t \x01(\x03\x12\x1c\n\x14invited_by_person_id\x18\n \x01(\t\"0\n\x17\x41\x63\x63\x65ptInvitationRequest\x12\x15\n\rinvitation_id\x18\x01 \x01(\t\"I\n\x17RevokeInvitationRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x15\n\rinvitation_id\x18\x02 \x01(\t\"(\n\x15RevokeInvitationReply\x12\x0f\n\x07revoked\x18\x01 \x01(\x08\"B\n\x19RegisterDeploymentRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\"\x80\x01\n\x10\x44\x65ploymentRecord\x12\x15\n\rdeployment_id\x18\x01 \x01(\t\x12\x17\n\x0forganisation_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x15\n\rcreated_at_ns\x18\x04 \x01(\x03\x12\x17\n\x0flast_seen_at_ns\x18\x05 \x01(\x03\"\\\n\x1cRegisterDeploymentKeyRequest\x12\x15\n\rdeployment_id\x18\x01 \x01(\t\x12\x16\n\x0epublic_key_pem\x18\x02 \x01(\t\x12\r\n\x05label\x18\x03 \x01(\t\"w\n\x13\x44\x65ploymentKeyRecord\x12\x0e\n\x06key_id\x18\x01 \x01(\t\x12\x15\n\rdeployment_id\x18\x02 \x01(\t\x12\r\n\x05label\x18\x03 \x01(\t\x12\x13\n\x0b\x66ingerprint\x18\x04 \x01(\t\x12\x15\n\rcreated_at_ns\x18\x05 \x01(\x03\"C\n\x1aRevokeDeploymentKeyRequest\x12\x15\n\rdeployment_id\x18\x01 \x01(\t\x12\x0e\n\x06key_id\x18\x02 \x01(\t\"+\n\x18RevokeDeploymentKeyReply\x12\x0f\n\x07revoked\x18\x01 \x01(\x08\"b\n\x1bGrantStaffCapabilityRequest\x12\x11\n\tperson_id\x18\x01 \x01(\t\x12\x30\n\ncapability\x18\x02 \x01(\x0e\x32\x1c.meridian.v1.StaffCapability\"\x9e\x01\n\x10StaffGrantRecord\x12\x10\n\x08grant_id\x18\x01 \x01(\t\x12\x11\n\tperson_id\x18\x02 \x01(\t\x12\x30\n\ncapability\x18\x03 \x01(\x0e\x32\x1c.meridian.v1.StaffCapability\x12\x15\n\rcreated_at_ns\x18\x04 \x01(\x03\x12\x1c\n\x14granted_by_person_id\x18\x05 \x01(\t\"0\n\x1cRevokeStaffCapabilityRequest\x12\x10\n\x08grant_id\x18\x01 \x01(\t\"-\n\x1aRevokeStaffCapabilityReply\x12\x0f\n\x07revoked\x18\x01 \x01(\x08\"]\n\x1fRestoreOrganisationOwnerRequest\x12\x17\n\x0forganisation_id\x18\x01 \x01(\t\x12\x11\n\tperson_id\x18\x02 \x01(\t\x12\x0e\n\x06reason\x18\x03 \x01(\t*M\n\x04Role\x12\x14\n\x10ROLE_UNSPECIFIED\x10\x00\x12\x0e\n\nROLE_OWNER\x10\x01\x12\x0e\n\nROLE_ADMIN\x10\x02\x12\x0f\n\x0bROLE_MEMBER\x10\x03*\xbc\x01\n\x0fStaffCapability\x12 \n\x1cSTAFF_CAPABILITY_UNSPECIFIED\x10\x00\x12/\n+STAFF_CAPABILITY_ADMINISTER_SECURITY_MASTER\x10\x01\x12/\n+STAFF_CAPABILITY_RESTORE_ORGANISATION_OWNER\x10\x02\x12%\n!STAFF_CAPABILITY_ADMINISTER_STAFF\x10\x03*\xac\x01\n\x0fInvitationState\x12 \n\x1cINVITATION_STATE_UNSPECIFIED\x10\x00\x12\x1c\n\x18INVITATION_STATE_PENDING\x10\x01\x12\x1d\n\x19INVITATION_STATE_ACCEPTED\x10\x02\x12\x1c\n\x18INVITATION_STATE_REVOKED\x10\x03\x12\x1c\n\x18INVITATION_STATE_EXPIRED\x10\x04*\x98\x01\n\x12InvitationDelivery\x12#\n\x1fINVITATION_DELIVERY_UNSPECIFIED\x10\x00\x12\x1c\n\x18INVITATION_DELIVERY_SENT\x10\x01\x12\x1f\n\x1bINVITATION_DELIVERY_PENDING\x10\x02\x12\x1e\n\x1aINVITATION_DELIVERY_FAILED\x10\x03\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'meridian.v1.accounts_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_ROLE']._serialized_start=1527
-  _globals['_ROLE']._serialized_end=1604
-  _globals['_STAFFCAPABILITY']._serialized_start=1607
-  _globals['_STAFFCAPABILITY']._serialized_end=1795
+  _globals['_ROLE']._serialized_start=2104
+  _globals['_ROLE']._serialized_end=2181
+  _globals['_STAFFCAPABILITY']._serialized_start=2184
+  _globals['_STAFFCAPABILITY']._serialized_end=2372
+  _globals['_INVITATIONSTATE']._serialized_start=2375
+  _globals['_INVITATIONSTATE']._serialized_end=2547
+  _globals['_INVITATIONDELIVERY']._serialized_start=2550
+  _globals['_INVITATIONDELIVERY']._serialized_end=2702
   _globals['_CREATEORGANISATIONREQUEST']._serialized_start=43
   _globals['_CREATEORGANISATIONREQUEST']._serialized_end=84
   _globals['_ORGANISATIONRECORD']._serialized_start=86
@@ -47,26 +51,36 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_REMOVEMEMBERREQUEST']._serialized_end=506
   _globals['_REMOVEMEMBERREPLY']._serialized_start=508
   _globals['_REMOVEMEMBERREPLY']._serialized_end=544
-  _globals['_REGISTERDEPLOYMENTREQUEST']._serialized_start=546
-  _globals['_REGISTERDEPLOYMENTREQUEST']._serialized_end=612
-  _globals['_DEPLOYMENTRECORD']._serialized_start=615
-  _globals['_DEPLOYMENTRECORD']._serialized_end=743
-  _globals['_REGISTERDEPLOYMENTKEYREQUEST']._serialized_start=745
-  _globals['_REGISTERDEPLOYMENTKEYREQUEST']._serialized_end=837
-  _globals['_DEPLOYMENTKEYRECORD']._serialized_start=839
-  _globals['_DEPLOYMENTKEYRECORD']._serialized_end=958
-  _globals['_REVOKEDEPLOYMENTKEYREQUEST']._serialized_start=960
-  _globals['_REVOKEDEPLOYMENTKEYREQUEST']._serialized_end=1027
-  _globals['_REVOKEDEPLOYMENTKEYREPLY']._serialized_start=1029
-  _globals['_REVOKEDEPLOYMENTKEYREPLY']._serialized_end=1072
-  _globals['_GRANTSTAFFCAPABILITYREQUEST']._serialized_start=1074
-  _globals['_GRANTSTAFFCAPABILITYREQUEST']._serialized_end=1172
-  _globals['_STAFFGRANTRECORD']._serialized_start=1175
-  _globals['_STAFFGRANTRECORD']._serialized_end=1333
-  _globals['_REVOKESTAFFCAPABILITYREQUEST']._serialized_start=1335
-  _globals['_REVOKESTAFFCAPABILITYREQUEST']._serialized_end=1383
-  _globals['_REVOKESTAFFCAPABILITYREPLY']._serialized_start=1385
-  _globals['_REVOKESTAFFCAPABILITYREPLY']._serialized_end=1430
-  _globals['_RESTOREORGANISATIONOWNERREQUEST']._serialized_start=1432
-  _globals['_RESTOREORGANISATIONOWNERREQUEST']._serialized_end=1525
+  _globals['_INVITEMEMBERREQUEST']._serialized_start=546
+  _globals['_INVITEMEMBERREQUEST']._serialized_end=640
+  _globals['_INVITATIONRECORD']._serialized_start=643
+  _globals['_INVITATIONRECORD']._serialized_end=954
+  _globals['_ACCEPTINVITATIONREQUEST']._serialized_start=956
+  _globals['_ACCEPTINVITATIONREQUEST']._serialized_end=1004
+  _globals['_REVOKEINVITATIONREQUEST']._serialized_start=1006
+  _globals['_REVOKEINVITATIONREQUEST']._serialized_end=1079
+  _globals['_REVOKEINVITATIONREPLY']._serialized_start=1081
+  _globals['_REVOKEINVITATIONREPLY']._serialized_end=1121
+  _globals['_REGISTERDEPLOYMENTREQUEST']._serialized_start=1123
+  _globals['_REGISTERDEPLOYMENTREQUEST']._serialized_end=1189
+  _globals['_DEPLOYMENTRECORD']._serialized_start=1192
+  _globals['_DEPLOYMENTRECORD']._serialized_end=1320
+  _globals['_REGISTERDEPLOYMENTKEYREQUEST']._serialized_start=1322
+  _globals['_REGISTERDEPLOYMENTKEYREQUEST']._serialized_end=1414
+  _globals['_DEPLOYMENTKEYRECORD']._serialized_start=1416
+  _globals['_DEPLOYMENTKEYRECORD']._serialized_end=1535
+  _globals['_REVOKEDEPLOYMENTKEYREQUEST']._serialized_start=1537
+  _globals['_REVOKEDEPLOYMENTKEYREQUEST']._serialized_end=1604
+  _globals['_REVOKEDEPLOYMENTKEYREPLY']._serialized_start=1606
+  _globals['_REVOKEDEPLOYMENTKEYREPLY']._serialized_end=1649
+  _globals['_GRANTSTAFFCAPABILITYREQUEST']._serialized_start=1651
+  _globals['_GRANTSTAFFCAPABILITYREQUEST']._serialized_end=1749
+  _globals['_STAFFGRANTRECORD']._serialized_start=1752
+  _globals['_STAFFGRANTRECORD']._serialized_end=1910
+  _globals['_REVOKESTAFFCAPABILITYREQUEST']._serialized_start=1912
+  _globals['_REVOKESTAFFCAPABILITYREQUEST']._serialized_end=1960
+  _globals['_REVOKESTAFFCAPABILITYREPLY']._serialized_start=1962
+  _globals['_REVOKESTAFFCAPABILITYREPLY']._serialized_end=2007
+  _globals['_RESTOREORGANISATIONOWNERREQUEST']._serialized_start=2009
+  _globals['_RESTOREORGANISATIONOWNERREQUEST']._serialized_end=2102
 # @@protoc_insertion_point(module_scope)
