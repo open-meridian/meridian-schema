@@ -5,12 +5,19 @@
 //
 // A plugin reaches this on its own loopback address and reaches nothing else.
 // It never learns the bus address, never holds a broker credential, and never
-// discovers another plugin. See decisions/004.
+// discovers another plugin. See decisions/007.
 //
-// Deliberately six operations. The temptation is to add typed, role-specific
-// calls here so a plugin author gets a named method per business action. That
-// is how a thin boundary becomes thousands of hand-written wrappers: those
-// belong in generated code above this layer, derived from the matrix.
+// The surface grows as workflows demand it, and there is no target count. What
+// an operation has to be is generic. The temptation is to add typed,
+// role-specific calls here so a plugin author gets a named method per business
+// action, and that is how a thin boundary becomes thousands of hand-written
+// wrappers; those belong in generated code above this layer, derived from the
+// matrix. An operation also has to give the sidecar something to enforce or
+// stamp, because one the sidecar merely passes through is asking the boundary
+// to widen for nothing.
+//
+// These are the operations W4 declares. A workflow demanding another is how
+// another arrives.
 
 syntax = "proto3";
 
