@@ -46,18 +46,23 @@ service SidecarService {
 // W4.1 — admission
 // ─────────────────────────────────────────────────────────────────────────────
 
+// The plugin announces that it has started. It does not say who it is.
+//
+// Instance, role and tags were fixed when the sidecar was launched, and they
+// are what decide the plugin's topic access. A plugin that named the role it
+// serves would be choosing its own privileges, and one that named its own
+// instance could publish as a sibling, because grants are written with instance
+// wildcards so that an instance-scoped topic needs no grant minted per
+// instance.
 message RegisterRequest {
-  // Stable for the life of this instance, supplied by whatever started it.
-  string instance_id = 1;
-
-  // The role being served, e.g. "custody". Decides which grants apply.
-  string role = 2;
-
-  // Additional grant-bearing labels beyond the role.
-  repeated string tags = 3;
+  reserved 1, 2, 3;
+  reserved "instance_id", "role", "tags";
 
   // The schema version the plugin was built against. A mismatch is worth
   // refusing at the door rather than discovering in a decode failure later.
+  //
+  // The only thing a plugin tells the sidecar about itself, and it decides
+  // nothing about access.
   string schema_version = 4;
 }
 
@@ -75,6 +80,13 @@ message RegisterReply {
   // a plugin can fail at startup rather than at the first refused publish.
   repeated string publish_grants = 4;
   repeated string subscribe_grants = 5;
+
+  // Who the sidecar was launched to serve. The plugin learns its identity here
+  // rather than declaring it, so it can log what it is and stop at startup when
+  // that is not what it expected to be.
+  string instance_id = 6;
+  string role = 7;
+  repeated string tags = 8;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

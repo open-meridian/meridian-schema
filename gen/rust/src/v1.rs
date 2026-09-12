@@ -869,19 +869,21 @@ pub struct UnresolvedHolding {
     #[prost(bool, tag = "9")]
     pub escalated: bool,
 }
+/// The plugin announces that it has started. It does not say who it is.
+///
+/// Instance, role and tags were fixed when the sidecar was launched, and they
+/// are what decide the plugin's topic access. A plugin that named the role it
+/// serves would be choosing its own privileges, and one that named its own
+/// instance could publish as a sibling, because grants are written with instance
+/// wildcards so that an instance-scoped topic needs no grant minted per
+/// instance.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
-    /// Stable for the life of this instance, supplied by whatever started it.
-    #[prost(string, tag = "1")]
-    pub instance_id: ::prost::alloc::string::String,
-    /// The role being served, e.g. "custody". Decides which grants apply.
-    #[prost(string, tag = "2")]
-    pub role: ::prost::alloc::string::String,
-    /// Additional grant-bearing labels beyond the role.
-    #[prost(string, repeated, tag = "3")]
-    pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// The schema version the plugin was built against. A mismatch is worth
     /// refusing at the door rather than discovering in a decode failure later.
+    ///
+    /// The only thing a plugin tells the sidecar about itself, and it decides
+    /// nothing about access.
     #[prost(string, tag = "4")]
     pub schema_version: ::prost::alloc::string::String,
 }
@@ -902,6 +904,15 @@ pub struct RegisterReply {
     pub publish_grants: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag = "5")]
     pub subscribe_grants: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Who the sidecar was launched to serve. The plugin learns its identity here
+    /// rather than declaring it, so it can log what it is and stop at startup when
+    /// that is not what it expected to be.
+    #[prost(string, tag = "6")]
+    pub instance_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub role: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "8")]
+    pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// The plugin supplies the payload, the topic, and the causal links it knows
 /// about. It does not supply its own identity or its own timestamps: a component
