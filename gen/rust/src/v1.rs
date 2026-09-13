@@ -15,6 +15,15 @@ pub struct OrganisationRecord {
     /// Stamped by the store. A caller cannot supply or back-date it.
     #[prost(int64, tag = "3")]
     pub created_at_ns: i64,
+    /// Whether this organisation may delete a deployment rather than only retire
+    /// one. Set by staff, per W5.13, and not by the organisation: a control the
+    /// controlled party can switch off is not a control, and a deployment's key
+    /// history is partly how anybody answers what its signatures were made with.
+    ///
+    /// False by default, so an organisation nobody has considered may retire and
+    /// not delete.
+    #[prost(bool, tag = "4")]
+    pub may_delete_deployments: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AddMemberRequest {
@@ -58,6 +67,43 @@ pub struct RemoveMemberReply {
     /// twice is not an error.
     #[prost(bool, tag = "1")]
     pub removed: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RetireDeploymentRequest {
+    #[prost(string, tag = "1")]
+    pub deployment_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReturnDeploymentToServiceRequest {
+    /// Returning does not restore the keys and cannot: revoking them is what made
+    /// the retirement real. The deployment registers new ones. What coming back
+    /// preserves is the identifier, which is the subject of every assertion it
+    /// signed, and is why this is not delete and register again.
+    #[prost(string, tag = "1")]
+    pub deployment_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeleteDeploymentRequest {
+    #[prost(string, tag = "1")]
+    pub deployment_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct DeleteDeploymentReply {
+    /// False when there was nothing to delete. Deleting is idempotent; asking
+    /// twice is not an error.
+    #[prost(bool, tag = "1")]
+    pub deleted: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetOrganisationDeletionPolicyRequest {
+    #[prost(string, tag = "1")]
+    pub organisation_id: ::prost::alloc::string::String,
+    /// Staff only, per W5.13. Turning this on does not delete anything and does
+    /// not delete on the customer's behalf: it decides whether the operation
+    /// exists for that organisation, and the customer decides when their own
+    /// environment goes.
+    #[prost(bool, tag = "2")]
+    pub may_delete_deployments: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InviteMemberRequest {
@@ -144,6 +190,14 @@ pub struct DeploymentRecord {
     /// was never wired up.
     #[prost(int64, tag = "5")]
     pub last_seen_at_ns: i64,
+    /// Retired and quiet are different things, and this is the difference. Without
+    /// it a decommissioned environment reads on a page exactly like one nobody has
+    /// started lately.
+    #[prost(enumeration = "DeploymentState", tag = "6")]
+    pub state: i32,
+    /// Zero while in service.
+    #[prost(int64, tag = "7")]
+    pub retired_at_ns: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterDeploymentKeyRequest {
@@ -402,6 +456,43 @@ impl InvitationDelivery {
             "INVITATION_DELIVERY_SENT" => Some(Self::Sent),
             "INVITATION_DELIVERY_PENDING" => Some(Self::Pending),
             "INVITATION_DELIVERY_FAILED" => Some(Self::Failed),
+            _ => None,
+        }
+    }
+}
+/// Whether a deployment is in service.
+///
+/// A state rather than an absence, because an identifier that has signed
+/// assertions does not stop having done so. The security master reached the same
+/// conclusion for instruments: decommissioned, not removed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DeploymentState {
+    Unspecified = 0,
+    InService = 1,
+    /// Out of service and holding no keys, because retiring revokes them. A
+    /// retired deployment that could still present a key that verified would be a
+    /// label on a thing that kept working.
+    Retired = 2,
+}
+impl DeploymentState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DEPLOYMENT_STATE_UNSPECIFIED",
+            Self::InService => "DEPLOYMENT_STATE_IN_SERVICE",
+            Self::Retired => "DEPLOYMENT_STATE_RETIRED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DEPLOYMENT_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "DEPLOYMENT_STATE_IN_SERVICE" => Some(Self::InService),
+            "DEPLOYMENT_STATE_RETIRED" => Some(Self::Retired),
             _ => None,
         }
     }

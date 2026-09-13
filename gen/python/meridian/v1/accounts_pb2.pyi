@@ -33,6 +33,12 @@ class InvitationDelivery(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     INVITATION_DELIVERY_SENT: _ClassVar[InvitationDelivery]
     INVITATION_DELIVERY_PENDING: _ClassVar[InvitationDelivery]
     INVITATION_DELIVERY_FAILED: _ClassVar[InvitationDelivery]
+
+class DeploymentState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DEPLOYMENT_STATE_UNSPECIFIED: _ClassVar[DeploymentState]
+    DEPLOYMENT_STATE_IN_SERVICE: _ClassVar[DeploymentState]
+    DEPLOYMENT_STATE_RETIRED: _ClassVar[DeploymentState]
 ROLE_UNSPECIFIED: Role
 ROLE_OWNER: Role
 ROLE_ADMIN: Role
@@ -50,6 +56,9 @@ INVITATION_DELIVERY_UNSPECIFIED: InvitationDelivery
 INVITATION_DELIVERY_SENT: InvitationDelivery
 INVITATION_DELIVERY_PENDING: InvitationDelivery
 INVITATION_DELIVERY_FAILED: InvitationDelivery
+DEPLOYMENT_STATE_UNSPECIFIED: DeploymentState
+DEPLOYMENT_STATE_IN_SERVICE: DeploymentState
+DEPLOYMENT_STATE_RETIRED: DeploymentState
 
 class CreateOrganisationRequest(_message.Message):
     __slots__ = ("name",)
@@ -58,14 +67,16 @@ class CreateOrganisationRequest(_message.Message):
     def __init__(self, name: _Optional[str] = ...) -> None: ...
 
 class OrganisationRecord(_message.Message):
-    __slots__ = ("organisation_id", "name", "created_at_ns")
+    __slots__ = ("organisation_id", "name", "created_at_ns", "may_delete_deployments")
     ORGANISATION_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_NS_FIELD_NUMBER: _ClassVar[int]
+    MAY_DELETE_DEPLOYMENTS_FIELD_NUMBER: _ClassVar[int]
     organisation_id: str
     name: str
     created_at_ns: int
-    def __init__(self, organisation_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at_ns: _Optional[int] = ...) -> None: ...
+    may_delete_deployments: bool
+    def __init__(self, organisation_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at_ns: _Optional[int] = ..., may_delete_deployments: bool = ...) -> None: ...
 
 class AddMemberRequest(_message.Message):
     __slots__ = ("organisation_id", "person_id", "role")
@@ -106,6 +117,38 @@ class RemoveMemberReply(_message.Message):
     REMOVED_FIELD_NUMBER: _ClassVar[int]
     removed: bool
     def __init__(self, removed: bool = ...) -> None: ...
+
+class RetireDeploymentRequest(_message.Message):
+    __slots__ = ("deployment_id",)
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+
+class ReturnDeploymentToServiceRequest(_message.Message):
+    __slots__ = ("deployment_id",)
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+
+class DeleteDeploymentRequest(_message.Message):
+    __slots__ = ("deployment_id",)
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+
+class DeleteDeploymentReply(_message.Message):
+    __slots__ = ("deleted",)
+    DELETED_FIELD_NUMBER: _ClassVar[int]
+    deleted: bool
+    def __init__(self, deleted: bool = ...) -> None: ...
+
+class SetOrganisationDeletionPolicyRequest(_message.Message):
+    __slots__ = ("organisation_id", "may_delete_deployments")
+    ORGANISATION_ID_FIELD_NUMBER: _ClassVar[int]
+    MAY_DELETE_DEPLOYMENTS_FIELD_NUMBER: _ClassVar[int]
+    organisation_id: str
+    may_delete_deployments: bool
+    def __init__(self, organisation_id: _Optional[str] = ..., may_delete_deployments: bool = ...) -> None: ...
 
 class InviteMemberRequest(_message.Message):
     __slots__ = ("organisation_id", "email", "role")
@@ -170,18 +213,22 @@ class RegisterDeploymentRequest(_message.Message):
     def __init__(self, organisation_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class DeploymentRecord(_message.Message):
-    __slots__ = ("deployment_id", "organisation_id", "name", "created_at_ns", "last_seen_at_ns")
+    __slots__ = ("deployment_id", "organisation_id", "name", "created_at_ns", "last_seen_at_ns", "state", "retired_at_ns")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ORGANISATION_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_NS_FIELD_NUMBER: _ClassVar[int]
     LAST_SEEN_AT_NS_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    RETIRED_AT_NS_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
     organisation_id: str
     name: str
     created_at_ns: int
     last_seen_at_ns: int
-    def __init__(self, deployment_id: _Optional[str] = ..., organisation_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at_ns: _Optional[int] = ..., last_seen_at_ns: _Optional[int] = ...) -> None: ...
+    state: DeploymentState
+    retired_at_ns: int
+    def __init__(self, deployment_id: _Optional[str] = ..., organisation_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at_ns: _Optional[int] = ..., last_seen_at_ns: _Optional[int] = ..., state: _Optional[_Union[DeploymentState, str]] = ..., retired_at_ns: _Optional[int] = ...) -> None: ...
 
 class RegisterDeploymentKeyRequest(_message.Message):
     __slots__ = ("deployment_id", "public_key_pem", "label")
