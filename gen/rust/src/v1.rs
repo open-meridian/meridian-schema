@@ -69,6 +69,60 @@ pub struct RemoveMemberReply {
     pub removed: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InviteStaffRequest {
+    /// Where it is sent, and the address the accepting identity must carry.
+    #[prost(string, tag = "1")]
+    pub email: ::prost::alloc::string::String,
+    /// Fixed here rather than chosen at acceptance, so an invitation that reaches
+    /// the wrong hands cannot ask for a larger capability than was offered.
+    #[prost(enumeration = "StaffCapability", tag = "2")]
+    pub capability: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StaffInvitationRecord {
+    #[prost(string, tag = "1")]
+    pub invitation_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub email: ::prost::alloc::string::String,
+    #[prost(enumeration = "StaffCapability", tag = "3")]
+    pub capability: i32,
+    #[prost(enumeration = "InvitationState", tag = "4")]
+    pub state: i32,
+    #[prost(enumeration = "InvitationDelivery", tag = "5")]
+    pub delivery: i32,
+    #[prost(string, tag = "6")]
+    pub delivery_detail: ::prost::alloc::string::String,
+    #[prost(int64, tag = "7")]
+    pub created_at_ns: i64,
+    /// Shorter-lived than an organisation's. Both are standing capabilities
+    /// sitting in a mailbox, and this one is authority over every organisation on
+    /// the platform.
+    #[prost(int64, tag = "8")]
+    pub expires_at_ns: i64,
+    #[prost(string, tag = "9")]
+    pub invited_by_person_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AcceptStaffInvitationRequest {
+    /// Nothing but the invitation. The address is read from the verified identity
+    /// signing in, because an address a caller states about itself decides
+    /// nothing.
+    #[prost(string, tag = "1")]
+    pub invitation_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WithdrawStaffInvitationRequest {
+    #[prost(string, tag = "1")]
+    pub invitation_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct WithdrawStaffInvitationReply {
+    /// False when it was not pending. Idempotent, and asking twice is not an
+    /// error.
+    #[prost(bool, tag = "1")]
+    pub withdrawn: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RetireDeploymentRequest {
     #[prost(string, tag = "1")]
     pub deployment_id: ::prost::alloc::string::String,

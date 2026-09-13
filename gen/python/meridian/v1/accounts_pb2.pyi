@@ -118,6 +118,54 @@ class RemoveMemberReply(_message.Message):
     removed: bool
     def __init__(self, removed: bool = ...) -> None: ...
 
+class InviteStaffRequest(_message.Message):
+    __slots__ = ("email", "capability")
+    EMAIL_FIELD_NUMBER: _ClassVar[int]
+    CAPABILITY_FIELD_NUMBER: _ClassVar[int]
+    email: str
+    capability: StaffCapability
+    def __init__(self, email: _Optional[str] = ..., capability: _Optional[_Union[StaffCapability, str]] = ...) -> None: ...
+
+class StaffInvitationRecord(_message.Message):
+    __slots__ = ("invitation_id", "email", "capability", "state", "delivery", "delivery_detail", "created_at_ns", "expires_at_ns", "invited_by_person_id")
+    INVITATION_ID_FIELD_NUMBER: _ClassVar[int]
+    EMAIL_FIELD_NUMBER: _ClassVar[int]
+    CAPABILITY_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    DELIVERY_FIELD_NUMBER: _ClassVar[int]
+    DELIVERY_DETAIL_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_NS_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_NS_FIELD_NUMBER: _ClassVar[int]
+    INVITED_BY_PERSON_ID_FIELD_NUMBER: _ClassVar[int]
+    invitation_id: str
+    email: str
+    capability: StaffCapability
+    state: InvitationState
+    delivery: InvitationDelivery
+    delivery_detail: str
+    created_at_ns: int
+    expires_at_ns: int
+    invited_by_person_id: str
+    def __init__(self, invitation_id: _Optional[str] = ..., email: _Optional[str] = ..., capability: _Optional[_Union[StaffCapability, str]] = ..., state: _Optional[_Union[InvitationState, str]] = ..., delivery: _Optional[_Union[InvitationDelivery, str]] = ..., delivery_detail: _Optional[str] = ..., created_at_ns: _Optional[int] = ..., expires_at_ns: _Optional[int] = ..., invited_by_person_id: _Optional[str] = ...) -> None: ...
+
+class AcceptStaffInvitationRequest(_message.Message):
+    __slots__ = ("invitation_id",)
+    INVITATION_ID_FIELD_NUMBER: _ClassVar[int]
+    invitation_id: str
+    def __init__(self, invitation_id: _Optional[str] = ...) -> None: ...
+
+class WithdrawStaffInvitationRequest(_message.Message):
+    __slots__ = ("invitation_id",)
+    INVITATION_ID_FIELD_NUMBER: _ClassVar[int]
+    invitation_id: str
+    def __init__(self, invitation_id: _Optional[str] = ...) -> None: ...
+
+class WithdrawStaffInvitationReply(_message.Message):
+    __slots__ = ("withdrawn",)
+    WITHDRAWN_FIELD_NUMBER: _ClassVar[int]
+    withdrawn: bool
+    def __init__(self, withdrawn: bool = ...) -> None: ...
+
 class RetireDeploymentRequest(_message.Message):
     __slots__ = ("deployment_id",)
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
