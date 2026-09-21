@@ -2,3 +2,12 @@ meridian-schema
 Copyright 2026 Societal Lab Inc.
 
 Licensed under the Apache License, Version 2.0. See LICENSE.
+
+This repository holds the plugin-facing contract only: the sidecar's service
+definition and the message framing a plugin receives. The domain messages the
+runtime exchanges past the sidecar live in meridian-core, under the GNU Affero
+General Public License v3.0.
+
+On 2026-09-21 this repository's history was rewritten so that no commit
+contains those domain messages, and the repository was recreated to carry the
+rewritten history. Commit identifiers from before that date do not exist here.

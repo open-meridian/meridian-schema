@@ -6,9 +6,14 @@ downstream, in whichever consumer happens to touch it first, far from the schema
 change that caused it. This catches it at the schema.
 
 Deliberately shallow. It is not testing protobuf, it is testing that generation
-produced an importable package whose messages survive a round trip -- including
-the two shapes the contract cares about, a resolved holding and an unresolved
-one.
+produced an importable package whose messages survive a round trip -- the
+message framing a plugin receives, and the registration and publish requests it
+sends.
+
+The domain messages are not here, and not because they were forgotten. They
+moved to meridian-core on 2026-09-21: once no plugin can link a domain message,
+they are the runtime's internal traffic past the sidecar, and core checks them.
+This repository holds only what a plugin links.
 
 Usage:  python3 tools/check_pb_imports.py [--gen gen/python]
 Exit:   0 works, 1 does not, 2 the protobuf runtime is missing
@@ -51,50 +56,44 @@ def main() -> int:
         return 2
 
     try:
-        holdings = importlib.import_module("meridian.v1.holdings_pb2")
-        reference = importlib.import_module("meridian.v1.reference_pb2")
-        importlib.import_module("meridian.v1.envelope_pb2")
+        envelope = importlib.import_module("meridian.v1.envelope_pb2")
+        sidecar = importlib.import_module("meridian.v1.sidecar_pb2")
     except ImportError as exc:
         print(f"check-pb-imports FAILED: {exc}", file=sys.stderr)
         return 1
 
     problems: list[str] = []
 
-    # A resolved holding, as fixtures/holdings/record-holding.yaml describes it.
-    resolved = holdings.RecordHoldingRequest(
-        statement_id="STMT-1",
-        account_id="ACC-1",
-        instrument_id="INS-1",
-        quantity_scaled_1e8=1250000000,
-        market_value_scaled_1e8=281250000000,
-        currency="USD",
+    # The framing a plugin receives: metadata, a type name and opaque bytes.
+    framed = envelope.Envelope(
+        meta=envelope.MessageMeta(
+            message_id="MSG-1",
+            correlation_id="CORR-1",
+            causation_id="MSG-0",
+            publisher_instance_id="custody-1",
+            topic="platform.street.command.record-holding",
+            schema_version="v1",
+            published_at_ns=1_757_376_000_000_000_000,
+        ),
+        payload_type="example.Payload",
+        payload=b"\x00\x01opaque",
     )
-    back = holdings.RecordHoldingRequest()
-    back.ParseFromString(resolved.SerializeToString())
-    if back != resolved:
-        problems.append("a resolved holding did not survive a round trip")
-    if back.quantity_scaled_1e8 != 1250000000:
-        problems.append("scaled quantity changed across the wire")
+    back = envelope.Envelope()
+    back.ParseFromString(framed.SerializeToString())
+    if back != framed:
+        problems.append("an envelope did not survive a round trip")
+    if back.payload != b"\x00\x01opaque":
+        problems.append("payload bytes changed across the wire")
 
-    # The unresolved variant: identifiers instead of an instrument.
-    unresolved = holdings.RecordHoldingRequest(
-        statement_id="STMT-1",
-        account_id="ACC-1",
-        unresolved_identifiers=[
-            reference.Identifier(scheme="symbol", value="ZZTOP", source="snaptrade")
-        ],
-        quantity_scaled_1e8=500000000,
-        currency="USD",
-    )
-    back2 = holdings.RecordHoldingRequest()
-    back2.ParseFromString(unresolved.SerializeToString())
-    if back2.instrument_id != "":
-        problems.append("an unresolved holding gained an instrument id")
-    if not back2.unresolved_identifiers or back2.unresolved_identifiers[0].value != "ZZTOP":
-        problems.append("unresolved identifiers were lost across the wire")
+    # What a plugin sends first: the contract version it was built against.
+    registered = sidecar.RegisterRequest(schema_version="v1")
+    again = sidecar.RegisterRequest()
+    again.ParseFromString(registered.SerializeToString())
+    if again.schema_version != "v1":
+        problems.append("a registration lost its contract version across the wire")
 
-    # Cross-file import: holdings references a type declared in reference.proto.
-    if not hasattr(holdings.RecordHoldingRequest, "DESCRIPTOR"):
+    # Cross-file import: sidecar.proto uses a type declared in envelope.proto.
+    if not hasattr(sidecar.Delivery, "DESCRIPTOR"):
         problems.append("generated messages carry no descriptor")
 
     # The sidecar service. Generating only its messages would leave every
