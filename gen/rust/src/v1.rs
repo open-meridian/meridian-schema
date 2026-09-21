@@ -34,6 +34,14 @@ pub struct MessageMeta {
     pub schema_version: ::prost::alloc::string::String,
     #[prost(int64, tag = "7")]
     pub published_at_ns: i64,
+    /// Set on a command sent for a person: whose it is, so the store can record
+    /// who made the change. Deployment-local subject.
+    #[prost(string, tag = "8")]
+    pub acting_for_subject: ::prost::alloc::string::String,
+    /// Set on a read: the accounts the publishing plugin may read. A core store
+    /// answers only for these.
+    #[prost(string, repeated, tag = "9")]
+    pub account_scope: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Envelope wraps one payload.
 ///
@@ -66,10 +74,52 @@ pub struct RegisterRequest {
     /// The schema version the plugin was built against. A mismatch is worth
     /// refusing at the door rather than discovering in a decode failure later.
     ///
-    /// The only thing a plugin tells the sidecar about itself, and it decides
-    /// nothing about access.
+    /// The only thing a plugin tells the sidecar about itself that bears on
+    /// admission, and it decides nothing about access.
     #[prost(string, tag = "4")]
     pub schema_version: ::prost::alloc::string::String,
+    /// Set when the plugin serves an interface to people (W6.9).
+    #[prost(message, optional, tag = "5")]
+    pub interface: ::core::option::Option<InterfaceDeclaration>,
+    /// The settings a deployment admin must or may give it (W4.7, W6.11).
+    #[prost(message, repeated, tag = "6")]
+    pub settings: ::prost::alloc::vec::Vec<SettingDeclaration>,
+    /// True when the plugin reads accounts at an external source and names them
+    /// by that source's identifiers, which a deployment admin links to accounts
+    /// (W6.4). The sidecar then translates on the way in (W2).
+    #[prost(bool, tag = "7")]
+    pub reads_external_accounts: bool,
+}
+/// A plugin's interface, served on loopback and reached only through the
+/// sidecar's front, which verifies the caller first (decisions/014).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InterfaceDeclaration {
+    /// The loopback port the plugin listens on. The sidecar forwards verified
+    /// requests here; nothing else can reach it.
+    #[prost(uint32, tag = "1")]
+    pub loopback_port: u32,
+    /// What the dashboard calls the interface in its navigation.
+    #[prost(string, tag = "2")]
+    pub title: ::prost::alloc::string::String,
+}
+/// One setting the plugin needs.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettingDeclaration {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(enumeration = "SettingType", tag = "2")]
+    pub r#type: i32,
+    /// A plugin missing a required setting stays registered and reports itself
+    /// not healthy with that reason until it arrives (W4.7).
+    #[prost(bool, tag = "3")]
+    pub required: bool,
+    /// Write-only: set or replaced through the dashboard, never read back,
+    /// displayed, logged, reported or bundled.
+    #[prost(bool, tag = "4")]
+    pub secret: bool,
+    /// Shown beside the field in the dashboard.
+    #[prost(string, tag = "5")]
+    pub description: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterReply {
@@ -159,6 +209,14 @@ pub struct CallRequest {
     /// does not offer it. Zero means the sidecar's default.
     #[prost(int32, tag = "5")]
     pub timeout_ms: i32,
+    /// W4.9. Set when the plugin sends a command for a person: the assertion it
+    /// was handed for them. The sidecar admits the command only when the person
+    /// may write the account it names and that account is in the plugin's write
+    /// scope, and stamps the person on the envelope. Unset, the plugin acts as
+    /// itself. Reads never carry one: a plugin reads its whole scope as itself
+    /// (decisions/014).
+    #[prost(message, optional, tag = "6")]
+    pub acting_for: ::core::option::Option<CallerAssertion>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallReply {
@@ -198,6 +256,160 @@ pub struct LeaveRequest {
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct LeaveReply {}
+/// Opens the stream. The sidecar knows which plugin is asking.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct WatchSettingsRequest {}
+/// The plugin's settings as they stand, sent at once and again on every change.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettingsDelivery {
+    #[prost(message, repeated, tag = "1")]
+    pub values: ::prost::alloc::vec::Vec<SettingValue>,
+    /// Required settings with no value yet. Empty when the plugin may proceed.
+    #[prost(string, repeated, tag = "2")]
+    pub missing_required: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettingValue {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// As text, whatever the declared type, parsed by the SDK against the
+    /// declaration. A secret's value is delivered here and nowhere else.
+    #[prost(string, tag = "2")]
+    pub value: ::prost::alloc::string::String,
+}
+/// What the dashboard signs for one person and one plugin, and what the
+/// sidecar verifies before a request reaches the plugin or a command made for
+/// the person reaches the bus.
+///
+/// The claims travel serialised, so the signature covers exactly the bytes the
+/// sidecar checks, and a plugin handing the assertion back cannot alter it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CallerAssertion {
+    /// A serialised CallerClaims.
+    #[prost(bytes = "vec", tag = "1")]
+    pub claims: ::prost::alloc::vec::Vec<u8>,
+    /// Ed25519 over `claims`, by the dashboard's own key -- never the
+    /// deployment's, which only the conductor holds.
+    #[prost(bytes = "vec", tag = "2")]
+    pub signature: ::prost::alloc::vec::Vec<u8>,
+    /// Which dashboard key signed, so the key can be rotated.
+    #[prost(string, tag = "3")]
+    pub key_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CallerClaims {
+    /// Deployment-local: the directory's issuer and subject, never an address.
+    #[prost(string, tag = "1")]
+    pub subject: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub display_name: ::prost::alloc::string::String,
+    /// The plugin instance this is for. A sidecar refuses an assertion addressed
+    /// to another instance.
+    #[prost(string, tag = "3")]
+    pub audience_instance_id: ::prost::alloc::string::String,
+    /// The person's access on this plugin, tag by tag.
+    #[prost(message, repeated, tag = "4")]
+    pub access: ::prost::alloc::vec::Vec<TagAccess>,
+    #[prost(int64, tag = "5")]
+    pub issued_at_ns: i64,
+    /// At most 60 seconds after issue.
+    #[prost(int64, tag = "6")]
+    pub expires_at_ns: i64,
+}
+/// For one tag of one plugin: the accounts a person, or a group, may read and
+/// may write through it. Write implies read, and every write account is also
+/// listed as read.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TagAccess {
+    #[prost(string, tag = "1")]
+    pub tag: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "2")]
+    pub read_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "3")]
+    pub write_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// The sidecar knows which plugin is asking.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct PluginAccessRequest {}
+/// For shaping an interface -- which actions to show, whom a task can go to.
+/// Nothing here is an access decision; the sidecar checks each command itself.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginAccessReply {
+    #[prost(message, repeated, tag = "1")]
+    pub user_groups: ::prost::alloc::vec::Vec<UserGroupAccess>,
+    /// People who have signed in to the deployment, with the user groups they
+    /// were in at their last sign-in. Nobody who has not signed in is here: the
+    /// deployment holds no directory.
+    #[prost(message, repeated, tag = "2")]
+    pub people: ::prost::alloc::vec::Vec<PersonAccess>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UserGroupAccess {
+    #[prost(string, tag = "1")]
+    pub user_group_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "3")]
+    pub access: ::prost::alloc::vec::Vec<TagAccess>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PersonAccess {
+    #[prost(string, tag = "1")]
+    pub subject: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub display_name: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "3")]
+    pub user_group_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(int64, tag = "4")]
+    pub last_signed_in_at_ns: i64,
+    #[prost(message, repeated, tag = "5")]
+    pub access: ::prost::alloc::vec::Vec<TagAccess>,
+}
+/// The sidecar knows which plugin is asking.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct WatchAccountScopeRequest {}
+/// Everything anybody may reach through this plugin, derived from permissions
+/// and never declared. The plugin reads its whole read scope as itself and
+/// serves each person from it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountScopeDelivery {
+    #[prost(string, repeated, tag = "1")]
+    pub read_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "2")]
+    pub write_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SettingType {
+    Unspecified = 0,
+    String = 1,
+    Integer = 2,
+    Boolean = 3,
+}
+impl SettingType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SETTING_TYPE_UNSPECIFIED",
+            Self::String => "SETTING_TYPE_STRING",
+            Self::Integer => "SETTING_TYPE_INTEGER",
+            Self::Boolean => "SETTING_TYPE_BOOLEAN",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SETTING_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "SETTING_TYPE_STRING" => Some(Self::String),
+            "SETTING_TYPE_INTEGER" => Some(Self::Integer),
+            "SETTING_TYPE_BOOLEAN" => Some(Self::Boolean),
+            _ => None,
+        }
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum CallFailure {
@@ -456,6 +668,83 @@ pub mod sidecar_service_client {
                 .insert(GrpcMethod::new("meridian.v1.SidecarService", "Leave"));
             self.inner.unary(req, path, codec).await
         }
+        /// W4.7. The plugin's settings now, then each change, without a restart.
+        pub async fn watch_settings(
+            &mut self,
+            request: impl tonic::IntoRequest<super::WatchSettingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<tonic::codec::Streaming<super::SettingsDelivery>>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/WatchSettings",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "WatchSettings"));
+            self.inner.server_streaming(req, path, codec).await
+        }
+        /// W4.10. Who may use this plugin, for shaping its interface. Decides nothing.
+        pub async fn plugin_access(
+            &mut self,
+            request: impl tonic::IntoRequest<super::PluginAccessRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::PluginAccessReply>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/PluginAccess",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "PluginAccess"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// W4.11. The accounts anybody may read or write through this plugin.
+        pub async fn watch_account_scope(
+            &mut self,
+            request: impl tonic::IntoRequest<super::WatchAccountScopeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<tonic::codec::Streaming<super::AccountScopeDelivery>>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/WatchAccountScope",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.v1.SidecarService", "WatchAccountScope"),
+                );
+            self.inner.server_streaming(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -504,6 +793,42 @@ pub mod sidecar_service_server {
             &self,
             request: tonic::Request<super::LeaveRequest>,
         ) -> std::result::Result<tonic::Response<super::LeaveReply>, tonic::Status>;
+        /// Server streaming response type for the WatchSettings method.
+        type WatchSettingsStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::SettingsDelivery, tonic::Status>,
+            >
+            + std::marker::Send
+            + 'static;
+        /// W4.7. The plugin's settings now, then each change, without a restart.
+        async fn watch_settings(
+            &self,
+            request: tonic::Request<super::WatchSettingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<Self::WatchSettingsStream>,
+            tonic::Status,
+        >;
+        /// W4.10. Who may use this plugin, for shaping its interface. Decides nothing.
+        async fn plugin_access(
+            &self,
+            request: tonic::Request<super::PluginAccessRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::PluginAccessReply>,
+            tonic::Status,
+        >;
+        /// Server streaming response type for the WatchAccountScope method.
+        type WatchAccountScopeStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::AccountScopeDelivery, tonic::Status>,
+            >
+            + std::marker::Send
+            + 'static;
+        /// W4.11. The accounts anybody may read or write through this plugin.
+        async fn watch_account_scope(
+            &self,
+            request: tonic::Request<super::WatchAccountScopeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<Self::WatchAccountScopeStream>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct SidecarServiceServer<T> {
@@ -846,6 +1171,145 @@ pub mod sidecar_service_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/WatchSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct WatchSettingsSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::ServerStreamingService<super::WatchSettingsRequest>
+                    for WatchSettingsSvc<T> {
+                        type Response = super::SettingsDelivery;
+                        type ResponseStream = T::WatchSettingsStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::WatchSettingsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::watch_settings(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = WatchSettingsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/PluginAccess" => {
+                    #[allow(non_camel_case_types)]
+                    struct PluginAccessSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::UnaryService<super::PluginAccessRequest>
+                    for PluginAccessSvc<T> {
+                        type Response = super::PluginAccessReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PluginAccessRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::plugin_access(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PluginAccessSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/WatchAccountScope" => {
+                    #[allow(non_camel_case_types)]
+                    struct WatchAccountScopeSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::ServerStreamingService<
+                        super::WatchAccountScopeRequest,
+                    > for WatchAccountScopeSvc<T> {
+                        type Response = super::AccountScopeDelivery;
+                        type ResponseStream = T::WatchAccountScopeStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::WatchAccountScopeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::watch_account_scope(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = WatchAccountScopeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

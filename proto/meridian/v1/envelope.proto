@@ -41,6 +41,16 @@ message MessageMeta {
   // payload, because only the payload knows what "happened" means.
   string schema_version = 6;
   int64 published_at_ns = 7;
+
+  // Stamped by the sidecar, never supplied by a plugin (decisions/014).
+
+  // Set on a command sent for a person: whose it is, so the store can record
+  // who made the change. Deployment-local subject.
+  string acting_for_subject = 8;
+
+  // Set on a read: the accounts the publishing plugin may read. A core store
+  // answers only for these.
+  repeated string account_scope = 9;
 }
 
 // Envelope wraps one payload.

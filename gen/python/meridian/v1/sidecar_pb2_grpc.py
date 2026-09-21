@@ -64,6 +64,21 @@ class SidecarServiceStub(object):
                 request_serializer=meridian_dot_v1_dot_sidecar__pb2.LeaveRequest.SerializeToString,
                 response_deserializer=meridian_dot_v1_dot_sidecar__pb2.LeaveReply.FromString,
                 _registered_method=True)
+        self.WatchSettings = channel.unary_stream(
+                '/meridian.v1.SidecarService/WatchSettings',
+                request_serializer=meridian_dot_v1_dot_sidecar__pb2.WatchSettingsRequest.SerializeToString,
+                response_deserializer=meridian_dot_v1_dot_sidecar__pb2.SettingsDelivery.FromString,
+                _registered_method=True)
+        self.PluginAccess = channel.unary_unary(
+                '/meridian.v1.SidecarService/PluginAccess',
+                request_serializer=meridian_dot_v1_dot_sidecar__pb2.PluginAccessRequest.SerializeToString,
+                response_deserializer=meridian_dot_v1_dot_sidecar__pb2.PluginAccessReply.FromString,
+                _registered_method=True)
+        self.WatchAccountScope = channel.unary_stream(
+                '/meridian.v1.SidecarService/WatchAccountScope',
+                request_serializer=meridian_dot_v1_dot_sidecar__pb2.WatchAccountScopeRequest.SerializeToString,
+                response_deserializer=meridian_dot_v1_dot_sidecar__pb2.AccountScopeDelivery.FromString,
+                _registered_method=True)
 
 
 class SidecarServiceServicer(object):
@@ -108,6 +123,27 @@ class SidecarServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def WatchSettings(self, request, context):
+        """W4.7. The plugin's settings now, then each change, without a restart.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PluginAccess(self, request, context):
+        """W4.10. Who may use this plugin, for shaping its interface. Decides nothing.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WatchAccountScope(self, request, context):
+        """W4.11. The accounts anybody may read or write through this plugin.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SidecarServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -140,6 +176,21 @@ def add_SidecarServiceServicer_to_server(servicer, server):
                     servicer.Leave,
                     request_deserializer=meridian_dot_v1_dot_sidecar__pb2.LeaveRequest.FromString,
                     response_serializer=meridian_dot_v1_dot_sidecar__pb2.LeaveReply.SerializeToString,
+            ),
+            'WatchSettings': grpc.unary_stream_rpc_method_handler(
+                    servicer.WatchSettings,
+                    request_deserializer=meridian_dot_v1_dot_sidecar__pb2.WatchSettingsRequest.FromString,
+                    response_serializer=meridian_dot_v1_dot_sidecar__pb2.SettingsDelivery.SerializeToString,
+            ),
+            'PluginAccess': grpc.unary_unary_rpc_method_handler(
+                    servicer.PluginAccess,
+                    request_deserializer=meridian_dot_v1_dot_sidecar__pb2.PluginAccessRequest.FromString,
+                    response_serializer=meridian_dot_v1_dot_sidecar__pb2.PluginAccessReply.SerializeToString,
+            ),
+            'WatchAccountScope': grpc.unary_stream_rpc_method_handler(
+                    servicer.WatchAccountScope,
+                    request_deserializer=meridian_dot_v1_dot_sidecar__pb2.WatchAccountScopeRequest.FromString,
+                    response_serializer=meridian_dot_v1_dot_sidecar__pb2.AccountScopeDelivery.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -304,6 +355,87 @@ class SidecarService(object):
             '/meridian.v1.SidecarService/Leave',
             meridian_dot_v1_dot_sidecar__pb2.LeaveRequest.SerializeToString,
             meridian_dot_v1_dot_sidecar__pb2.LeaveReply.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def WatchSettings(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/meridian.v1.SidecarService/WatchSettings',
+            meridian_dot_v1_dot_sidecar__pb2.WatchSettingsRequest.SerializeToString,
+            meridian_dot_v1_dot_sidecar__pb2.SettingsDelivery.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PluginAccess(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/meridian.v1.SidecarService/PluginAccess',
+            meridian_dot_v1_dot_sidecar__pb2.PluginAccessRequest.SerializeToString,
+            meridian_dot_v1_dot_sidecar__pb2.PluginAccessReply.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def WatchAccountScope(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/meridian.v1.SidecarService/WatchAccountScope',
+            meridian_dot_v1_dot_sidecar__pb2.WatchAccountScopeRequest.SerializeToString,
+            meridian_dot_v1_dot_sidecar__pb2.AccountScopeDelivery.FromString,
             options,
             channel_credentials,
             insecure,

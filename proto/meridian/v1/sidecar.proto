@@ -40,6 +40,15 @@ service SidecarService {
 
   // Optional by nature: a crash skips it.
   rpc Leave(LeaveRequest) returns (LeaveReply);
+
+  // W4.7. The plugin's settings now, then each change, without a restart.
+  rpc WatchSettings(WatchSettingsRequest) returns (stream SettingsDelivery);
+
+  // W4.10. Who may use this plugin, for shaping its interface. Decides nothing.
+  rpc PluginAccess(PluginAccessRequest) returns (PluginAccessReply);
+
+  // W4.11. The accounts anybody may read or write through this plugin.
+  rpc WatchAccountScope(WatchAccountScopeRequest) returns (stream AccountScopeDelivery);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,9 +70,59 @@ message RegisterRequest {
   // The schema version the plugin was built against. A mismatch is worth
   // refusing at the door rather than discovering in a decode failure later.
   //
-  // The only thing a plugin tells the sidecar about itself, and it decides
-  // nothing about access.
+  // The only thing a plugin tells the sidecar about itself that bears on
+  // admission, and it decides nothing about access.
   string schema_version = 4;
+
+  // What the plugin offers, as distinct from what it may do. None of these
+  // widens a grant: the tags that decide access stay the launch
+  // configuration's. Each is optional.
+
+  // Set when the plugin serves an interface to people (W6.9).
+  InterfaceDeclaration interface = 5;
+
+  // The settings a deployment admin must or may give it (W4.7, W6.11).
+  repeated SettingDeclaration settings = 6;
+
+  // True when the plugin reads accounts at an external source and names them
+  // by that source's identifiers, which a deployment admin links to accounts
+  // (W6.4). The sidecar then translates on the way in (W2).
+  bool reads_external_accounts = 7;
+}
+
+// A plugin's interface, served on loopback and reached only through the
+// sidecar's front, which verifies the caller first (decisions/014).
+message InterfaceDeclaration {
+  // The loopback port the plugin listens on. The sidecar forwards verified
+  // requests here; nothing else can reach it.
+  uint32 loopback_port = 1;
+
+  // What the dashboard calls the interface in its navigation.
+  string title = 2;
+}
+
+// One setting the plugin needs.
+message SettingDeclaration {
+  string name = 1;
+  SettingType type = 2;
+
+  // A plugin missing a required setting stays registered and reports itself
+  // not healthy with that reason until it arrives (W4.7).
+  bool required = 3;
+
+  // Write-only: set or replaced through the dashboard, never read back,
+  // displayed, logged, reported or bundled.
+  bool secret = 4;
+
+  // Shown beside the field in the dashboard.
+  string description = 5;
+}
+
+enum SettingType {
+  SETTING_TYPE_UNSPECIFIED = 0;
+  SETTING_TYPE_STRING = 1;
+  SETTING_TYPE_INTEGER = 2;
+  SETTING_TYPE_BOOLEAN = 3;
 }
 
 message RegisterReply {
@@ -151,6 +210,14 @@ message CallRequest {
   // Bounded by construction. A caller cannot wait forever, because the surface
   // does not offer it. Zero means the sidecar's default.
   int32 timeout_ms = 5;
+
+  // W4.9. Set when the plugin sends a command for a person: the assertion it
+  // was handed for them. The sidecar admits the command only when the person
+  // may write the account it names and that account is in the plugin's write
+  // scope, and stamps the person on the envelope. Unset, the plugin acts as
+  // itself. Reads never carry one: a plugin reads its whole scope as itself
+  // (decisions/014).
+  CallerAssertion acting_for = 6;
 }
 
 message CallReply {
@@ -196,3 +263,122 @@ message LeaveRequest {
 }
 
 message LeaveReply {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.7 — settings
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Opens the stream. The sidecar knows which plugin is asking.
+message WatchSettingsRequest {}
+
+// The plugin's settings as they stand, sent at once and again on every change.
+message SettingsDelivery {
+  repeated SettingValue values = 1;
+
+  // Required settings with no value yet. Empty when the plugin may proceed.
+  repeated string missing_required = 2;
+}
+
+message SettingValue {
+  string name = 1;
+
+  // As text, whatever the declared type, parsed by the SDK against the
+  // declaration. A secret's value is delivered here and nowhere else.
+  string value = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.9, W6.9 — a person, vouched for
+// ─────────────────────────────────────────────────────────────────────────────
+
+// What the dashboard signs for one person and one plugin, and what the
+// sidecar verifies before a request reaches the plugin or a command made for
+// the person reaches the bus.
+//
+// The claims travel serialised, so the signature covers exactly the bytes the
+// sidecar checks, and a plugin handing the assertion back cannot alter it.
+message CallerAssertion {
+  // A serialised CallerClaims.
+  bytes claims = 1;
+
+  // Ed25519 over `claims`, by the dashboard's own key -- never the
+  // deployment's, which only the conductor holds.
+  bytes signature = 2;
+
+  // Which dashboard key signed, so the key can be rotated.
+  string key_id = 3;
+}
+
+message CallerClaims {
+  // Deployment-local: the directory's issuer and subject, never an address.
+  string subject = 1;
+  string display_name = 2;
+
+  // The plugin instance this is for. A sidecar refuses an assertion addressed
+  // to another instance.
+  string audience_instance_id = 3;
+
+  // The person's access on this plugin, tag by tag.
+  repeated TagAccess access = 4;
+
+  int64 issued_at_ns = 5;
+
+  // At most 60 seconds after issue.
+  int64 expires_at_ns = 6;
+}
+
+// For one tag of one plugin: the accounts a person, or a group, may read and
+// may write through it. Write implies read, and every write account is also
+// listed as read.
+message TagAccess {
+  string tag = 1;
+  repeated string read_account_ids = 2;
+  repeated string write_account_ids = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.10 — who may use this plugin
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The sidecar knows which plugin is asking.
+message PluginAccessRequest {}
+
+// For shaping an interface -- which actions to show, whom a task can go to.
+// Nothing here is an access decision; the sidecar checks each command itself.
+message PluginAccessReply {
+  repeated UserGroupAccess user_groups = 1;
+
+  // People who have signed in to the deployment, with the user groups they
+  // were in at their last sign-in. Nobody who has not signed in is here: the
+  // deployment holds no directory.
+  repeated PersonAccess people = 2;
+}
+
+message UserGroupAccess {
+  string user_group_id = 1;
+  string name = 2;
+  repeated TagAccess access = 3;
+}
+
+message PersonAccess {
+  string subject = 1;
+  string display_name = 2;
+  repeated string user_group_ids = 3;
+  int64 last_signed_in_at_ns = 4;
+  repeated TagAccess access = 5;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.11 — the plugin's account scope
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The sidecar knows which plugin is asking.
+message WatchAccountScopeRequest {}
+
+// Everything anybody may reach through this plugin, derived from permissions
+// and never declared. The plugin reads its whole read scope as itself and
+// serves each person from it.
+message AccountScopeDelivery {
+  repeated string read_account_ids = 1;
+  repeated string write_account_ids = 2;
+}
