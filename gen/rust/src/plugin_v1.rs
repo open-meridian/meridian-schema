@@ -66,6 +66,12 @@ pub struct RecordHoldingsStatementParams {
     /// knows this without reading anything twice.
     #[prost(int32, tag = "5")]
     pub expected_rows: i32,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits the command only when the
+    /// person may write the account it names, and stamps them on it.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
 }
 /// The result of RecordHoldingsStatement: meridian.v1.RecordHoldingsStatementReply.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -115,6 +121,12 @@ pub struct RecordHoldingParams {
     /// unlinked, and the next statement after it is linked records it (W2).
     #[prost(string, tag = "8")]
     pub external_account_id: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits the command only when the
+    /// person may write the account it names, and stamps them on it.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
 }
 /// The result of RecordHolding: meridian.v1.RecordHoldingReply.
 #[derive(Clone, PartialEq, ::prost::Message)]

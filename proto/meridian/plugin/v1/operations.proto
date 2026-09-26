@@ -10,6 +10,8 @@ syntax = "proto3";
 
 package meridian.plugin.v1;
 
+import "meridian/v1/sidecar.proto";
+
 service PluginOperations {
   // W2.1: platform.custody.{instance}.event.sync-status (event).
   rpc ReportSyncStatus(ReportSyncStatusParams) returns (Published);
@@ -90,6 +92,12 @@ message RecordHoldingsStatementParams {
   // The connector holds the whole list before it publishes any of it, so it
   // knows this without reading anything twice.
   int32 expected_rows = 5;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits the command only when the
+  // person may write the account it names, and stamps them on it.
+  meridian.v1.CallerAssertion acting_for = 1000;
 }
 
 // The result of RecordHoldingsStatement: meridian.v1.RecordHoldingsStatementReply.
@@ -141,6 +149,12 @@ message RecordHoldingParams {
   // Set by the sidecar, never by a plugin (stamped.tsv).
   reserved 2;
   reserved "account_id";
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits the command only when the
+  // person may write the account it names, and stamps them on it.
+  meridian.v1.CallerAssertion acting_for = 1000;
 }
 
 // The result of RecordHolding: meridian.v1.RecordHoldingReply.
