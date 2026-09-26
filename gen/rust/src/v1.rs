@@ -143,8 +143,14 @@ pub struct RegisterReply {
     /// that is not what it expected to be.
     #[prost(string, tag = "6")]
     pub instance_id: ::prost::alloc::string::String,
-    #[prost(string, tag = "7")]
-    pub role: ::prost::alloc::string::String,
+    /// What it was launched as: one or more roles from the fixed list, its
+    /// grants the union of theirs, each generated from the contract's rows
+    /// naming it (decisions/020). Empty is a plugin admitted with no topics.
+    /// A set since contract version 2; a single `role` before it.
+    #[prost(string, repeated, tag = "9")]
+    pub roles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Its parts, for people: what access groups grant, at read or write. They
+    /// grant nothing on the bus.
     #[prost(string, repeated, tag = "8")]
     pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

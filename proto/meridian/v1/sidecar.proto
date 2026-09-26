@@ -144,8 +144,17 @@ message RegisterReply {
   // rather than declaring it, so it can log what it is and stop at startup when
   // that is not what it expected to be.
   string instance_id = 6;
-  string role = 7;
+  // What it was launched as: one or more roles from the fixed list, its
+  // grants the union of theirs, each generated from the contract's rows
+  // naming it (decisions/020). Empty is a plugin admitted with no topics.
+  // A set since contract version 2; a single `role` before it.
+  repeated string roles = 9;
+  // Its parts, for people: what access groups grant, at read or write. They
+  // grant nothing on the bus.
   repeated string tags = 8;
+
+  reserved 7;
+  reserved "role";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
