@@ -289,6 +289,14 @@ pub struct SettingValue {
 ///
 /// The claims travel serialised, so the signature covers exactly the bytes the
 /// sidecar checks, and a plugin handing the assertion back cannot alter it.
+///
+/// Over HTTP it travels in one header, `Meridian-Caller`: this message's
+/// encoding, base64url without padding (plans/a-person-reaches-a-plugin,
+/// ruling 2). The dashboard sets it; the sidecar verifies it, removes every
+/// identity the request arrived claiming, and forwards the plugin exactly one
+/// `Meridian-Caller`, the one it verified. The plugin decodes the claims from it
+/// and never verifies anything, and hands the same bytes back to act for the
+/// person.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallerAssertion {
     /// A serialised CallerClaims.
@@ -321,6 +329,12 @@ pub struct CallerClaims {
     /// At most 60 seconds after issue.
     #[prost(int64, tag = "6")]
     pub expires_at_ns: i64,
+    /// Unique to this assertion. The dashboard mints one per request, and a
+    /// sidecar refuses an id it has seen within the last 60 seconds, so an
+    /// assertion captured in flight cannot be replayed while it is still in date
+    /// (plans/a-person-reaches-a-plugin, ruling 3).
+    #[prost(string, tag = "7")]
+    pub assertion_id: ::prost::alloc::string::String,
 }
 /// For one tag of one plugin: the accounts a person, or a group, may read and
 /// may write through it. Write implies read, and every write account is also
