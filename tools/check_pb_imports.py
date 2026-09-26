@@ -86,15 +86,20 @@ def main() -> int:
         problems.append("payload bytes changed across the wire")
 
     # What a plugin sends first: the contract version it was built against.
-    registered = sidecar.RegisterRequest(schema_version="v1")
+    registered = sidecar.RegisterRequest(schema_version="v2")
     again = sidecar.RegisterRequest()
     again.ParseFromString(registered.SerializeToString())
-    if again.schema_version != "v1":
+    if again.schema_version != "v2":
         problems.append("a registration lost its contract version across the wire")
 
-    # Cross-file import: sidecar.proto uses a type declared in envelope.proto.
-    if not hasattr(sidecar.Delivery, "DESCRIPTOR"):
-        problems.append("generated messages carry no descriptor")
+    # Cross-package import: a typed command's params carry a type declared in
+    # sidecar.proto, the person it is sent for (W4.9).
+    operations = importlib.import_module("meridian.plugin.v1.operations_pb2")
+    params = operations.RecordHoldingParams()
+    params.acting_for.key_id = "dashboard-1"
+    back = operations.RecordHoldingParams.FromString(params.SerializeToString())
+    if back.acting_for.key_id != "dashboard-1":
+        problems.append("a command lost the person it was sent for across the wire")
 
     # The sidecar service. Generating only its messages would leave every
     # consumer hand-rolling the transport the contract already specifies, so the
@@ -116,12 +121,20 @@ def main() -> int:
     # decisions/007, so an operation added here breaks nothing and one added to
     # the proto without this list noticing is caught by check-derivation, which
     # asks what workflow step it came from.
-    expected = {"Register", "Publish", "Subscribe", "Call", "Heartbeat", "Leave"}
+    expected = {
+        "Register", "Heartbeat", "Leave", "WatchSettings", "PluginAccess", "WatchAccountScope",
+    }
     servicer = getattr(grpc_mod, "SidecarServiceServicer", None)
     if servicer is not None:
         missing = sorted(m for m in expected if not hasattr(servicer, m))
         if missing:
             problems.append(f"sidecar service is missing operations: {', '.join(missing)}")
+        # The one absence worth asserting: decisions/013 deleted the generic
+        # path onto the bus, and one coming back would be an untyped way round
+        # every typed operation.
+        returned = sorted(m for m in ("Publish", "Subscribe", "Call") if hasattr(servicer, m))
+        if returned:
+            problems.append(f"the generic operations are back: {', '.join(returned)}")
 
     for problem in problems:
         print(f"check-pb-imports FAILED: {problem}", file=sys.stderr)

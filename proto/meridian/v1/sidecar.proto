@@ -7,34 +7,25 @@
 // It never learns the bus address, never holds a broker credential, and never
 // discovers another plugin. See decisions/007.
 //
-// The surface grows as workflows demand it, and there is no target count. What
-// an operation has to be is generic. The temptation is to add typed,
-// role-specific calls here so a plugin author gets a named method per business
-// action, and that is how a thin boundary becomes thousands of hand-written
-// wrappers; those belong in generated code above this layer, derived from the
-// matrix. An operation also has to give the sidecar something to enforce or
-// stamp, because one the sidecar merely passes through is asking the boundary
-// to widen for nothing.
+// This service is a plugin's lifecycle and what it learns from the deployment:
+// registering, liveness, leaving, its settings, who may use it and its account
+// scope. Its access to the bus is not here. Since contract v2 that is the typed
+// operations of meridian.plugin.v1, one per matrix row a role may take and
+// generated from the matrix; the generic publish, subscribe and call are gone,
+// so every message on the bus is one the sidecar constructed (decisions/013).
 //
 // These are the operations W4 declares. A workflow demanding another is how
-// another arrives.
+// another arrives, and it has to give the sidecar something to enforce or
+// stamp: one the sidecar merely passes through asks the boundary to widen for
+// nothing.
 
 syntax = "proto3";
 
 package meridian.v1;
 
-import "meridian/v1/envelope.proto";
-
 service SidecarService {
   // Nothing else may be called until this succeeds.
   rpc Register(RegisterRequest) returns (RegisterReply);
-
-  rpc Publish(PublishRequest) returns (PublishReply);
-
-  rpc Subscribe(SubscribeRequest) returns (stream Delivery);
-
-  // A question with an answer, bounded in time.
-  rpc Call(CallRequest) returns (CallReply);
 
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatReply);
 
@@ -136,7 +127,7 @@ message RegisterReply {
   string refusal_reason = 3;
 
   // The topic patterns this plugin may publish on and subscribe to. Returned so
-  // a plugin can fail at startup rather than at the first refused publish.
+  // a plugin can fail at startup rather than at the first refused operation.
   repeated string publish_grants = 4;
   repeated string subscribe_grants = 5;
 
@@ -155,98 +146,6 @@ message RegisterReply {
 
   reserved 7;
   reserved "role";
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// W4.2 — publish
-// ─────────────────────────────────────────────────────────────────────────────
-
-// The plugin supplies the payload, the topic, and the causal links it knows
-// about. It does not supply its own identity or its own timestamps: a component
-// that can forge its provenance makes the audit trail decorative. The sidecar
-// stamps those.
-message PublishRequest {
-  string topic = 1;
-
-  // Fully-qualified name of the payload message.
-  string payload_type = 2;
-  bytes payload = 3;
-
-  // The action this message belongs to. Empty starts a new one.
-  string correlation_id = 4;
-
-  // The message this one is a consequence of. Empty when nothing caused it.
-  string causation_id = 5;
-}
-
-message PublishReply {
-  bool accepted = 1;
-  string message_id = 2;
-
-  // Populated when refused: names the grant that was missing.
-  string refusal_reason = 3;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// W4.3 — subscribe
-// ─────────────────────────────────────────────────────────────────────────────
-
-message SubscribeRequest {
-  // A topic pattern. `*` matches one segment, `**` matches one or more.
-  string pattern = 1;
-}
-
-// One message delivered to a subscriber.
-//
-// No acknowledgement. Delivery is at-most-once in this slice: a message lost to
-// a slow consumer is dropped rather than queued indefinitely, because unbounded
-// queueing turns one stuck plugin into a stuck deployment. Adding an ack later
-// is additive; removing one would not be.
-message Delivery {
-  Envelope envelope = 1;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// W4.4 — call
-// ─────────────────────────────────────────────────────────────────────────────
-
-message CallRequest {
-  string topic = 1;
-  string payload_type = 2;
-  bytes payload = 3;
-  string correlation_id = 4;
-
-  // Bounded by construction. A caller cannot wait forever, because the surface
-  // does not offer it. Zero means the sidecar's default.
-  int32 timeout_ms = 5;
-
-  // W4.9. Set when the plugin sends a command for a person: the assertion it
-  // was handed for them. The sidecar admits the command only when the person
-  // may write the account it names and that account is in the plugin's write
-  // scope, and stamps the person on the envelope. Unset, the plugin acts as
-  // itself. Reads never carry one: a plugin reads its whole scope as itself
-  // (decisions/014).
-  CallerAssertion acting_for = 6;
-}
-
-message CallReply {
-  bool ok = 1;
-  string payload_type = 2;
-  bytes payload = 3;
-
-  // Populated when ok is false. Distinguishes a timeout from a refusal from a
-  // handler that answered with an error, because the caller's next move differs
-  // for each.
-  CallFailure failure = 4;
-  string failure_detail = 5;
-}
-
-enum CallFailure {
-  CALL_FAILURE_UNSPECIFIED = 0;
-  CALL_FAILURE_TIMEOUT = 1;
-  CALL_FAILURE_REFUSED = 2;
-  CALL_FAILURE_NO_HANDLER = 3;
-  CALL_FAILURE_HANDLER_ERROR = 4;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
