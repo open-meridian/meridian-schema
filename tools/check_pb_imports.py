@@ -64,26 +64,26 @@ def main() -> int:
 
     problems: list[str] = []
 
-    # The framing a plugin receives: metadata, a type name and opaque bytes.
-    framed = envelope.Envelope(
-        meta=envelope.MessageMeta(
-            message_id="MSG-1",
-            correlation_id="CORR-1",
-            causation_id="MSG-0",
-            publisher_instance_id="custody-1",
-            topic="platform.street.command.record-holding",
-            schema_version="v1",
-            published_at_ns=1_757_376_000_000_000_000,
-        ),
-        payload_type="example.Payload",
-        payload=b"\x00\x01opaque",
+    # What every bus message carries about itself, which a plugin may need to
+    # thread a chain of events.
+    meta = envelope.MessageMeta(
+        message_id="MSG-1",
+        correlation_id="CORR-1",
+        causation_id="MSG-0",
+        publisher_instance_id="custody-1",
+        topic="platform.street.command.record-holding",
+        schema_version="v1",
+        published_at_ns=1_757_376_000_000_000_000,
     )
-    back = envelope.Envelope()
-    back.ParseFromString(framed.SerializeToString())
-    if back != framed:
-        problems.append("an envelope did not survive a round trip")
-    if back.payload != b"\x00\x01opaque":
-        problems.append("payload bytes changed across the wire")
+    back = envelope.MessageMeta()
+    back.ParseFromString(meta.SerializeToString())
+    if back != meta:
+        problems.append("message metadata did not survive a round trip")
+
+    # The bus's own framing is meridian-core's (design/envelope-moves-into-core):
+    # nothing plugin-facing may carry raw payload bytes again.
+    if hasattr(envelope, "Envelope"):
+        problems.append("the bus's Envelope is back in the plugin-facing schema")
 
     # What a plugin sends first: the contract version it was built against.
     registered = sidecar.RegisterRequest(schema_version="v2")

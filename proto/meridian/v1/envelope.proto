@@ -1,9 +1,15 @@
-// Bus envelope. Every message on the bus is wrapped in one.
+// What every bus message carries about itself.
 //
 // Justified by decisions/003-every-bus-message-carries-an-envelope.md rather
-// than by a workflow step: the envelope is not an operation, it is the frame
-// every operation travels in. It is recorded in matrix/proto-carve-outs.tsv
-// with that reference.
+// than by a workflow step: it is not an operation, it travels with every
+// operation. It is recorded in matrix/proto-carve-outs.tsv with that
+// reference.
+//
+// Only the metadata is here. The envelope itself -- this, a type name and the
+// payload's bytes -- is the bus's own framing and lives in meridian-core
+// (design/envelope-moves-into-core): a plugin reaches the bus through typed
+// operations and never sees bytes, so nothing plugin-facing carries one. What
+// a plugin may need from the metadata, to thread a chain of events, stays.
 
 syntax = "proto3";
 
@@ -51,21 +57,4 @@ message MessageMeta {
   // Set on a read: the accounts the publishing plugin may read. A core store
   // answers only for these.
   repeated string account_scope = 9;
-}
-
-// Envelope wraps one payload.
-//
-// The payload is opaque bytes rather than a oneof over every message type. A
-// oneof would make the envelope a compile-time dependency of every message in
-// the system, so adding any message would rebuild everything and the bus could
-// not carry a payload it had not been compiled against.
-message Envelope {
-  MessageMeta meta = 1;
-
-  // Fully-qualified name of the payload message, e.g. "meridian.v1.Position".
-  // A subscriber checks this before decoding rather than guessing from topic.
-  string payload_type = 2;
-
-  // The serialized payload.
-  bytes payload = 3;
 }
