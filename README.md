@@ -1,25 +1,28 @@
 # meridian-schema
 
-The contract a Meridian plugin links: the sidecar's gRPC service and the message
-framing a plugin receives, with the code generation that turns them into Rust
-and Python types.
+The contract an [Open Meridian](https://open-meridian.com) plugin links: the
+sidecar's gRPC service, the typed operations a plugin's roles may take, and the
+metadata every bus message carries, with the code generation that turns them
+into Rust and Python types.
 
 A plugin talks only to its sidecar, and the sidecar builds every message that
-goes onto the bus. So what a plugin needs from Meridian is small, and this is
-all of it. The domain messages the runtime exchanges past the sidecar --
-statements, holdings, instruments -- live in
+goes onto the bus. So what a plugin needs from Open Meridian is small, and this
+is all of it. The domain messages the runtime exchanges past the sidecar --
+statements, holdings, instruments -- and the bus's envelope itself live in
 [meridian-core](https://github.com/open-meridian/meridian-core), under its
 licence.
 
-Every message here is justified by a row in the function matrix, which is in
-turn justified by a workflow step. See [CLAUDE.md](CLAUDE.md).
+Every message here is justified by a row in the project's function matrix,
+which is in turn justified by a workflow step; [CLAUDE.md](CLAUDE.md) holds the
+rules for changing one.
 
 ## Layout
 
-    proto/meridian/v1/     the definitions
-    codegen/               the Rust generator
-    gen/rust/              generated crate, vendored
-    gen/python/            generated package, vendored
+    proto/meridian/v1/         the sidecar's service, and every message's metadata
+    proto/meridian/plugin/v1/  the typed operations (PluginOperations)
+    codegen/                   the Rust generator
+    gen/rust/                  generated crate, vendored
+    gen/python/                generated package, vendored
 
 ## Generating
 
@@ -51,17 +54,19 @@ Rust, as a path dependency on `gen/rust` (crate `meridian-pb`):
 
 ```rust
 use meridian_pb::v1::sidecar_service_client::SidecarServiceClient;
+use meridian_pb::plugin::v1::plugin_operations_client::PluginOperationsClient;
 ```
 
 Python, with `gen/python` on the path:
 
 ```python
 from meridian.v1 import sidecar_pb2, sidecar_pb2_grpc
+from meridian.plugin.v1 import operations_pb2, operations_pb2_grpc
 ```
 
 A plugin written in Python does not need even this: it uses the
-[Meridian Python SDK](https://github.com/open-meridian/meridian-python), which
-links it for them.
+[Python SDK](https://github.com/open-meridian/meridian-python), which links it
+for them, and `meridian plugin new` starts one from its reference plugin.
 
 ## Licence
 
