@@ -86,9 +86,10 @@ pub struct RecordHoldingsStatementResult {
 }
 /// One holding, for one account, at one instrument.
 ///
-/// Either `instrument_id` is set, meaning the connector resolved it, or
-/// `unresolved_identifiers` is set, meaning it could not. Never both, and never
-/// neither. A row that could not be resolved is still recorded, because a
+/// Either `instrument_id` is set, meaning the connector resolved it (to an
+/// instrument, or to the deployment's LCL- placeholder when nothing matched),
+/// or `unresolved_identifiers` is set, meaning the resolve was ambiguous. Never
+/// both, and never neither. A row that could not be resolved is still recorded, because a
 /// dropped holding is invisible and an operator comparing against their
 /// brokerage would find a silent discrepancy with nothing to investigate.
 /// The params of RecordHolding: meridian.v1.RecordHoldingRequest, less what the sidecar sets.
@@ -166,6 +167,12 @@ pub struct ResolveIdentifierResult {
     /// Set only when found is false.
     #[prost(enumeration = "MissReason", tag = "3")]
     pub miss_reason: i32,
+    /// True when nothing matched and instrument_id is the deployment's LCL-
+    /// placeholder for the set (W3.7), which a holding may be recorded against
+    /// until its INS- ID replaces it. found is true alongside it. An ambiguous
+    /// resolve never answers a placeholder.
+    #[prost(bool, tag = "4")]
+    pub placeholder: bool,
 }
 /// A resolution missed. A fact, not a request.
 ///
