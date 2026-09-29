@@ -122,7 +122,9 @@ pub struct RecordHoldingsStatementParams {
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits the command only when the
-    /// person may write the account it names, and stamps them on it.
+    /// person may write the account it names, and stamps them on it. One
+    /// to the deployment's configuration (platform.config) is admitted only
+    /// with a deployment admin's, and never without.
     #[prost(message, optional, tag = "1000")]
     pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
 }
@@ -209,7 +211,9 @@ pub struct RecordHoldingParams {
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits the command only when the
-    /// person may write the account it names, and stamps them on it.
+    /// person may write the account it names, and stamps them on it. One
+    /// to the deployment's configuration (platform.config) is admitted only
+    /// with a deployment admin's, and never without.
     #[prost(message, optional, tag = "1000")]
     pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
 }
@@ -284,6 +288,61 @@ pub struct ReportMissingInstrumentParams {
     pub reason: i32,
     #[prost(int64, tag = "7")]
     pub observed_at_ns: i64,
+}
+/// Links an external account a plugin reported, or removes its link.
+/// Names an existing account, or a new account's name for the conductor to
+/// create and link in one step, or neither to remove the link; never both. Held
+/// as one of that plugin's settings. Sent by the plugin from its own admin page,
+/// acting for the deployment admin viewing it (W6.4); the plugin's sidecar
+/// stamps plugin_instance_id.
+/// The params of LinkExternalAccount: meridian.v1.LinkExternalAccountRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LinkExternalAccountParams {
+    #[prost(string, tag = "2")]
+    pub external_account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub account_id: ::prost::alloc::string::String,
+    /// A new account's name, for the conductor to create and link in one step.
+    #[prost(string, tag = "4")]
+    pub new_account_name: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits the command only when the
+    /// person may write the account it names, and stamps them on it. One
+    /// to the deployment's configuration (platform.config) is admitted only
+    /// with a deployment admin's, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of LinkExternalAccount: meridian.v1.ExternalAccountLink.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LinkExternalAccountResult {
+    #[prost(string, tag = "1")]
+    pub plugin_instance_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub external_account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub account_id: ::prost::alloc::string::String,
+}
+/// The deployment's accounts, read by a plugin acting for a deployment admin
+/// to offer the accounts an external account can be linked to (W6.4).
+/// The params of ReadAccountsForLinking: meridian.v1.AccountsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadAccountsForLinkingParams {
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// reads as itself, which the sidecar refuses here: a read of the
+    /// deployment's configuration (platform.config) is answered only with a
+    /// deployment admin's, and stamped with them.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of ReadAccountsForLinking: meridian.v1.Accounts.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadAccountsForLinkingResult {
+    /// Names, identifiers and states; no holdings.
+    #[prost(message, repeated, tag = "1")]
+    pub accounts: ::prost::alloc::vec::Vec<AccountRecord>,
 }
 /// One account a connection reaches, as the custodian presents it.
 /// A mirror of meridian.v1.ExternalAccount.
@@ -365,6 +424,21 @@ pub struct Identifier {
     /// Empty for a global scheme.
     #[prost(string, tag = "3")]
     pub source: ::prost::alloc::string::String,
+}
+/// The only thing holdings are recorded against. A plugin creates one only by
+/// linking an external account to a new one, acting for a deployment admin
+/// (W6.4).
+/// A mirror of meridian.v1.AccountRecord.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountRecord {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(enumeration = "AccountState", tag = "3")]
+    pub state: i32,
+    #[prost(int64, tag = "4")]
+    pub created_at_ns: i64,
 }
 /// Why a connection's data is, or is not, current.
 ///
@@ -495,6 +569,37 @@ impl MissReason {
             "MISS_REASON_UNSPECIFIED" => Some(Self::Unspecified),
             "MISS_REASON_NOT_FOUND" => Some(Self::NotFound),
             "MISS_REASON_AMBIGUOUS" => Some(Self::Ambiguous),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.AccountState.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AccountState {
+    Unspecified = 0,
+    Open = 1,
+    /// Closed, not deleted: an account is the subject of records that outlive it.
+    Closed = 2,
+}
+impl AccountState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ACCOUNT_STATE_UNSPECIFIED",
+            Self::Open => "ACCOUNT_STATE_OPEN",
+            Self::Closed => "ACCOUNT_STATE_CLOSED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ACCOUNT_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "ACCOUNT_STATE_OPEN" => Some(Self::Open),
+            "ACCOUNT_STATE_CLOSED" => Some(Self::Closed),
             _ => None,
         }
     }
@@ -761,6 +866,66 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W6.4: platform.config.command.link-external-account (command).
+        pub async fn link_external_account(
+            &mut self,
+            request: impl tonic::IntoRequest<super::LinkExternalAccountParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::LinkExternalAccountResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/LinkExternalAccount",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "LinkExternalAccount",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W6.4: platform.config.query.accounts (query).
+        pub async fn read_accounts_for_linking(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReadAccountsForLinkingParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadAccountsForLinkingResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReadAccountsForLinking",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReadAccountsForLinking",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -815,6 +980,22 @@ pub mod plugin_operations_server {
             &self,
             request: tonic::Request<super::ReportMissingInstrumentParams>,
         ) -> std::result::Result<tonic::Response<super::Published>, tonic::Status>;
+        /// W6.4: platform.config.command.link-external-account (command).
+        async fn link_external_account(
+            &self,
+            request: tonic::Request<super::LinkExternalAccountParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::LinkExternalAccountResult>,
+            tonic::Status,
+        >;
+        /// W6.4: platform.config.query.accounts (query).
+        async fn read_accounts_for_linking(
+            &self,
+            request: tonic::Request<super::ReadAccountsForLinkingParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadAccountsForLinkingResult>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct PluginOperationsServer<T> {
@@ -1162,6 +1343,104 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ReportMissingInstrumentSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/LinkExternalAccount" => {
+                    #[allow(non_camel_case_types)]
+                    struct LinkExternalAccountSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::LinkExternalAccountParams>
+                    for LinkExternalAccountSvc<T> {
+                        type Response = super::LinkExternalAccountResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::LinkExternalAccountParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::link_external_account(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = LinkExternalAccountSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReadAccountsForLinking" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReadAccountsForLinkingSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReadAccountsForLinkingParams>
+                    for ReadAccountsForLinkingSvc<T> {
+                        type Response = super::ReadAccountsForLinkingResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReadAccountsForLinkingParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::read_accounts_for_linking(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReadAccountsForLinkingSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

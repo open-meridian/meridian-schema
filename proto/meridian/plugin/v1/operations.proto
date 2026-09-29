@@ -25,6 +25,10 @@ service PluginOperations {
   rpc ResolveIdentifier(ResolveIdentifierParams) returns (ResolveIdentifierResult);
   // W3.2: platform.reference.event.instrument-missing (event).
   rpc ReportMissingInstrument(ReportMissingInstrumentParams) returns (Published);
+  // W6.4: platform.config.command.link-external-account (command).
+  rpc LinkExternalAccount(LinkExternalAccountParams) returns (LinkExternalAccountResult);
+  // W6.4: platform.config.query.accounts (query).
+  rpc ReadAccountsForLinking(ReadAccountsForLinkingParams) returns (ReadAccountsForLinkingResult);
 }
 
 // What an event answers: the message's identifier on the bus. A refusal is
@@ -150,7 +154,9 @@ message RecordHoldingsStatementParams {
   // W4.9: the person this is sent for, as the assertion the plugin was
   // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
   // acts as itself. Set, the sidecar admits the command only when the
-  // person may write the account it names, and stamps them on it.
+  // person may write the account it names, and stamps them on it. One
+  // to the deployment's configuration (platform.config) is admitted only
+  // with a deployment admin's, and never without.
   meridian.v1.CallerAssertion acting_for = 1000;
 }
 
@@ -243,7 +249,9 @@ message RecordHoldingParams {
   // W4.9: the person this is sent for, as the assertion the plugin was
   // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
   // acts as itself. Set, the sidecar admits the command only when the
-  // person may write the account it names, and stamps them on it.
+  // person may write the account it names, and stamps them on it. One
+  // to the deployment's configuration (platform.config) is admitted only
+  // with a deployment admin's, and never without.
   meridian.v1.CallerAssertion acting_for = 1000;
 }
 
@@ -317,6 +325,62 @@ message ReportMissingInstrumentParams {
   // Set by the sidecar, never by a plugin (stamped.tsv).
   reserved 5, 8;
   reserved "publisher_instance_id", "placeholder_instrument_id";
+}
+
+// Links an external account a plugin reported, or removes its link.
+// Names an existing account, or a new account's name for the conductor to
+// create and link in one step, or neither to remove the link; never both. Held
+// as one of that plugin's settings. Sent by the plugin from its own admin page,
+// acting for the deployment admin viewing it (W6.4); the plugin's sidecar
+// stamps plugin_instance_id.
+// The params of LinkExternalAccount: meridian.v1.LinkExternalAccountRequest, less what the sidecar sets.
+message LinkExternalAccountParams {
+  string external_account_id = 2;
+
+  string account_id = 3;
+
+  // A new account's name, for the conductor to create and link in one step.
+  string new_account_name = 4;
+
+  // Set by the sidecar, never by a plugin (stamped.tsv).
+  reserved 1;
+  reserved "plugin_instance_id";
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits the command only when the
+  // person may write the account it names, and stamps them on it. One
+  // to the deployment's configuration (platform.config) is admitted only
+  // with a deployment admin's, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of LinkExternalAccount: meridian.v1.ExternalAccountLink.
+message LinkExternalAccountResult {
+  string plugin_instance_id = 1;
+
+  string external_account_id = 2;
+
+  string account_id = 3;
+}
+
+// The deployment's accounts, read by a plugin acting for a deployment admin
+// to offer the accounts an external account can be linked to (W6.4).
+// The params of ReadAccountsForLinking: meridian.v1.AccountsRequest, less what the sidecar sets.
+message ReadAccountsForLinkingParams {
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // reads as itself, which the sidecar refuses here: a read of the
+  // deployment's configuration (platform.config) is answered only with a
+  // deployment admin's, and stamped with them.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of ReadAccountsForLinking: meridian.v1.Accounts.
+message ReadAccountsForLinkingResult {
+  // Names, identifiers and states; no holdings.
+  repeated AccountRecord accounts = 1;
 }
 
 // One account a connection reaches, as the custodian presents it.
@@ -450,4 +514,26 @@ enum MissReason {
   // More than one matched. Reported as a miss rather than resolved by picking,
   // because picking would be wrong about half the time and would be silent.
   MISS_REASON_AMBIGUOUS = 2;
+}
+
+// The only thing holdings are recorded against. A plugin creates one only by
+// linking an external account to a new one, acting for a deployment admin
+// (W6.4).
+// A mirror of meridian.v1.AccountRecord.
+message AccountRecord {
+  string account_id = 1;
+
+  string name = 2;
+
+  AccountState state = 3;
+
+  int64 created_at_ns = 4;
+}
+
+// A mirror of meridian.v1.AccountState.
+enum AccountState {
+  ACCOUNT_STATE_UNSPECIFIED = 0;
+  ACCOUNT_STATE_OPEN = 1;
+  // Closed, not deleted: an account is the subject of records that outlive it.
+  ACCOUNT_STATE_CLOSED = 2;
 }
