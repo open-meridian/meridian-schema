@@ -58,6 +58,49 @@ pub struct SettingDeclaration {
     /// Shown beside the field in the dashboard.
     #[prost(string, tag = "5")]
     pub description: ::prost::alloc::string::String,
+    /// What the dashboard's form calls the setting, such as "Client ID"; the
+    /// name when empty.
+    #[prost(string, tag = "6")]
+    pub label: ::prost::alloc::string::String,
+    /// The value the plugin uses while none is set, written as the form would
+    /// take it. Shown greyed in the empty field; never stored as a setting's
+    /// value. Never declared for a secret.
+    #[prost(string, tag = "7")]
+    pub default_value: ::prost::alloc::string::String,
+    /// The unit a number is in, such as "seconds" or "hours", shown beside the
+    /// field.
+    #[prost(string, tag = "8")]
+    pub unit: ::prost::alloc::string::String,
+    /// For SETTING_TYPE_CHOICE: the options, in the order shown, of which one is
+    /// chosen. A value not among them is refused.
+    #[prost(message, repeated, tag = "9")]
+    pub choices: ::prost::alloc::vec::Vec<SettingChoice>,
+    /// Unset: the setting always applies. Set: it applies only while another
+    /// setting holds one of the values named, and is shown, and required when
+    /// `required`, only then.
+    #[prost(message, optional, tag = "10")]
+    pub applies_when: ::core::option::Option<SettingCondition>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettingChoice {
+    /// What the setting holds when this is chosen.
+    #[prost(string, tag = "1")]
+    pub value: ::prost::alloc::string::String,
+    /// What the form shows, such as "Personal key".
+    #[prost(string, tag = "2")]
+    pub label: ::prost::alloc::string::String,
+    /// Shown beside the option.
+    #[prost(string, tag = "3")]
+    pub description: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettingCondition {
+    /// Another setting the same plugin declares, which comes before this one.
+    #[prost(string, tag = "1")]
+    pub setting: ::prost::alloc::string::String,
+    /// The values of that setting under which this one applies.
+    #[prost(string, repeated, tag = "2")]
+    pub one_of: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterReply {
@@ -261,6 +304,8 @@ pub enum SettingType {
     String = 1,
     Integer = 2,
     Boolean = 3,
+    /// One of the declared choices, held as its value.
+    Choice = 4,
 }
 impl SettingType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -273,6 +318,7 @@ impl SettingType {
             Self::String => "SETTING_TYPE_STRING",
             Self::Integer => "SETTING_TYPE_INTEGER",
             Self::Boolean => "SETTING_TYPE_BOOLEAN",
+            Self::Choice => "SETTING_TYPE_CHOICE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -282,6 +328,7 @@ impl SettingType {
             "SETTING_TYPE_STRING" => Some(Self::String),
             "SETTING_TYPE_INTEGER" => Some(Self::Integer),
             "SETTING_TYPE_BOOLEAN" => Some(Self::Boolean),
+            "SETTING_TYPE_CHOICE" => Some(Self::Choice),
             _ => None,
         }
     }
