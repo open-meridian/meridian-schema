@@ -129,6 +129,11 @@ message SettingDeclaration {
   // setting holds one of the values named, and is shown, and required when
   // `required`, only then.
   SettingCondition applies_when = 10;
+
+  // For whoever develops the plugin, such as serving built-in data instead of
+  // calling the venue: the form shows it only on a development deployment
+  // (`meridian up --development`), and never on one installed otherwise.
+  bool developer = 11;
 }
 
 message SettingChoice {

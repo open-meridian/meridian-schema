@@ -80,6 +80,11 @@ pub struct SettingDeclaration {
     /// `required`, only then.
     #[prost(message, optional, tag = "10")]
     pub applies_when: ::core::option::Option<SettingCondition>,
+    /// For whoever develops the plugin, such as serving built-in data instead of
+    /// calling the venue: the form shows it only on a development deployment
+    /// (`meridian up --development`), and never on one installed otherwise.
+    #[prost(bool, tag = "11")]
+    pub developer: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SettingChoice {
