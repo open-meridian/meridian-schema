@@ -247,6 +247,10 @@ message CallerClaims {
   // assertion captured in flight cannot be replayed while it is still in date
   // (plans/a-person-reaches-a-plugin, ruling 3).
   string assertion_id = 7;
+
+  // Whether the person is a deployment admin. A plugin serves its admin page
+  // to deployment admins and to nobody else (W6.9); absent means not.
+  bool deployment_admin = 8;
 }
 
 // For one tag of one plugin: the accounts a person, or a group, may read and

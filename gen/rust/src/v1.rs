@@ -187,6 +187,10 @@ pub struct CallerClaims {
     /// (plans/a-person-reaches-a-plugin, ruling 3).
     #[prost(string, tag = "7")]
     pub assertion_id: ::prost::alloc::string::String,
+    /// Whether the person is a deployment admin. A plugin serves its admin page
+    /// to deployment admins and to nobody else (W6.9); absent means not.
+    #[prost(bool, tag = "8")]
+    pub deployment_admin: bool,
 }
 /// For one tag of one plugin: the accounts a person, or a group, may read and
 /// may write through it. Write implies read, and every write account is also
