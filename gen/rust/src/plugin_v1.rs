@@ -305,6 +305,17 @@ pub struct LinkExternalAccountParams {
     /// A new account's name, for the conductor to create and link in one step.
     #[prost(string, tag = "4")]
     pub new_account_name: ::prost::alloc::string::String,
+    /// The new account's custodian, type, owner and note (W6.3), which the
+    /// plugin may pre-fill from what the venue reported. Ignored unless
+    /// new_account_name is given: an existing account is edited only by W6.3.
+    #[prost(string, tag = "5")]
+    pub new_account_custodian: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub new_account_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub new_account_owner: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub new_account_note: ::prost::alloc::string::String,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits the command only when the
@@ -340,7 +351,8 @@ pub struct ReadAccountsForLinkingParams {
 /// The result of ReadAccountsForLinking: meridian.v1.Accounts.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReadAccountsForLinkingResult {
-    /// Names, identifiers and states; no holdings.
+    /// Each account's identifier, name, state, custodian, type, owner and note;
+    /// no holdings.
     #[prost(message, repeated, tag = "1")]
     pub accounts: ::prost::alloc::vec::Vec<AccountRecord>,
 }
@@ -439,6 +451,19 @@ pub struct AccountRecord {
     pub state: i32,
     #[prost(int64, tag = "4")]
     pub created_at_ns: i64,
+    /// Free text, optional, and searchable as the name is (W6.3). Where the
+    /// account is held, e.g. "Fidelity". At most 200 characters.
+    #[prost(string, tag = "5")]
+    pub custodian: ::prost::alloc::string::String,
+    /// What the account is, e.g. "Roth IRA". At most 200 characters.
+    #[prost(string, tag = "6")]
+    pub account_type: ::prost::alloc::string::String,
+    /// One ownership or grouping label, e.g. "Fund I". At most 200 characters.
+    #[prost(string, tag = "7")]
+    pub owner: ::prost::alloc::string::String,
+    /// Anything else worth knowing about it. At most 2,000 characters.
+    #[prost(string, tag = "8")]
+    pub note: ::prost::alloc::string::String,
 }
 /// Why a connection's data is, or is not, current.
 ///
