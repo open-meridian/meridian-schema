@@ -39,6 +39,23 @@ pub struct InterfaceDeclaration {
     /// What the dashboard calls the interface in its navigation.
     #[prost(string, tag = "2")]
     pub title: ::prost::alloc::string::String,
+    /// The plugin's admin pages, in the order shown. The dashboard's admin view
+    /// of the instance shows each as a tab beside its own (settings, access),
+    /// framing the page at `path` on the plugin's host; the plugin serves them
+    /// to deployment admins alone, by the caller's claims (W6.9). None: the
+    /// view shows the plugin's `/admin` page, if it serves one, as one tab.
+    #[prost(message, repeated, tag = "3")]
+    pub admin_pages: ::prost::alloc::vec::Vec<PageDeclaration>,
+}
+/// One page of a plugin's interface.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PageDeclaration {
+    /// On the plugin's own host, beginning with "/", such as "/admin/accounts".
+    #[prost(string, tag = "1")]
+    pub path: ::prost::alloc::string::String,
+    /// The tab's name, such as "Accounts".
+    #[prost(string, tag = "2")]
+    pub title: ::prost::alloc::string::String,
 }
 /// One setting the plugin needs.
 #[derive(Clone, PartialEq, ::prost::Message)]

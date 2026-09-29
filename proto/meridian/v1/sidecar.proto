@@ -90,6 +90,22 @@ message InterfaceDeclaration {
 
   // What the dashboard calls the interface in its navigation.
   string title = 2;
+
+  // The plugin's admin pages, in the order shown. The dashboard's admin view
+  // of the instance shows each as a tab beside its own (settings, access),
+  // framing the page at `path` on the plugin's host; the plugin serves them
+  // to deployment admins alone, by the caller's claims (W6.9). None: the
+  // view shows the plugin's `/admin` page, if it serves one, as one tab.
+  repeated PageDeclaration admin_pages = 3;
+}
+
+// One page of a plugin's interface.
+message PageDeclaration {
+  // On the plugin's own host, beginning with "/", such as "/admin/accounts".
+  string path = 1;
+
+  // The tab's name, such as "Accounts".
+  string title = 2;
 }
 
 // One setting the plugin needs.
