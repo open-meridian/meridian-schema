@@ -48,8 +48,8 @@ service SidecarService {
 
 // The plugin announces that it has started. It does not say who it is.
 //
-// Instance, role and tags were fixed when the sidecar was launched, and they
-// are what decide the plugin's topic access. A plugin that named the role it
+// Instance and roles were fixed when the sidecar was launched, and they are
+// what decide the plugin's topic access. A plugin that named the role it
 // serves would be choosing its own privileges, and one that named its own
 // instance could publish as a sibling, because grants are written with instance
 // wildcards so that an instance-scoped topic needs no grant minted per
@@ -66,8 +66,8 @@ message RegisterRequest {
   string schema_version = 4;
 
   // What the plugin offers, as distinct from what it may do. None of these
-  // widens a grant: the tags that decide access stay the launch
-  // configuration's. Each is optional.
+  // widens a grant: the roles that decide it stay the launch configuration's,
+  // and a plugin declares no tags (decisions/026). Each is optional.
 
   // Set when the plugin serves an interface to people (W6.9).
   InterfaceDeclaration interface = 5;
@@ -205,12 +205,14 @@ message RegisterReply {
   // naming it (decisions/020). Empty is a plugin admitted with no topics.
   // A set since contract version 2; a single `role` before it.
   repeated string roles = 9;
-  // Its parts, for people: what access groups grant, at read or write. They
-  // grant nothing on the bus.
-  repeated string tags = 8;
 
   reserved 7;
   reserved "role";
+
+  // Its tags, retired: a plugin declares none, and a person's access to it
+  // is read or write, the same for every plugin (decisions/026).
+  reserved 8;
+  reserved "tags";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -299,8 +301,15 @@ message CallerClaims {
   // to another instance.
   string audience_instance_id = 3;
 
-  // The person's access on this plugin, tag by tag.
-  repeated TagAccess access = 4;
+  // The person's access on this plugin: the accounts they may read through
+  // it, and the accounts they may write through it. Write implies read, and
+  // every write account is also listed as read.
+  repeated string read_account_ids = 9;
+  repeated string write_account_ids = 10;
+
+  // Access tag by tag, retired with tags (decisions/026).
+  reserved 4;
+  reserved "access";
 
   int64 issued_at_ns = 5;
 
@@ -316,15 +325,6 @@ message CallerClaims {
   // Whether the person is a deployment admin. A plugin serves its admin page
   // to deployment admins and to nobody else (W6.9); absent means not.
   bool deployment_admin = 8;
-}
-
-// For one tag of one plugin: the accounts a person, or a group, may read and
-// may write through it. Write implies read, and every write account is also
-// listed as read.
-message TagAccess {
-  string tag = 1;
-  repeated string read_account_ids = 2;
-  repeated string write_account_ids = 3;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -345,10 +345,18 @@ message PluginAccessReply {
   repeated PersonAccess people = 2;
 }
 
+// For one user group, or one person: the accounts they may read and may
+// write through this plugin. Write implies read, and every write account is
+// also listed as read.
 message UserGroupAccess {
   string user_group_id = 1;
   string name = 2;
-  repeated TagAccess access = 3;
+  repeated string read_account_ids = 4;
+  repeated string write_account_ids = 5;
+
+  // Access tag by tag, retired with tags (decisions/026).
+  reserved 3;
+  reserved "access";
 }
 
 message PersonAccess {
@@ -356,7 +364,12 @@ message PersonAccess {
   string display_name = 2;
   repeated string user_group_ids = 3;
   int64 last_signed_in_at_ns = 4;
-  repeated TagAccess access = 5;
+  repeated string read_account_ids = 6;
+  repeated string write_account_ids = 7;
+
+  // Access tag by tag, retired with tags (decisions/026).
+  reserved 5;
+  reserved "access";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
