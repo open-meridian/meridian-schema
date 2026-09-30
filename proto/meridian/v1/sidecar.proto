@@ -59,8 +59,15 @@ message RegisterRequest {
   reserved 1, 2, 3;
   reserved "instance_id", "role", "tags";
 
-  // The schema version the plugin was built against. A mismatch is worth
-  // refusing at the door rather than discovering in a decode failure later.
+  // The contract version the plugin was built against, as `v<N>`. This
+  // schema is contract v3, and a plugin built from it declares "v3".
+  //
+  // Required. A sidecar admits it when it lies between the sidecar's floor
+  // and its own version, and otherwise refuses it naming both (W4.1): a
+  // plugin built for a newer contract may depend on what an older sidecar
+  // does not send. So every revision adding something a plugin can depend on
+  // -- an operation, a field on a stream or a response, a refusal code --
+  // raises the version, and an SDK built from it declares the new one.
   //
   // The only thing a plugin tells the sidecar about itself that bears on
   // admission, and it decides nothing about access.
