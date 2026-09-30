@@ -60,7 +60,7 @@ message RegisterRequest {
   reserved "instance_id", "role", "tags";
 
   // The contract version the plugin was built against, as `v<N>`. This
-  // schema is contract v4, and a plugin built from it declares "v4".
+  // schema is contract v5, and a plugin built from it declares "v5".
   //
   // Required. A sidecar admits it when it lies between the sidecar's floor
   // and its own version, and otherwise refuses it naming both (W4.1): a
@@ -80,12 +80,12 @@ message RegisterRequest {
   // Set when the plugin serves an interface to people (W6.9).
   InterfaceDeclaration interface = 5;
 
-  // The settings a deployment admin must or may give it (W4.7, W6.11).
+  // The settings an admin of the plugin must or may give it (W4.7, W6.11).
   repeated SettingDeclaration settings = 6;
 
   // True when the plugin reads accounts at an external source and names them
-  // by that source's identifiers, which a deployment admin links to accounts
-  // (W6.4). The sidecar then translates on the way in (W2).
+  // by that source's identifiers, which an admin of the plugin links to
+  // accounts (W6.4). The sidecar then translates on the way in (W2).
   bool reads_external_accounts = 7;
 }
 
@@ -99,21 +99,72 @@ message InterfaceDeclaration {
   // What the dashboard calls the interface in its navigation.
   string title = 2;
 
-  // The plugin's admin pages, in the order shown. The dashboard's admin view
-  // of the instance shows each as a tab beside its own (settings, access),
-  // framing the page at `path` on the plugin's host; the plugin serves them
-  // to deployment admins alone, by the caller's claims (W6.9). None: the
-  // view shows the plugin's `/admin` page, if it serves one, as one tab.
-  repeated PageDeclaration admin_pages = 3;
+  // The plugin's admin pages, retired for `pages` (W4.8). While a sidecar
+  // accepts the contract version a plugin was built against, it reads that
+  // plugin's admin pages as pages at ACCESS_LEVEL_ADMIN, in the order
+  // declared; the SDK's migration rewrites them into `pages`.
+  reserved 3;
+  reserved "admin_pages";
+
+  // The plugin's pages, one list, in the order shown (W4.1, W4.8). The
+  // plugin's area, reached from the dashboard's home, shows under each
+  // button the pages whose levels include that button's level -- Manage
+  // `admin`, Open `write`, View `read` -- as one tab row, framing the page
+  // at `path` on the plugin's own host (W6.9). A page is declared where it
+  // is served: each SDK builds this list from its own idiom and checks the
+  // session's level in the claims against a page's levels, so the tab row
+  // shows a page and the plugin refuses it by the same declaration.
+  //
+  // None at `write` or `read`: the area frames the plugin's `/` under Open
+  // and View.
+  repeated PageDeclaration pages = 4;
 }
 
 // One page of a plugin's interface.
 message PageDeclaration {
-  // On the plugin's own host, beginning with "/", such as "/admin/accounts".
+  // On the plugin's own host, beginning with "/", such as "/statements".
   string path = 1;
 
-  // The tab's name, such as "Accounts".
+  // The tab's name, such as "Statements".
   string title = 2;
+
+  // The levels the page serves, one or several: its tab shows under the
+  // buttons of these levels, and one path serving `write` and `read` adapts
+  // by the session's level, showing actions under `write` alone (W6.9). A
+  // page naming no level, or one outside the three, is refused at
+  // registration, naming the page (W4.1, W4.8).
+  repeated AccessLevel levels = 3;
+}
+
+// A person's level on a plugin, the same three for every plugin: a plugin
+// names no parts of itself for access (W6.7; decisions/026, 027). An access
+// group's entry names a plugin at one of them; a session is opened at one
+// (W6.9); a page serves one or several (W4.8).
+//
+// A person may hold `admin` on a plugin and, independently, one data level,
+// the higher one granted. The levels are agnostic of accounts: which
+// accounts `read` and `write` reach is decided by the account groups their
+// grants name, and `admin` reaches none.
+enum AccessLevel {
+  // Holds nothing. A claim naming no level admits no page and no act.
+  ACCESS_LEVEL_UNSPECIFIED = 0;
+
+  // What the plugin reads, which it may show the person, cut to the accounts
+  // they may read: queries and receiving events. The home's View.
+  ACCESS_LEVEL_READ = 1;
+
+  // What the plugin publishes, which it may do for the person, acting for
+  // them, on the accounts they may write: commands, and everything read
+  // allows. The home's Open.
+  ACCESS_LEVEL_WRITE = 2;
+
+  // Configures the plugin: its settings, its pages at `admin`, its account
+  // links, and the admin portal's tabs for it. Includes neither `read` nor
+  // `write`, and reaches no account's data: acting for a person at this
+  // level, a plugin may read the deployment's accounts, identities only, and
+  // link an external account to one, and nothing else (W4.9, W6.4). The
+  // home's Manage.
+  ACCESS_LEVEL_ADMIN = 3;
 }
 
 // One setting the plugin needs.
@@ -309,9 +360,24 @@ message CallerClaims {
   // to another instance.
   string audience_instance_id = 3;
 
-  // The person's access on this plugin: the accounts they may read through
-  // it, and the accounts they may write through it. Write implies read, and
-  // every write account is also listed as read.
+  // The level this session was opened at, one the person holds on this
+  // plugin: ACCESS_LEVEL_ADMIN by Manage, ACCESS_LEVEL_WRITE by Open,
+  // ACCESS_LEVEL_READ by View (W6.9). The dashboard mints nothing for a level
+  // the person does not hold. The plugin serves a page only at a level the
+  // page declares (W4.8). What the plugin sends acting for the person, the
+  // sidecar admits by it: under ACCESS_LEVEL_WRITE a command on an account
+  // in the write set; under ACCESS_LEVEL_ADMIN the deployment's accounts
+  // read, answered with identities only, and the link, and nothing else;
+  // under ACCESS_LEVEL_READ nothing (W4.9). Absent means none: an assertion
+  // naming no level holds nothing.
+  AccessLevel level = 11;
+
+  // The accounts the session reaches through this plugin, cut to `level`.
+  // Under ACCESS_LEVEL_WRITE, the read set, every account the person may
+  // read through their `read` and `write` grants, and the write set, the
+  // accounts their `write` grants name; under ACCESS_LEVEL_READ, the read
+  // set alone; under ACCESS_LEVEL_ADMIN, neither. Every write account is
+  // also listed as read.
   repeated string read_account_ids = 9;
   repeated string write_account_ids = 10;
 
@@ -330,8 +396,11 @@ message CallerClaims {
   // (plans/a-person-reaches-a-plugin, ruling 3).
   string assertion_id = 7;
 
-  // Whether the person is a deployment admin. A plugin serves its admin page
-  // to deployment admins and to nobody else (W6.9); absent means not.
+  // Whether the person is a deployment admin; absent means not. It opens no
+  // page and reaches no account: a deployment admin holds on a plugin what
+  // their grants give, as anybody (W6.9). It says only that, linking an
+  // external account in a session at ACCESS_LEVEL_ADMIN, the person may name
+  // a new account rather than an existing one (W6.4).
   bool deployment_admin = 8;
 }
 

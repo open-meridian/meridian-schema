@@ -10,7 +10,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v4, and a plugin built from it declares "v4".
+    /// schema is contract v5, and a plugin built from it declares "v5".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -26,12 +26,12 @@ pub struct RegisterRequest {
     /// Set when the plugin serves an interface to people (W6.9).
     #[prost(message, optional, tag = "5")]
     pub interface: ::core::option::Option<InterfaceDeclaration>,
-    /// The settings a deployment admin must or may give it (W4.7, W6.11).
+    /// The settings an admin of the plugin must or may give it (W4.7, W6.11).
     #[prost(message, repeated, tag = "6")]
     pub settings: ::prost::alloc::vec::Vec<SettingDeclaration>,
     /// True when the plugin reads accounts at an external source and names them
-    /// by that source's identifiers, which a deployment admin links to accounts
-    /// (W6.4). The sidecar then translates on the way in (W2).
+    /// by that source's identifiers, which an admin of the plugin links to
+    /// accounts (W6.4). The sidecar then translates on the way in (W2).
     #[prost(bool, tag = "7")]
     pub reads_external_accounts: bool,
 }
@@ -46,23 +46,36 @@ pub struct InterfaceDeclaration {
     /// What the dashboard calls the interface in its navigation.
     #[prost(string, tag = "2")]
     pub title: ::prost::alloc::string::String,
-    /// The plugin's admin pages, in the order shown. The dashboard's admin view
-    /// of the instance shows each as a tab beside its own (settings, access),
-    /// framing the page at `path` on the plugin's host; the plugin serves them
-    /// to deployment admins alone, by the caller's claims (W6.9). None: the
-    /// view shows the plugin's `/admin` page, if it serves one, as one tab.
-    #[prost(message, repeated, tag = "3")]
-    pub admin_pages: ::prost::alloc::vec::Vec<PageDeclaration>,
+    /// The plugin's pages, one list, in the order shown (W4.1, W4.8). The
+    /// plugin's area, reached from the dashboard's home, shows under each
+    /// button the pages whose levels include that button's level -- Manage
+    /// `admin`, Open `write`, View `read` -- as one tab row, framing the page
+    /// at `path` on the plugin's own host (W6.9). A page is declared where it
+    /// is served: each SDK builds this list from its own idiom and checks the
+    /// session's level in the claims against a page's levels, so the tab row
+    /// shows a page and the plugin refuses it by the same declaration.
+    ///
+    /// None at `write` or `read`: the area frames the plugin's `/` under Open
+    /// and View.
+    #[prost(message, repeated, tag = "4")]
+    pub pages: ::prost::alloc::vec::Vec<PageDeclaration>,
 }
 /// One page of a plugin's interface.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PageDeclaration {
-    /// On the plugin's own host, beginning with "/", such as "/admin/accounts".
+    /// On the plugin's own host, beginning with "/", such as "/statements".
     #[prost(string, tag = "1")]
     pub path: ::prost::alloc::string::String,
-    /// The tab's name, such as "Accounts".
+    /// The tab's name, such as "Statements".
     #[prost(string, tag = "2")]
     pub title: ::prost::alloc::string::String,
+    /// The levels the page serves, one or several: its tab shows under the
+    /// buttons of these levels, and one path serving `write` and `read` adapts
+    /// by the session's level, showing actions under `write` alone (W6.9). A
+    /// page naming no level, or one outside the three, is refused at
+    /// registration, naming the page (W4.1, W4.8).
+    #[prost(enumeration = "AccessLevel", repeated, tag = "3")]
+    pub levels: ::prost::alloc::vec::Vec<i32>,
 }
 /// One setting the plugin needs.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -241,9 +254,24 @@ pub struct CallerClaims {
     /// to another instance.
     #[prost(string, tag = "3")]
     pub audience_instance_id: ::prost::alloc::string::String,
-    /// The person's access on this plugin: the accounts they may read through
-    /// it, and the accounts they may write through it. Write implies read, and
-    /// every write account is also listed as read.
+    /// The level this session was opened at, one the person holds on this
+    /// plugin: ACCESS_LEVEL_ADMIN by Manage, ACCESS_LEVEL_WRITE by Open,
+    /// ACCESS_LEVEL_READ by View (W6.9). The dashboard mints nothing for a level
+    /// the person does not hold. The plugin serves a page only at a level the
+    /// page declares (W4.8). What the plugin sends acting for the person, the
+    /// sidecar admits by it: under ACCESS_LEVEL_WRITE a command on an account
+    /// in the write set; under ACCESS_LEVEL_ADMIN the deployment's accounts
+    /// read, answered with identities only, and the link, and nothing else;
+    /// under ACCESS_LEVEL_READ nothing (W4.9). Absent means none: an assertion
+    /// naming no level holds nothing.
+    #[prost(enumeration = "AccessLevel", tag = "11")]
+    pub level: i32,
+    /// The accounts the session reaches through this plugin, cut to `level`.
+    /// Under ACCESS_LEVEL_WRITE, the read set, every account the person may
+    /// read through their `read` and `write` grants, and the write set, the
+    /// accounts their `write` grants name; under ACCESS_LEVEL_READ, the read
+    /// set alone; under ACCESS_LEVEL_ADMIN, neither. Every write account is
+    /// also listed as read.
     #[prost(string, repeated, tag = "9")]
     pub read_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag = "10")]
@@ -259,8 +287,11 @@ pub struct CallerClaims {
     /// (plans/a-person-reaches-a-plugin, ruling 3).
     #[prost(string, tag = "7")]
     pub assertion_id: ::prost::alloc::string::String,
-    /// Whether the person is a deployment admin. A plugin serves its admin page
-    /// to deployment admins and to nobody else (W6.9); absent means not.
+    /// Whether the person is a deployment admin; absent means not. It opens no
+    /// page and reaches no account: a deployment admin holds on a plugin what
+    /// their grants give, as anybody (W6.9). It says only that, linking an
+    /// external account in a session at ACCESS_LEVEL_ADMIN, the person may name
+    /// a new account rather than an existing one (W6.4).
     #[prost(bool, tag = "8")]
     pub deployment_admin: bool,
 }
@@ -355,6 +386,59 @@ pub struct LinkedExternalAccount {
 pub struct Refusal {
     #[prost(enumeration = "RefusalReason", tag = "1")]
     pub reason: i32,
+}
+/// A person's level on a plugin, the same three for every plugin: a plugin
+/// names no parts of itself for access (W6.7; decisions/026, 027). An access
+/// group's entry names a plugin at one of them; a session is opened at one
+/// (W6.9); a page serves one or several (W4.8).
+///
+/// A person may hold `admin` on a plugin and, independently, one data level,
+/// the higher one granted. The levels are agnostic of accounts: which
+/// accounts `read` and `write` reach is decided by the account groups their
+/// grants name, and `admin` reaches none.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AccessLevel {
+    /// Holds nothing. A claim naming no level admits no page and no act.
+    Unspecified = 0,
+    /// What the plugin reads, which it may show the person, cut to the accounts
+    /// they may read: queries and receiving events. The home's View.
+    Read = 1,
+    /// What the plugin publishes, which it may do for the person, acting for
+    /// them, on the accounts they may write: commands, and everything read
+    /// allows. The home's Open.
+    Write = 2,
+    /// Configures the plugin: its settings, its pages at `admin`, its account
+    /// links, and the admin portal's tabs for it. Includes neither `read` nor
+    /// `write`, and reaches no account's data: acting for a person at this
+    /// level, a plugin may read the deployment's accounts, identities only, and
+    /// link an external account to one, and nothing else (W4.9, W6.4). The
+    /// home's Manage.
+    Admin = 3,
+}
+impl AccessLevel {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ACCESS_LEVEL_UNSPECIFIED",
+            Self::Read => "ACCESS_LEVEL_READ",
+            Self::Write => "ACCESS_LEVEL_WRITE",
+            Self::Admin => "ACCESS_LEVEL_ADMIN",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ACCESS_LEVEL_UNSPECIFIED" => Some(Self::Unspecified),
+            "ACCESS_LEVEL_READ" => Some(Self::Read),
+            "ACCESS_LEVEL_WRITE" => Some(Self::Write),
+            "ACCESS_LEVEL_ADMIN" => Some(Self::Admin),
+            _ => None,
+        }
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
