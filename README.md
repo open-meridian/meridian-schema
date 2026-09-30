@@ -43,14 +43,25 @@ surviving as a local divergence.
 
 | Gate | Enforces |
 |---|---|
+| `contract-diff` | a commit changing a `.proto` or a guardrail declares it in a trailer |
 | `check-codegen` | `gen/` matches a fresh generation |
 | `check-pb-compiles` | the generated Rust crate builds |
 | `check-pb-imports` | the generated Python package imports and round-trips |
 | `ci-mirror-check` | every CI job is reproducible by `ci-local` |
 
+`make install-hooks` makes `git push` run it first.
+
+## Releasing
+
+Nothing is published: a consumer takes this repository at a commit.
+meridian-core names one in its `Cargo.toml`, and meridian-python vendors
+`gen/python` at the revision its Makefile's `SCHEMA_REV` names, so a change
+here reaches a plugin when those move. Within a version, changes only add.
+
 ## Consuming
 
-Rust, as a path dependency on `gen/rust` (crate `meridian-pb`):
+Rust, as a git dependency on this repository at a commit (crate `meridian-pb`,
+in `gen/rust`):
 
 ```rust
 use meridian_pb::v1::sidecar_service_client::SidecarServiceClient;
@@ -66,7 +77,9 @@ from meridian.plugin.v1 import operations_pb2, operations_pb2_grpc
 
 A plugin written in Python does not need even this: it uses the
 [Python SDK](https://github.com/open-meridian/meridian-python), which links it
-for them, and `meridian plugin new` starts one from its reference plugin.
+for them, and `meridian plugin new` starts one from its reference plugin. The
+operations are documented at
+[open-meridian.dev](https://open-meridian.dev/api/typed-operations/).
 
 ## Licence
 
