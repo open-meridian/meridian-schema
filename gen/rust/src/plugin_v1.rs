@@ -274,8 +274,9 @@ pub struct ReportMissingInstrumentParams {
     /// The namespace the miss occurred in, e.g. "snaptrade".
     #[prost(string, tag = "1")]
     pub source: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub asset_class: ::prost::alloc::string::String,
+    /// Unspecified when the publisher does not know it.
+    #[prost(enumeration = "AssetClass", tag = "9")]
+    pub asset_class: i32,
     /// Everything the publisher held at the miss. Enough for a reader to attempt a
     /// pull against a global scheme, or to mint a stub carrying them.
     #[prost(message, repeated, tag = "3")]
@@ -594,6 +595,70 @@ impl MissReason {
             "MISS_REASON_UNSPECIFIED" => Some(Self::Unspecified),
             "MISS_REASON_NOT_FOUND" => Some(Self::NotFound),
             "MISS_REASON_AMBIGUOUS" => Some(Self::Ambiguous),
+            _ => None,
+        }
+    }
+}
+/// The kind of claim holding an instrument gives. A closed list, ruled by the
+/// product owner (sdk-contract/asset-class-is-an-enum, 2026-09-28 and
+/// 2026-09-30); a class joins it by a ruling, never because a feed sent one.
+/// Spelled in text as the value's name without its prefix, lower case:
+/// `equity`, `debt`, `fund`, `derivative`, `crypto_asset`, `event_contract`,
+/// `cash`.
+///
+/// What kind of instrument within a class (an ETF is a fund, an option a
+/// derivative) is its instrument type, which this does not carry: the list of
+/// types is still open.
+/// A mirror of meridian.v1.AssetClass.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AssetClass {
+    /// No class. Held only by a stub minted from a deployment's miss (W3.4),
+    /// which may not know one; activating an instrument requires a class (W1.8).
+    Unspecified = 0,
+    /// A share of ownership.
+    Equity = 1,
+    /// Somebody owes the holder.
+    Debt = 2,
+    /// A share of a pool: ETFs and mutual funds among them.
+    Fund = 3,
+    /// A contract whose value comes from something else: options and futures
+    /// among them.
+    Derivative = 4,
+    CryptoAsset = 5,
+    /// Pays on whether an event happens.
+    EventContract = 6,
+    /// A holding of a currency's cash instrument (spec/the-account-side-fits-every-venue).
+    Cash = 7,
+}
+impl AssetClass {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ASSET_CLASS_UNSPECIFIED",
+            Self::Equity => "ASSET_CLASS_EQUITY",
+            Self::Debt => "ASSET_CLASS_DEBT",
+            Self::Fund => "ASSET_CLASS_FUND",
+            Self::Derivative => "ASSET_CLASS_DERIVATIVE",
+            Self::CryptoAsset => "ASSET_CLASS_CRYPTO_ASSET",
+            Self::EventContract => "ASSET_CLASS_EVENT_CONTRACT",
+            Self::Cash => "ASSET_CLASS_CASH",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ASSET_CLASS_UNSPECIFIED" => Some(Self::Unspecified),
+            "ASSET_CLASS_EQUITY" => Some(Self::Equity),
+            "ASSET_CLASS_DEBT" => Some(Self::Debt),
+            "ASSET_CLASS_FUND" => Some(Self::Fund),
+            "ASSET_CLASS_DERIVATIVE" => Some(Self::Derivative),
+            "ASSET_CLASS_CRYPTO_ASSET" => Some(Self::CryptoAsset),
+            "ASSET_CLASS_EVENT_CONTRACT" => Some(Self::EventContract),
+            "ASSET_CLASS_CASH" => Some(Self::Cash),
             _ => None,
         }
     }

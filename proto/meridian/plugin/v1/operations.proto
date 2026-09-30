@@ -308,7 +308,8 @@ message ReportMissingInstrumentParams {
   // The namespace the miss occurred in, e.g. "snaptrade".
   string source = 1;
 
-  string asset_class = 2;
+  // Unspecified when the publisher does not know it.
+  AssetClass asset_class = 9;
 
   // Everything the publisher held at the miss. Enough for a reader to attempt a
   // pull against a global scheme, or to mint a stub carrying them.
@@ -325,6 +326,9 @@ message ReportMissingInstrumentParams {
   // Set by the sidecar, never by a plugin (stamped.tsv).
   reserved 5, 8;
   reserved "publisher_instance_id", "placeholder_instrument_id";
+
+  // Retired in the domain message, and never reused.
+  reserved 2;
 }
 
 // Links an external account a plugin reported, or removes its link.
@@ -526,6 +530,37 @@ enum MissReason {
   // More than one matched. Reported as a miss rather than resolved by picking,
   // because picking would be wrong about half the time and would be silent.
   MISS_REASON_AMBIGUOUS = 2;
+}
+
+// The kind of claim holding an instrument gives. A closed list, ruled by the
+// product owner (sdk-contract/asset-class-is-an-enum, 2026-09-28 and
+// 2026-09-30); a class joins it by a ruling, never because a feed sent one.
+// Spelled in text as the value's name without its prefix, lower case:
+// `equity`, `debt`, `fund`, `derivative`, `crypto_asset`, `event_contract`,
+// `cash`.
+//
+// What kind of instrument within a class (an ETF is a fund, an option a
+// derivative) is its instrument type, which this does not carry: the list of
+// types is still open.
+// A mirror of meridian.v1.AssetClass.
+enum AssetClass {
+  // No class. Held only by a stub minted from a deployment's miss (W3.4),
+  // which may not know one; activating an instrument requires a class (W1.8).
+  ASSET_CLASS_UNSPECIFIED = 0;
+  // A share of ownership.
+  ASSET_CLASS_EQUITY = 1;
+  // Somebody owes the holder.
+  ASSET_CLASS_DEBT = 2;
+  // A share of a pool: ETFs and mutual funds among them.
+  ASSET_CLASS_FUND = 3;
+  // A contract whose value comes from something else: options and futures
+  // among them.
+  ASSET_CLASS_DERIVATIVE = 4;
+  ASSET_CLASS_CRYPTO_ASSET = 5;
+  // Pays on whether an event happens.
+  ASSET_CLASS_EVENT_CONTRACT = 6;
+  // A holding of a currency's cash instrument (spec/the-account-side-fits-every-venue).
+  ASSET_CLASS_CASH = 7;
 }
 
 // The only thing holdings are recorded against. A plugin creates one only by
