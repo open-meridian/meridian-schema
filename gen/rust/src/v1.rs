@@ -305,14 +305,49 @@ pub struct PersonAccess {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct WatchAccountScopeRequest {}
 /// Everything anybody may reach through this plugin, derived from permissions
-/// and never declared. The plugin reads its whole read scope as itself and
-/// serves each person from it.
+/// and links and never declared, and the plugin's links beside it. The plugin
+/// reads its whole read scope as itself and serves each person from it.
+///
+/// Sent at once when the stream opens, so a plugin has its links again on
+/// every start, and again on every change: a permission, a link made or
+/// removed, a linked account renamed or closed.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AccountScopeDelivery {
     #[prost(string, repeated, tag = "1")]
     pub read_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag = "2")]
     pub write_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// This plugin's links (W6.4), and nobody else's: each external account it
+    /// links, and the account it is linked to, which the link puts in both
+    /// scopes while it stands (a closed one in the read scope alone). An
+    /// external account the plugin reported and none of these names is
+    /// unlinked, and its rows are refused (Refusal).
+    #[prost(message, repeated, tag = "3")]
+    pub links: ::prost::alloc::vec::Vec<LinkedExternalAccount>,
+}
+/// One of the plugin's external accounts, as linked.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LinkedExternalAccount {
+    /// As the plugin reported it (W2.8).
+    #[prost(string, tag = "1")]
+    pub external_account_id: ::prost::alloc::string::String,
+    /// The deployment's account it is linked to.
+    #[prost(string, tag = "2")]
+    pub account_id: ::prost::alloc::string::String,
+    /// That account's name as the deployment holds it now (W6.3), so the plugin
+    /// can say which account a link points at without acting for anybody.
+    #[prost(string, tag = "3")]
+    pub account_name: ::prost::alloc::string::String,
+}
+/// A typed operation's refusal is its call's status, chosen by what the caller
+/// should do about it, with words for a person reading a log. Where one
+/// status covers refusals a plugin must tell apart, the sidecar also sends
+/// this, in the status's trailing metadata `meridian-refusal-bin`, encoded,
+/// and a plugin acts on its reason, never on the words, which may change.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct Refusal {
+    #[prost(enumeration = "RefusalReason", tag = "1")]
+    pub reason: i32,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -346,6 +381,43 @@ impl SettingType {
             "SETTING_TYPE_INTEGER" => Some(Self::Integer),
             "SETTING_TYPE_BOOLEAN" => Some(Self::Boolean),
             "SETTING_TYPE_CHOICE" => Some(Self::Choice),
+            _ => None,
+        }
+    }
+}
+/// The typed-operations refusal catalogue (spec/typed-sidecar-operations):
+/// each reason, and the status it is sent beside.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum RefusalReason {
+    Unspecified = 0,
+    /// FAILED_PRECONDITION. The operation named an external account nobody has
+    /// linked to an account (W2, W6.4), so there is nothing to record it
+    /// against. Nothing was recorded; once a link is made, the next statement
+    /// records it. Told apart by this alone from not being registered, which
+    /// is the same status.
+    ExternalAccountNotLinked = 1,
+}
+impl RefusalReason {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "REFUSAL_REASON_UNSPECIFIED",
+            Self::ExternalAccountNotLinked => {
+                "REFUSAL_REASON_EXTERNAL_ACCOUNT_NOT_LINKED"
+            }
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "REFUSAL_REASON_UNSPECIFIED" => Some(Self::Unspecified),
+            "REFUSAL_REASON_EXTERNAL_ACCOUNT_NOT_LINKED" => {
+                Some(Self::ExternalAccountNotLinked)
+            }
             _ => None,
         }
     }
@@ -556,7 +628,8 @@ pub mod sidecar_service_client {
                 .insert(GrpcMethod::new("meridian.v1.SidecarService", "PluginAccess"));
             self.inner.unary(req, path, codec).await
         }
-        /// W4.11. The accounts anybody may read or write through this plugin.
+        /// W4.11. The accounts anybody may read or write through this plugin, and
+        /// the plugin's own links beside them.
         pub async fn watch_account_scope(
             &mut self,
             request: impl tonic::IntoRequest<super::WatchAccountScopeRequest>,
@@ -640,7 +713,8 @@ pub mod sidecar_service_server {
             >
             + std::marker::Send
             + 'static;
-        /// W4.11. The accounts anybody may read or write through this plugin.
+        /// W4.11. The accounts anybody may read or write through this plugin, and
+        /// the plugin's own links beside them.
         async fn watch_account_scope(
             &self,
             request: tonic::Request<super::WatchAccountScopeRequest>,
