@@ -9,7 +9,7 @@ RUST_VERSION  := 1.90
 DOCKER    := DOCKER_BUILDKIT=1 docker
 
 .PHONY: help ci-local ci-local-deep install-hooks ci-mirror-check codegen check-codegen \
-        check-pb-compiles check-pb-imports clean contract-diff
+        check-pb-compiles check-pb-imports clean contract-diff check-boundaries
 
 help:
 	@echo "  make ci-local       run every gate (the pre-push gate, and what CI mirrors)"
@@ -17,9 +17,10 @@ help:
 	@echo "  make check-codegen  fail if $(GEN_DIR)/ is stale against proto/"
 	@echo "  make install-hooks  point git at hooks/ so push fires ci-local"
 	@echo "  make check-pb-compiles / check-pb-imports   generated output actually works"
+	@echo "  make check-boundaries  boundaries/ is what meridian-design generated, unedited"
 
 # Local green is the completion signal; CI is confirmation.
-ci-local: contract-diff ci-mirror-check check-codegen check-pb-compiles check-pb-imports
+ci-local: contract-diff ci-mirror-check check-codegen check-pb-compiles check-pb-imports check-boundaries
 	@echo
 	@echo "ci-local: GREEN"
 
@@ -78,6 +79,14 @@ check-pb-imports:
 		     echo "  see it with: DOCKER_BUILDKIT=1 docker build -f Dockerfile.codegen --target pb-imports --progress=plain ." >&2; \
 		     exit 1; }
 	@echo "check-pb-imports OK: generated package imports and messages round-trip"
+
+# boundaries/ is generated in meridian-design, which is private, so it cannot
+# be regenerated here as gen/ is. The generator writes each file's digest
+# beside it, and this holds the files to them; that they are what design's
+# sources generate is design's check-boundaries, reading this repository.
+check-boundaries:
+	@$(PY) tools/check_boundaries.py --self-test
+	@$(PY) tools/check_boundaries.py --dir boundaries
 
 install-hooks:
 	@git config core.hooksPath hooks

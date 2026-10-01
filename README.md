@@ -23,6 +23,7 @@ rules for changing one.
     codegen/                   the Rust generator
     gen/rust/                  generated crate, vendored
     gen/python/                generated package, vendored
+    boundaries/                the boundaries a plugin builds within, generated
 
 ## Generating
 
@@ -37,6 +38,26 @@ edited by hand. `make check-codegen` regenerates into a scratch directory and
 fails on any difference, so a hand-edit is reverted by the gate rather than
 surviving as a local divergence.
 
+## Boundaries
+
+`boundaries/` holds, as JSON, what a plugin author -- most often an agent --
+builds within, beside the contract it describes:
+
+| File | Holds |
+|---|---|
+| `roles.json` | the thirteen roles a plugin may hold, each with its persona, functional archetype, duties, what it leaves to which other role, whether it is an edge role, and its scope (the operations it may call, the queries it may ask and the deliveries it hears); the plugin-facing operations with the roles that hold each; what every plugin calls on its sidecar; the combinations a plugin commonly holds; people's access, which is never a role; the design philosophy a request must fit; the method from "I want to do this" to the least roles; and worked examples |
+| `format.json` | the one entry format the data dictionary, a template's fields and a language's terms share, and the shape of each file |
+| `SHA256SUMS` | each file's digest |
+
+The role entries say `proposed` until each is ruled. A role's scope is what
+the contract at this revision grants; the SDK that vendors these files says
+which contract version that is, and carries them to a plugin with the
+`AGENTS.md` it scaffolds. The data dictionary (`fields.json`) follows.
+
+They are generated from the project's design repository, never edited here:
+`make check-boundaries` fails on a file that differs from its digest, is
+missing, or is not listed.
+
 ## Verification
 
     make ci-local
@@ -47,6 +68,7 @@ surviving as a local divergence.
 | `check-codegen` | `gen/` matches a fresh generation |
 | `check-pb-compiles` | the generated Rust crate builds |
 | `check-pb-imports` | the generated Python package imports and round-trips |
+| `check-boundaries` | `boundaries/` is what was generated, unedited |
 | `ci-mirror-check` | every CI job is reproducible by `ci-local` |
 
 `make install-hooks` makes `git push` run it first.
