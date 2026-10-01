@@ -420,8 +420,14 @@
       "edge": false,
       "scope": {
         "publishes": [],
-        "reads": [],
-        "hears": []
+        "reads": [
+          "ListCustodialPositions",
+          "ListStatements"
+        ],
+        "hears": [
+          "StatementRecorded",
+          "CustodialPositionUpdated"
+        ]
       }
     },
     {
@@ -618,6 +624,18 @@
   ],
   "operations": [
     {
+      "name": "CustodialPositionUpdated",
+      "step": "W2.6",
+      "title": "Publish custodial position updates",
+      "kind": "event",
+      "topic": "platform.street.event.custodial-position-updated",
+      "roles": {
+        "hears": [
+          "operations"
+        ]
+      }
+    },
+    {
       "name": "LinkExternalAccount",
       "step": "W6.4",
       "title": "Link a plugin's external account",
@@ -626,6 +644,30 @@
       "roles": {
         "publishes": [
           "custody"
+        ]
+      }
+    },
+    {
+      "name": "ListCustodialPositions",
+      "step": "W2.7",
+      "title": "Read custodial positions",
+      "kind": "query",
+      "topic": "platform.street.query.list-custodial-positions",
+      "roles": {
+        "reads": [
+          "operations"
+        ]
+      }
+    },
+    {
+      "name": "ListStatements",
+      "step": "W2.9",
+      "title": "Read completed statements",
+      "kind": "query",
+      "topic": "platform.street.query.list-statements",
+      "roles": {
+        "reads": [
+          "operations"
         ]
       }
     },
@@ -710,6 +752,18 @@
       "roles": {
         "reads": [
           "custody"
+        ]
+      }
+    },
+    {
+      "name": "StatementRecorded",
+      "step": "W2.5",
+      "title": "Close the statement",
+      "kind": "event",
+      "topic": "platform.street.event.statement-recorded",
+      "roles": {
+        "hears": [
+          "operations"
         ]
       }
     }
@@ -1018,25 +1072,25 @@
           "role": "operations",
           "row": "StatementRecorded",
           "as": "hears",
-          "pending": "contract v7, the street's revision"
+          "granted": "v7"
         },
         {
           "role": "operations",
           "row": "CustodialPositionUpdated",
           "as": "hears",
-          "pending": "contract v7, the street's revision"
+          "granted": "v7"
         },
         {
           "role": "operations",
           "row": "ListCustodialPositions",
           "as": "reads",
-          "pending": "contract v7, the street's revision"
+          "granted": "v7"
         },
         {
           "role": "operations",
           "row": "ListStatements",
           "as": "reads",
-          "pending": "contract v7, the street's revision"
+          "granted": "v7"
         },
         {
           "role": "operations",
@@ -1078,7 +1132,7 @@
           "role": "operations",
           "row": "ListCustodialPositions",
           "as": "reads",
-          "pending": "contract v7, the street's revision"
+          "granted": "v7"
         },
         {
           "role": "operations",

@@ -1349,4 +1349,11 @@ pub struct MessageMeta {
     /// answers only for these.
     #[prost(string, repeated, tag = "9")]
     pub account_scope: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Set by the sidecar on every query it sends for a plugin, beside
+    /// account_scope, and never by a core component (W4.11): the scope
+    /// applies, so an empty one is nothing. A store answers a query carrying
+    /// it whose scope is empty with nothing, and refuses one naming an account
+    /// outside the scope.
+    #[prost(bool, tag = "10")]
+    pub account_scope_applies: bool,
 }

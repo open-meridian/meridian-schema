@@ -4,7 +4,8 @@
 // The operations a plugin performs: one per bus row of the matrix a plugin
 // role publishes, named for the row. A plugin calls these and nothing on the
 // bus; the sidecar builds each domain message, stamps it, checks the grant
-// and sends it (decisions/008, decisions/013).
+// and sends it (decisions/008, decisions/013). And what it hears: one
+// stream of the rows its roles hear, typed (W4.3).
 
 syntax = "proto3";
 
@@ -21,6 +22,10 @@ service PluginOperations {
   rpc RecordHoldingsStatement(RecordHoldingsStatementParams) returns (RecordHoldingsStatementResult);
   // W2.3: platform.street.command.record-holding (command).
   rpc RecordHolding(RecordHoldingParams) returns (RecordHoldingResult);
+  // W2.7: platform.street.query.list-custodial-positions (query).
+  rpc ListCustodialPositions(ListCustodialPositionsParams) returns (ListCustodialPositionsResult);
+  // W2.9: platform.street.query.list-statements (query).
+  rpc ListStatements(ListStatementsParams) returns (ListStatementsResult);
   // W3.1: platform.reference.query.resolve-identifier (query).
   rpc ResolveIdentifier(ResolveIdentifierParams) returns (ResolveIdentifierResult);
   // W3.2: platform.reference.event.instrument-missing (event).
@@ -29,6 +34,8 @@ service PluginOperations {
   rpc LinkExternalAccount(LinkExternalAccountParams) returns (LinkExternalAccountResult);
   // W6.4: platform.config.query.accounts (query).
   rpc ReadAccountsForLinking(ReadAccountsForLinkingParams) returns (ReadAccountsForLinkingResult);
+  // W4.3: every row this plugin's roles hear, within its read scope.
+  rpc Receive(ReceiveRequest) returns (stream Delivery);
 }
 
 // What an event answers: the message's identifier on the bus. A refusal is
@@ -136,20 +143,39 @@ message RecordHoldingsStatementParams {
   // knows this without reading anything twice.
   int32 expected_rows = 5;
 
-  // The account's buying power and margin figures, as the venue reported
-  // them, and unset where it reported none. Never derived: a figure computed
-  // here from the holdings would be ours presented as the custodian's, and
-  // margin is where that difference costs money.
+  // Superseded from contract v7 by `figures` (W2.2): read from a plugin
+  // before v7 as the set with no segment, refused from one at v7 sent
+  // beside `figures`. Kept, never reused.
   optional Money buying_power = 6;
 
   optional Money margin_requirement = 7;
 
   optional Money maintenance_excess = 8;
 
-  // True when the venue stated no currency for these figures and the
+  // True when the venue stated no currency for the figures and the
   // connector's is its own stated assumption (E*TRADE's balances carry none),
-  // rather than something the venue said.
+  // rather than something the venue said. Of every set in `figures`.
   bool currency_assumed = 9;
+
+  // The account as the rail knows it; the sidecar sets account_id from its
+  // link and refuses the statement when there is none (stamped.tsv). A
+  // statement is one account's, and a row naming another is refused.
+  string external_account_id = 10;
+
+  // One set per margin segment the venue reports (Q6, Q12); no two name
+  // the same segment. Never derived: a figure computed here from the
+  // holdings would be ours presented as the custodian's, and margin is
+  // where that difference costs money.
+  repeated StatementFigures figures = 12;
+
+  // The institution holding the external account, as the connector names
+  // it: the brokerage behind an aggregator, or the venue itself for a
+  // direct connector. Empty where it does not say.
+  string institution = 13;
+
+  // Set by the sidecar, never by a plugin (stamped.tsv).
+  reserved 11;
+  reserved "account_id";
 
   // W4.9: the person this is sent for, as the assertion the plugin was
   // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
@@ -239,6 +265,23 @@ message RecordHoldingParams {
   // deducts it from cash.
   bool also_counted_in_cash = 14;
 
+  // As the venue reports them, unset or empty where it reports none, never
+  // derived (W2.3; sdk-contract/a-holding-carries-its-cost). The holding's
+  // total cost.
+  optional Money cost_basis = 15;
+
+  // Its lots as the custodian lists them; none is not one lot, and lots
+  // whose quantities do not sum to the holding's are recorded as reported.
+  repeated ReportedLot lots = 16;
+
+  optional Money margin_requirement = 17;
+
+  // The venue's average cost per unit, in the venue's unit (SnapTrade: per
+  // share, for an option whose quantity counts contracts). Never computed
+  // from cost_basis, nor cost_basis from it: nothing multiplies it by the
+  // quantity or a multiplier (Q-A, 2026-10-01).
+  optional Money average_cost = 18;
+
   // Set by the sidecar, never by a plugin (stamped.tsv).
   reserved 2;
   reserved "account_id";
@@ -265,6 +308,75 @@ message RecordHoldingResult {
   // an unresolved row, which updates nothing, because there is no position to
   // update until the deployment knows what it holds.
   bool resolved = 2;
+}
+
+// Read custodial positions, and the unresolved holdings beside them (W2.7).
+// The params of ListCustodialPositions: meridian.v1.ListCustodialPositionsRequest, less what the sidecar sets.
+message ListCustodialPositionsParams {
+  // Empty means every account in the reader's scope for a plugin, every
+  // account for a core component (W4.11).
+  string account_id = 1;
+
+  // When true, the reply also carries holdings that never resolved, so one
+  // request answers both "what does the custodian say I hold" and "what could I
+  // not account for".
+  bool include_unresolved = 2;
+
+  int32 page_size = 3;
+
+  // Opaque: the previous reply's `next_cursor`, or empty for the first page.
+  // Unresolved holdings come with the first page only, so a read across
+  // pages sees each once.
+  string cursor = 4;
+
+  // Only the positions whose last change is above it, tombstones included.
+  Watermark since = 5;
+}
+
+// The result of ListCustodialPositions: meridian.v1.ListCustodialPositionsReply.
+message ListCustodialPositionsResult {
+  repeated CustodialPosition positions = 1;
+
+  // Populated only when include_unresolved was set.
+  repeated UnresolvedHolding unresolved = 2;
+
+  string next_cursor = 3;
+
+  // The point in the store's record the page was read at.
+  Watermark as_of = 4;
+}
+
+// Read completed statements and their figures (W2.9).
+//
+// How a reconciliation, or a plugin seeding after a restart, reads the
+// figures without having heard W2.5: they are on the statement and on no
+// position. An open statement is not listed.
+// The params of ListStatements: meridian.v1.ListStatementsRequest, less what the sidecar sets.
+message ListStatementsParams {
+  // Empty: every account in the reader's scope.
+  string account_id = 1;
+
+  // ISO 8601; empty for any date.
+  string as_of_date = 2;
+
+  // Only statements completed after it.
+  Watermark since = 3;
+
+  int32 page_size = 4;
+
+  // Opaque: the previous reply's `next_cursor`, or empty for the first page.
+  string cursor = 5;
+}
+
+// The result of ListStatements: meridian.v1.ListStatementsReply.
+message ListStatementsResult {
+  // Completed statements only, each as it was announced (W2.5).
+  repeated StatementRecordedEvent statements = 1;
+
+  string next_cursor = 2;
+
+  // The point in the store's record the page was read at.
+  Watermark as_of = 3;
 }
 
 // Reverse resolution: identifiers to an instrument, as of a date.
@@ -405,6 +517,63 @@ message ReadAccountsForLinkingResult {
   repeated AccountRecord accounts = 1;
 }
 
+// What a plugin asks to hear. A row it names that no role it holds hears
+// is refused, PERMISSION_DENIED, naming it.
+message ReceiveRequest {
+  // The rows to hear, by their matrix names ("CustodialPositionUpdated");
+  // empty for every row the plugin's roles hear.
+  repeated string rows = 1;
+}
+
+// One item of the stream: a row's message in plugin-facing form beside
+// what is known of it, or the mark of deliveries the sidecar dropped. At
+// most once, bounded at 1024 queued for the plugin, within its read scope
+// by the account matrix/scoped.tsv names for each row's message.
+message Delivery {
+  DeliveryMeta meta = 1;
+
+  oneof item {
+    Lost lost = 2;
+
+    // One arm per row a role hears, numbered as matrix/scoped.tsv's `arm`
+    // says, and never reused.
+    // W2.5: platform.street.event.statement-recorded.
+    StatementRecordedEvent statement_recorded = 16;
+    // W2.6: platform.street.event.custodial-position-updated.
+    CustodialPositionUpdatedEvent custodial_position_updated = 17;
+  }
+}
+
+// What is known of a delivery beside its message.
+message DeliveryMeta {
+  // From the envelope.
+  string message_id = 1;
+  string correlation_id = 2;
+  string causation_id = 3;
+  int64 published_at_ns = 4;
+
+  // The row, as ReceiveRequest names it; empty on a Lost.
+  string row = 5;
+
+  // Copied from the record's journal and cause; unset on a Lost.
+  JournalRef journal = 6;
+  ChangeCause cause = 7;
+
+  // The cause's instance is this plugin's (Q6).
+  bool own = 8;
+}
+
+// The sidecar dropped deliveries it knows of, at this point in the stream:
+// its queue for the plugin full (1024), or the bus's drop count for the
+// plugin's subscription risen.
+message Lost {
+  // How many, where the sidecar knows; 0 when it knows only that some were.
+  uint64 dropped = 1;
+
+  // The rows they were of; empty when it cannot say, which is every row.
+  repeated string rows = 2;
+}
+
 // One account a connection reaches, as the custodian presents it.
 // A mirror of meridian.v1.ExternalAccount.
 message ExternalAccount {
@@ -497,6 +666,75 @@ message Decimal {
   uint32 scale = 3;
 }
 
+// A statement's figures for one margin segment, each as the venue reported
+// it and unset where it reported none; never derived.
+// A mirror of meridian.v1.StatementFigures.
+message StatementFigures {
+  // The segment as the venue names it, verbatim ("securities",
+  // "commodities", an FCM's class); empty for the account as a whole.
+  string segment = 1;
+
+  optional Money buying_power = 2;
+
+  optional Money margin_requirement = 3;
+
+  // Negative is a deficit.
+  optional Money maintenance_excess = 4;
+
+  optional Money initial_margin = 5;
+
+  optional Money variation_margin = 6;
+
+  // A brokerage's own total account value, as it reports it (Q-B); never a
+  // sum of the holdings.
+  optional Money net_liquidation = 7;
+
+  // The collateral held under this segment, as reported (W2.2; Q12, Q13).
+  // A balance moves nothing: posted collateral the custodian also lists as a
+  // holding is a holding row too, and collateral received under a security
+  // interest is never one.
+  repeated ReportedCollateral collateral = 8;
+}
+
+// One collateral balance under a margin segment, each field as the venue
+// reports it and unset where it does not; never derived.
+// A mirror of meridian.v1.ReportedCollateral.
+message ReportedCollateral {
+  // Posted by the account, or received by it. Unspecified is refused.
+  CollateralDirection direction = 1;
+
+  // Resolved as a holding's instrument is (W3.1): an instrument or the
+  // deployment's placeholder, the currency's cash instrument for cash; or,
+  // when the resolve was ambiguous, the identifiers the connector held.
+  // Exactly one of the two, as on RecordHoldingRequest.
+  string instrument_id = 2;
+
+  repeated Identifier unresolved_identifiers = 3;
+
+  Decimal quantity = 4;
+
+  optional Money value = 5;
+
+  // A fraction of the value: 0.15 is 15%, a venue's percentage written as
+  // its fraction.
+  optional Decimal haircut = 6;
+
+  optional Money value_after_haircut = 7;
+
+  // Where it is held, as the venue names it: the FCM, the dealer, a
+  // third-party custodian. Empty where it does not say.
+  string held_at = 8;
+}
+
+// Whether a collateral balance was posted by the account or received by it.
+// A mirror of meridian.v1.CollateralDirection.
+enum CollateralDirection {
+  // Not said. Refused: collateral is posted or received.
+  COLLATERAL_DIRECTION_UNSPECIFIED = 0;
+  COLLATERAL_DIRECTION_POSTED = 1;
+  COLLATERAL_DIRECTION_RECEIVED = 2;
+}
+
 // One typed identifier for an instrument.
 //
 // `scheme` says what kind of identifier this is: a global scheme ("figi",
@@ -525,6 +763,210 @@ enum HoldingSide {
   HOLDING_SIDE_UNSPECIFIED = 0;
   HOLDING_SIDE_LONG = 1;
   HOLDING_SIDE_SHORT = 2;
+}
+
+// One lot of a holding, as the custodian lists it.
+// A mirror of meridian.v1.ReportedLot.
+message ReportedLot {
+  // Signed as the holding's quantity: negative is short.
+  Decimal quantity = 1;
+
+  // The lot's total cost, unset where not reported; its sign as reported,
+  // never flipped (Q-D, 2026-10-01).
+  optional Money cost = 2;
+
+  // ISO 8601; empty where not reported.
+  string acquired_date = 3;
+}
+
+// A point in a store's record: a sequence per partition. What a read
+// answers it was read at, and what a read of changes since takes.
+// A mirror of meridian.v1.Watermark.
+message Watermark {
+  repeated PartitionSequence partitions = 1;
+}
+
+// One partition's sequence within a watermark.
+// A mirror of meridian.v1.PartitionSequence.
+message PartitionSequence {
+  string partition = 1;
+
+  uint64 sequence = 2;
+}
+
+// What the custodian says an account holds of an instrument, on one side,
+// right now. Keyed by all three: an account may hold an instrument long and
+// short at once, as a venue reporting them apart says.
+//
+// Custodial, and named so deliberately. This is the custodian's belief, arrived
+// at by reading their statements; it is not what the deployment calculates from
+// its own activity. Those are different numbers whose disagreement is the
+// entire subject of reconciliation, and a message called `Position` would make
+// a consumer guess which one it had.
+//
+// Our own book does not exist yet. When it does it gets its own message and its
+// own name, and no reader of this one silently changes meaning.
+// A mirror of meridian.v1.CustodialPosition.
+message CustodialPosition {
+  string account_id = 1;
+
+  // An instrument, or the deployment's LCL- placeholder awaiting identity,
+  // which the INS- ID replaces when it arrives (W3.9).
+  string instrument_id = 2;
+
+  // The trade-date quantity, signed to match `side`.
+  Decimal quantity = 9;
+
+  // Unset where the custodian reported no value, which is not zero.
+  Money market_value = 10;
+
+  // The statement this was last stated by, and when. One not restated recently
+  // is not wrong, but it is worth showing differently.
+  string last_statement_id = 6;
+
+  string as_of_date = 7;
+
+  int64 updated_at_ns = 8;
+
+  HoldingSide side = 11;
+
+  // The settle-date quantity, where the custodian reported one.
+  Decimal settle_date_quantity = 12;
+
+  // This position's value is also included in the account's cash holding as
+  // the custodian reports it; both are kept as reported.
+  bool also_counted_in_cash = 13;
+
+  // As the custodian reported them on the row that last stated this, unset
+  // or empty where it reported none (W2.3).
+  Money cost_basis = 14;
+
+  repeated ReportedLot lots = 15;
+
+  Money margin_requirement = 16;
+
+  // Its last change: a delivery at or below it is already in it.
+  JournalRef last_change = 17;
+
+  // A tombstone (W2.6, W3.9): returned only to a read since a watermark,
+  // and delivered once.
+  bool removed = 18;
+
+  // As on RecordHoldingRequest (Q-A).
+  Money average_cost = 19;
+
+  // Retired in the domain message, and never reused.
+  reserved 3, 4, 5;
+  reserved "quantity_scaled_1e8", "market_value_scaled_1e8", "currency";
+}
+
+// Where a change sits in its store's record (spec/plugins-hear-and-read, Q1
+// as clarified 2026-10-01).
+// A mirror of meridian.v1.JournalRef.
+message JournalRef {
+  // The partition the change was made in: the street store's one, or a
+  // book partition.
+  string partition = 1;
+
+  // Its number there: the partition's next, taken in the change's own
+  // transaction, so the numbers have no holes.
+  uint64 sequence = 2;
+
+  // The number of the previous change the same row made for the same
+  // account, 0 for its first: what a plugin hearing only some accounts
+  // checks for a gap in its own.
+  uint64 previous_sequence = 3;
+}
+
+// A holding the deployment received but could not name.
+// A mirror of meridian.v1.UnresolvedHolding.
+message UnresolvedHolding {
+  string holding_id = 1;
+
+  string account_id = 2;
+
+  repeated Identifier identifiers = 3;
+
+  // Signed, as the row stated it: negative is a short row.
+  Decimal quantity = 10;
+
+  // Unset where the custodian reported no value.
+  Money market_value = 11;
+
+  string source = 7;
+
+  string as_of_date = 8;
+
+  // Whether an escalation has already been raised for these identifiers, so the
+  // view can separate "nobody has looked at this" from "this is with the
+  // administrator".
+  bool escalated = 9;
+
+  // Retired in the domain message, and never reused.
+  reserved 4, 5, 6;
+  reserved "quantity_scaled_1e8", "market_value_scaled_1e8", "currency";
+}
+
+// A statement is complete.
+//
+// The unresolved count is the number an operator actually watches; a statement
+// that is complete and fully resolved is the only quiet outcome.
+// A mirror of meridian.v1.StatementRecordedEvent.
+message StatementRecordedEvent {
+  string statement_id = 1;
+
+  string source = 2;
+
+  string as_of_date = 3;
+
+  int32 rows_received = 4;
+
+  int32 rows_resolved = 5;
+
+  int32 rows_unresolved = 6;
+
+  int64 recorded_at_ns = 7;
+
+  // The account the statement is of: its external account's, or, from a
+  // plugin before v7, its rows' (W2.2).
+  string account_id = 8;
+
+  // The statement's figures as recorded, one set per segment (W2.2).
+  repeated StatementFigures figures = 9;
+
+  bool currency_assumed = 10;
+
+  // The completion's number in the street's partition, chained per account
+  // with the statements before it, and who caused it: the row whose landing
+  // completed it (W2.5, W4.3).
+  JournalRef journal = 11;
+
+  ChangeCause cause = 12;
+
+  // The account as the rail knows it, and the institution holding it, as
+  // the statement named them: with the source and a segment, what a margin
+  // agreement is keyed by and an opening balance names as its source. Empty
+  // from a plugin before v7.
+  string external_account_id = 13;
+
+  string institution = 14;
+}
+
+// Who caused a change, as the store recorded it when it committed (Q3).
+// A mirror of meridian.v1.ChangeCause.
+message ChangeCause {
+  // The instance that sent the command, as its sidecar stamped it.
+  string instance_id = 1;
+
+  // The person it was sent for (W4.9); empty when the plugin acted as itself.
+  string acting_for_subject = 2;
+
+  string correlation_id = 3;
+
+  // The command's message_id.
+  string causation_id = 4;
+
+  int64 committed_at_ns = 5;
 }
 
 // Why a resolution did not produce exactly one instrument.
@@ -602,4 +1044,28 @@ enum AccountState {
   ACCOUNT_STATE_OPEN = 1;
   // Closed, not deleted: an account is the subject of records that outlive it.
   ACCOUNT_STATE_CLOSED = 2;
+}
+
+// A custodial position that changed, and the statement that changed it.
+// A mirror of meridian.v1.CustodialPositionUpdatedEvent.
+message CustodialPositionUpdatedEvent {
+  CustodialPosition position = 1;
+
+  // The statement that caused this. Lets a reader explain any position by
+  // pointing at what produced it.
+  string statement_id = 2;
+
+  // The previous quantity, so a subscriber can render a delta without holding
+  // its own history.
+  Decimal previous_quantity = 4;
+
+  // The change's number in the street's partition, chained per account with
+  // the positions changed before it, and who caused it (W2.4, W4.3).
+  JournalRef journal = 5;
+
+  ChangeCause cause = 6;
+
+  // Retired in the domain message, and never reused.
+  reserved 3;
+  reserved "previous_quantity_scaled_1e8";
 }

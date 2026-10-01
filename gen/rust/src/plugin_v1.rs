@@ -104,21 +104,36 @@ pub struct RecordHoldingsStatementParams {
     /// knows this without reading anything twice.
     #[prost(int32, tag = "5")]
     pub expected_rows: i32,
-    /// The account's buying power and margin figures, as the venue reported
-    /// them, and unset where it reported none. Never derived: a figure computed
-    /// here from the holdings would be ours presented as the custodian's, and
-    /// margin is where that difference costs money.
+    /// Superseded from contract v7 by `figures` (W2.2): read from a plugin
+    /// before v7 as the set with no segment, refused from one at v7 sent
+    /// beside `figures`. Kept, never reused.
     #[prost(message, optional, tag = "6")]
     pub buying_power: ::core::option::Option<Money>,
     #[prost(message, optional, tag = "7")]
     pub margin_requirement: ::core::option::Option<Money>,
     #[prost(message, optional, tag = "8")]
     pub maintenance_excess: ::core::option::Option<Money>,
-    /// True when the venue stated no currency for these figures and the
+    /// True when the venue stated no currency for the figures and the
     /// connector's is its own stated assumption (E*TRADE's balances carry none),
-    /// rather than something the venue said.
+    /// rather than something the venue said. Of every set in `figures`.
     #[prost(bool, tag = "9")]
     pub currency_assumed: bool,
+    /// The account as the rail knows it; the sidecar sets account_id from its
+    /// link and refuses the statement when there is none (stamped.tsv). A
+    /// statement is one account's, and a row naming another is refused.
+    #[prost(string, tag = "10")]
+    pub external_account_id: ::prost::alloc::string::String,
+    /// One set per margin segment the venue reports (Q6, Q12); no two name
+    /// the same segment. Never derived: a figure computed here from the
+    /// holdings would be ours presented as the custodian's, and margin is
+    /// where that difference costs money.
+    #[prost(message, repeated, tag = "12")]
+    pub figures: ::prost::alloc::vec::Vec<StatementFigures>,
+    /// The institution holding the external account, as the connector names
+    /// it: the brokerage behind an aggregator, or the venue itself for a
+    /// direct connector. Empty where it does not say.
+    #[prost(string, tag = "13")]
+    pub institution: ::prost::alloc::string::String,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -209,6 +224,23 @@ pub struct RecordHoldingParams {
     /// deducts it from cash.
     #[prost(bool, tag = "14")]
     pub also_counted_in_cash: bool,
+    /// As the venue reports them, unset or empty where it reports none, never
+    /// derived (W2.3; sdk-contract/a-holding-carries-its-cost). The holding's
+    /// total cost.
+    #[prost(message, optional, tag = "15")]
+    pub cost_basis: ::core::option::Option<Money>,
+    /// Its lots as the custodian lists them; none is not one lot, and lots
+    /// whose quantities do not sum to the holding's are recorded as reported.
+    #[prost(message, repeated, tag = "16")]
+    pub lots: ::prost::alloc::vec::Vec<ReportedLot>,
+    #[prost(message, optional, tag = "17")]
+    pub margin_requirement: ::core::option::Option<Money>,
+    /// The venue's average cost per unit, in the venue's unit (SnapTrade: per
+    /// share, for an option whose quantity counts contracts). Never computed
+    /// from cost_basis, nor cost_basis from it: nothing multiplies it by the
+    /// quantity or a multiplier (Q-A, 2026-10-01).
+    #[prost(message, optional, tag = "18")]
+    pub average_cost: ::core::option::Option<Money>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -229,6 +261,79 @@ pub struct RecordHoldingResult {
     /// update until the deployment knows what it holds.
     #[prost(bool, tag = "2")]
     pub resolved: bool,
+}
+/// Read custodial positions, and the unresolved holdings beside them (W2.7).
+/// The params of ListCustodialPositions: meridian.v1.ListCustodialPositionsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListCustodialPositionsParams {
+    /// Empty means every account in the reader's scope for a plugin, every
+    /// account for a core component (W4.11).
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// When true, the reply also carries holdings that never resolved, so one
+    /// request answers both "what does the custodian say I hold" and "what could I
+    /// not account for".
+    #[prost(bool, tag = "2")]
+    pub include_unresolved: bool,
+    #[prost(int32, tag = "3")]
+    pub page_size: i32,
+    /// Opaque: the previous reply's `next_cursor`, or empty for the first page.
+    /// Unresolved holdings come with the first page only, so a read across
+    /// pages sees each once.
+    #[prost(string, tag = "4")]
+    pub cursor: ::prost::alloc::string::String,
+    /// Only the positions whose last change is above it, tombstones included.
+    #[prost(message, optional, tag = "5")]
+    pub since: ::core::option::Option<Watermark>,
+}
+/// The result of ListCustodialPositions: meridian.v1.ListCustodialPositionsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListCustodialPositionsResult {
+    #[prost(message, repeated, tag = "1")]
+    pub positions: ::prost::alloc::vec::Vec<CustodialPosition>,
+    /// Populated only when include_unresolved was set.
+    #[prost(message, repeated, tag = "2")]
+    pub unresolved: ::prost::alloc::vec::Vec<UnresolvedHolding>,
+    #[prost(string, tag = "3")]
+    pub next_cursor: ::prost::alloc::string::String,
+    /// The point in the store's record the page was read at.
+    #[prost(message, optional, tag = "4")]
+    pub as_of: ::core::option::Option<Watermark>,
+}
+/// Read completed statements and their figures (W2.9).
+///
+/// How a reconciliation, or a plugin seeding after a restart, reads the
+/// figures without having heard W2.5: they are on the statement and on no
+/// position. An open statement is not listed.
+/// The params of ListStatements: meridian.v1.ListStatementsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListStatementsParams {
+    /// Empty: every account in the reader's scope.
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// ISO 8601; empty for any date.
+    #[prost(string, tag = "2")]
+    pub as_of_date: ::prost::alloc::string::String,
+    /// Only statements completed after it.
+    #[prost(message, optional, tag = "3")]
+    pub since: ::core::option::Option<Watermark>,
+    #[prost(int32, tag = "4")]
+    pub page_size: i32,
+    /// Opaque: the previous reply's `next_cursor`, or empty for the first page.
+    #[prost(string, tag = "5")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListStatements: meridian.v1.ListStatementsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListStatementsResult {
+    /// Completed statements only, each as it was announced (W2.5).
+    #[prost(message, repeated, tag = "1")]
+    pub statements: ::prost::alloc::vec::Vec<StatementRecordedEvent>,
+    #[prost(string, tag = "2")]
+    pub next_cursor: ::prost::alloc::string::String,
+    /// The point in the store's record the page was read at.
+    #[prost(message, optional, tag = "3")]
+    pub as_of: ::core::option::Option<Watermark>,
 }
 /// Reverse resolution: identifiers to an instrument, as of a date.
 /// The params of ResolveIdentifier: meridian.v1.ResolveIdentifierRequest, less what the sidecar sets.
@@ -363,6 +468,78 @@ pub struct ReadAccountsForLinkingResult {
     #[prost(message, repeated, tag = "1")]
     pub accounts: ::prost::alloc::vec::Vec<AccountRecord>,
 }
+/// What a plugin asks to hear. A row it names that no role it holds hears
+/// is refused, PERMISSION_DENIED, naming it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReceiveRequest {
+    /// The rows to hear, by their matrix names ("CustodialPositionUpdated");
+    /// empty for every row the plugin's roles hear.
+    #[prost(string, repeated, tag = "1")]
+    pub rows: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// One item of the stream: a row's message in plugin-facing form beside
+/// what is known of it, or the mark of deliveries the sidecar dropped. At
+/// most once, bounded at 1024 queued for the plugin, within its read scope
+/// by the account matrix/scoped.tsv names for each row's message.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Delivery {
+    #[prost(message, optional, tag = "1")]
+    pub meta: ::core::option::Option<DeliveryMeta>,
+    #[prost(oneof = "delivery::Item", tags = "2, 16, 17")]
+    pub item: ::core::option::Option<delivery::Item>,
+}
+/// Nested message and enum types in `Delivery`.
+pub mod delivery {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Item {
+        #[prost(message, tag = "2")]
+        Lost(super::Lost),
+        /// One arm per row a role hears, numbered as matrix/scoped.tsv's `arm`
+        /// says, and never reused.
+        /// W2.5: platform.street.event.statement-recorded.
+        #[prost(message, tag = "16")]
+        StatementRecorded(super::StatementRecordedEvent),
+        /// W2.6: platform.street.event.custodial-position-updated.
+        #[prost(message, tag = "17")]
+        CustodialPositionUpdated(super::CustodialPositionUpdatedEvent),
+    }
+}
+/// What is known of a delivery beside its message.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeliveryMeta {
+    /// From the envelope.
+    #[prost(string, tag = "1")]
+    pub message_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub correlation_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub causation_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "4")]
+    pub published_at_ns: i64,
+    /// The row, as ReceiveRequest names it; empty on a Lost.
+    #[prost(string, tag = "5")]
+    pub row: ::prost::alloc::string::String,
+    /// Copied from the record's journal and cause; unset on a Lost.
+    #[prost(message, optional, tag = "6")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "7")]
+    pub cause: ::core::option::Option<ChangeCause>,
+    /// The cause's instance is this plugin's (Q6).
+    #[prost(bool, tag = "8")]
+    pub own: bool,
+}
+/// The sidecar dropped deliveries it knows of, at this point in the stream:
+/// its queue for the plugin full (1024), or the bus's drop count for the
+/// plugin's subscription risen.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Lost {
+    /// How many, where the sidecar knows; 0 when it knows only that some were.
+    #[prost(uint64, tag = "1")]
+    pub dropped: u64,
+    /// The rows they were of; empty when it cannot say, which is every row.
+    #[prost(string, repeated, tag = "2")]
+    pub rows: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 /// One account a connection reaches, as the custodian presents it.
 /// A mirror of meridian.v1.ExternalAccount.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -426,6 +603,68 @@ pub struct Decimal {
     #[prost(uint32, tag = "3")]
     pub scale: u32,
 }
+/// A statement's figures for one margin segment, each as the venue reported
+/// it and unset where it reported none; never derived.
+/// A mirror of meridian.v1.StatementFigures.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StatementFigures {
+    /// The segment as the venue names it, verbatim ("securities",
+    /// "commodities", an FCM's class); empty for the account as a whole.
+    #[prost(string, tag = "1")]
+    pub segment: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub buying_power: ::core::option::Option<Money>,
+    #[prost(message, optional, tag = "3")]
+    pub margin_requirement: ::core::option::Option<Money>,
+    /// Negative is a deficit.
+    #[prost(message, optional, tag = "4")]
+    pub maintenance_excess: ::core::option::Option<Money>,
+    #[prost(message, optional, tag = "5")]
+    pub initial_margin: ::core::option::Option<Money>,
+    #[prost(message, optional, tag = "6")]
+    pub variation_margin: ::core::option::Option<Money>,
+    /// A brokerage's own total account value, as it reports it (Q-B); never a
+    /// sum of the holdings.
+    #[prost(message, optional, tag = "7")]
+    pub net_liquidation: ::core::option::Option<Money>,
+    /// The collateral held under this segment, as reported (W2.2; Q12, Q13).
+    /// A balance moves nothing: posted collateral the custodian also lists as a
+    /// holding is a holding row too, and collateral received under a security
+    /// interest is never one.
+    #[prost(message, repeated, tag = "8")]
+    pub collateral: ::prost::alloc::vec::Vec<ReportedCollateral>,
+}
+/// One collateral balance under a margin segment, each field as the venue
+/// reports it and unset where it does not; never derived.
+/// A mirror of meridian.v1.ReportedCollateral.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportedCollateral {
+    /// Posted by the account, or received by it. Unspecified is refused.
+    #[prost(enumeration = "CollateralDirection", tag = "1")]
+    pub direction: i32,
+    /// Resolved as a holding's instrument is (W3.1): an instrument or the
+    /// deployment's placeholder, the currency's cash instrument for cash; or,
+    /// when the resolve was ambiguous, the identifiers the connector held.
+    /// Exactly one of the two, as on RecordHoldingRequest.
+    #[prost(string, tag = "2")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "3")]
+    pub unresolved_identifiers: ::prost::alloc::vec::Vec<Identifier>,
+    #[prost(message, optional, tag = "4")]
+    pub quantity: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "5")]
+    pub value: ::core::option::Option<Money>,
+    /// A fraction of the value: 0.15 is 15%, a venue's percentage written as
+    /// its fraction.
+    #[prost(message, optional, tag = "6")]
+    pub haircut: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "7")]
+    pub value_after_haircut: ::core::option::Option<Money>,
+    /// Where it is held, as the venue names it: the FCM, the dealer, a
+    /// third-party custodian. Empty where it does not say.
+    #[prost(string, tag = "8")]
+    pub held_at: ::prost::alloc::string::String,
+}
 /// One typed identifier for an instrument.
 ///
 /// `scheme` says what kind of identifier this is: a global scheme ("figi",
@@ -443,6 +682,210 @@ pub struct Identifier {
     /// Empty for a global scheme.
     #[prost(string, tag = "3")]
     pub source: ::prost::alloc::string::String,
+}
+/// One lot of a holding, as the custodian lists it.
+/// A mirror of meridian.v1.ReportedLot.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportedLot {
+    /// Signed as the holding's quantity: negative is short.
+    #[prost(message, optional, tag = "1")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// The lot's total cost, unset where not reported; its sign as reported,
+    /// never flipped (Q-D, 2026-10-01).
+    #[prost(message, optional, tag = "2")]
+    pub cost: ::core::option::Option<Money>,
+    /// ISO 8601; empty where not reported.
+    #[prost(string, tag = "3")]
+    pub acquired_date: ::prost::alloc::string::String,
+}
+/// A point in a store's record: a sequence per partition. What a read
+/// answers it was read at, and what a read of changes since takes.
+/// A mirror of meridian.v1.Watermark.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Watermark {
+    #[prost(message, repeated, tag = "1")]
+    pub partitions: ::prost::alloc::vec::Vec<PartitionSequence>,
+}
+/// One partition's sequence within a watermark.
+/// A mirror of meridian.v1.PartitionSequence.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PartitionSequence {
+    #[prost(string, tag = "1")]
+    pub partition: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "2")]
+    pub sequence: u64,
+}
+/// What the custodian says an account holds of an instrument, on one side,
+/// right now. Keyed by all three: an account may hold an instrument long and
+/// short at once, as a venue reporting them apart says.
+///
+/// Custodial, and named so deliberately. This is the custodian's belief, arrived
+/// at by reading their statements; it is not what the deployment calculates from
+/// its own activity. Those are different numbers whose disagreement is the
+/// entire subject of reconciliation, and a message called `Position` would make
+/// a consumer guess which one it had.
+///
+/// Our own book does not exist yet. When it does it gets its own message and its
+/// own name, and no reader of this one silently changes meaning.
+/// A mirror of meridian.v1.CustodialPosition.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CustodialPosition {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// An instrument, or the deployment's LCL- placeholder awaiting identity,
+    /// which the INS- ID replaces when it arrives (W3.9).
+    #[prost(string, tag = "2")]
+    pub instrument_id: ::prost::alloc::string::String,
+    /// The trade-date quantity, signed to match `side`.
+    #[prost(message, optional, tag = "9")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// Unset where the custodian reported no value, which is not zero.
+    #[prost(message, optional, tag = "10")]
+    pub market_value: ::core::option::Option<Money>,
+    /// The statement this was last stated by, and when. One not restated recently
+    /// is not wrong, but it is worth showing differently.
+    #[prost(string, tag = "6")]
+    pub last_statement_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub as_of_date: ::prost::alloc::string::String,
+    #[prost(int64, tag = "8")]
+    pub updated_at_ns: i64,
+    #[prost(enumeration = "HoldingSide", tag = "11")]
+    pub side: i32,
+    /// The settle-date quantity, where the custodian reported one.
+    #[prost(message, optional, tag = "12")]
+    pub settle_date_quantity: ::core::option::Option<Decimal>,
+    /// This position's value is also included in the account's cash holding as
+    /// the custodian reports it; both are kept as reported.
+    #[prost(bool, tag = "13")]
+    pub also_counted_in_cash: bool,
+    /// As the custodian reported them on the row that last stated this, unset
+    /// or empty where it reported none (W2.3).
+    #[prost(message, optional, tag = "14")]
+    pub cost_basis: ::core::option::Option<Money>,
+    #[prost(message, repeated, tag = "15")]
+    pub lots: ::prost::alloc::vec::Vec<ReportedLot>,
+    #[prost(message, optional, tag = "16")]
+    pub margin_requirement: ::core::option::Option<Money>,
+    /// Its last change: a delivery at or below it is already in it.
+    #[prost(message, optional, tag = "17")]
+    pub last_change: ::core::option::Option<JournalRef>,
+    /// A tombstone (W2.6, W3.9): returned only to a read since a watermark,
+    /// and delivered once.
+    #[prost(bool, tag = "18")]
+    pub removed: bool,
+    /// As on RecordHoldingRequest (Q-A).
+    #[prost(message, optional, tag = "19")]
+    pub average_cost: ::core::option::Option<Money>,
+}
+/// Where a change sits in its store's record (spec/plugins-hear-and-read, Q1
+/// as clarified 2026-10-01).
+/// A mirror of meridian.v1.JournalRef.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct JournalRef {
+    /// The partition the change was made in: the street store's one, or a
+    /// book partition.
+    #[prost(string, tag = "1")]
+    pub partition: ::prost::alloc::string::String,
+    /// Its number there: the partition's next, taken in the change's own
+    /// transaction, so the numbers have no holes.
+    #[prost(uint64, tag = "2")]
+    pub sequence: u64,
+    /// The number of the previous change the same row made for the same
+    /// account, 0 for its first: what a plugin hearing only some accounts
+    /// checks for a gap in its own.
+    #[prost(uint64, tag = "3")]
+    pub previous_sequence: u64,
+}
+/// A holding the deployment received but could not name.
+/// A mirror of meridian.v1.UnresolvedHolding.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UnresolvedHolding {
+    #[prost(string, tag = "1")]
+    pub holding_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "3")]
+    pub identifiers: ::prost::alloc::vec::Vec<Identifier>,
+    /// Signed, as the row stated it: negative is a short row.
+    #[prost(message, optional, tag = "10")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// Unset where the custodian reported no value.
+    #[prost(message, optional, tag = "11")]
+    pub market_value: ::core::option::Option<Money>,
+    #[prost(string, tag = "7")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub as_of_date: ::prost::alloc::string::String,
+    /// Whether an escalation has already been raised for these identifiers, so the
+    /// view can separate "nobody has looked at this" from "this is with the
+    /// administrator".
+    #[prost(bool, tag = "9")]
+    pub escalated: bool,
+}
+/// A statement is complete.
+///
+/// The unresolved count is the number an operator actually watches; a statement
+/// that is complete and fully resolved is the only quiet outcome.
+/// A mirror of meridian.v1.StatementRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StatementRecordedEvent {
+    #[prost(string, tag = "1")]
+    pub statement_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub as_of_date: ::prost::alloc::string::String,
+    #[prost(int32, tag = "4")]
+    pub rows_received: i32,
+    #[prost(int32, tag = "5")]
+    pub rows_resolved: i32,
+    #[prost(int32, tag = "6")]
+    pub rows_unresolved: i32,
+    #[prost(int64, tag = "7")]
+    pub recorded_at_ns: i64,
+    /// The account the statement is of: its external account's, or, from a
+    /// plugin before v7, its rows' (W2.2).
+    #[prost(string, tag = "8")]
+    pub account_id: ::prost::alloc::string::String,
+    /// The statement's figures as recorded, one set per segment (W2.2).
+    #[prost(message, repeated, tag = "9")]
+    pub figures: ::prost::alloc::vec::Vec<StatementFigures>,
+    #[prost(bool, tag = "10")]
+    pub currency_assumed: bool,
+    /// The completion's number in the street's partition, chained per account
+    /// with the statements before it, and who caused it: the row whose landing
+    /// completed it (W2.5, W4.3).
+    #[prost(message, optional, tag = "11")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "12")]
+    pub cause: ::core::option::Option<ChangeCause>,
+    /// The account as the rail knows it, and the institution holding it, as
+    /// the statement named them: with the source and a segment, what a margin
+    /// agreement is keyed by and an opening balance names as its source. Empty
+    /// from a plugin before v7.
+    #[prost(string, tag = "13")]
+    pub external_account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "14")]
+    pub institution: ::prost::alloc::string::String,
+}
+/// Who caused a change, as the store recorded it when it committed (Q3).
+/// A mirror of meridian.v1.ChangeCause.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ChangeCause {
+    /// The instance that sent the command, as its sidecar stamped it.
+    #[prost(string, tag = "1")]
+    pub instance_id: ::prost::alloc::string::String,
+    /// The person it was sent for (W4.9); empty when the plugin acted as itself.
+    #[prost(string, tag = "2")]
+    pub acting_for_subject: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub correlation_id: ::prost::alloc::string::String,
+    /// The command's message_id.
+    #[prost(string, tag = "4")]
+    pub causation_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "5")]
+    pub committed_at_ns: i64,
 }
 /// The only thing holdings are recorded against. A plugin creates one only by
 /// linking an external account to a new one, acting for a deployment admin in
@@ -471,6 +914,27 @@ pub struct AccountRecord {
     /// Anything else worth knowing about it. At most 2,000 characters.
     #[prost(string, tag = "8")]
     pub note: ::prost::alloc::string::String,
+}
+/// A custodial position that changed, and the statement that changed it.
+/// A mirror of meridian.v1.CustodialPositionUpdatedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CustodialPositionUpdatedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub position: ::core::option::Option<CustodialPosition>,
+    /// The statement that caused this. Lets a reader explain any position by
+    /// pointing at what produced it.
+    #[prost(string, tag = "2")]
+    pub statement_id: ::prost::alloc::string::String,
+    /// The previous quantity, so a subscriber can render a delta without holding
+    /// its own history.
+    #[prost(message, optional, tag = "4")]
+    pub previous_quantity: ::core::option::Option<Decimal>,
+    /// The change's number in the street's partition, chained per account with
+    /// the positions changed before it, and who caused it (W2.4, W4.3).
+    #[prost(message, optional, tag = "5")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "6")]
+    pub cause: ::core::option::Option<ChangeCause>,
 }
 /// Why a connection's data is, or is not, current.
 ///
@@ -531,6 +995,38 @@ impl SyncState {
             "SYNC_STATE_DISABLED" => Some(Self::Disabled),
             "SYNC_STATE_DELAYED_BY_DESIGN" => Some(Self::DelayedByDesign),
             "SYNC_STATE_HOLDINGS_UNAVAILABLE" => Some(Self::HoldingsUnavailable),
+            _ => None,
+        }
+    }
+}
+/// Whether a collateral balance was posted by the account or received by it.
+/// A mirror of meridian.v1.CollateralDirection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CollateralDirection {
+    /// Not said. Refused: collateral is posted or received.
+    Unspecified = 0,
+    Posted = 1,
+    Received = 2,
+}
+impl CollateralDirection {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COLLATERAL_DIRECTION_UNSPECIFIED",
+            Self::Posted => "COLLATERAL_DIRECTION_POSTED",
+            Self::Received => "COLLATERAL_DIRECTION_RECEIVED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COLLATERAL_DIRECTION_UNSPECIFIED" => Some(Self::Unspecified),
+            "COLLATERAL_DIRECTION_POSTED" => Some(Self::Posted),
+            "COLLATERAL_DIRECTION_RECEIVED" => Some(Self::Received),
             _ => None,
         }
     }
@@ -905,6 +1401,66 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W2.7: platform.street.query.list-custodial-positions (query).
+        pub async fn list_custodial_positions(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListCustodialPositionsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListCustodialPositionsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListCustodialPositions",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListCustodialPositions",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W2.9: platform.street.query.list-statements (query).
+        pub async fn list_statements(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListStatementsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListStatementsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListStatements",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListStatements",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W3.1: platform.reference.query.resolve-identifier (query).
         pub async fn resolve_identifier(
             &mut self,
@@ -1022,6 +1578,33 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W4.3: every row this plugin's roles hear, within its read scope.
+        pub async fn receive(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReceiveRequest>,
+        ) -> std::result::Result<
+            tonic::Response<tonic::codec::Streaming<super::Delivery>>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/Receive",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "Receive"),
+                );
+            self.inner.server_streaming(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -1063,6 +1646,22 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordHoldingResult>,
             tonic::Status,
         >;
+        /// W2.7: platform.street.query.list-custodial-positions (query).
+        async fn list_custodial_positions(
+            &self,
+            request: tonic::Request<super::ListCustodialPositionsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListCustodialPositionsResult>,
+            tonic::Status,
+        >;
+        /// W2.9: platform.street.query.list-statements (query).
+        async fn list_statements(
+            &self,
+            request: tonic::Request<super::ListStatementsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListStatementsResult>,
+            tonic::Status,
+        >;
         /// W3.1: platform.reference.query.resolve-identifier (query).
         async fn resolve_identifier(
             &self,
@@ -1092,6 +1691,17 @@ pub mod plugin_operations_server {
             tonic::Response<super::ReadAccountsForLinkingResult>,
             tonic::Status,
         >;
+        /// Server streaming response type for the Receive method.
+        type ReceiveStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::Delivery, tonic::Status>,
+            >
+            + std::marker::Send
+            + 'static;
+        /// W4.3: every row this plugin's roles hear, within its read scope.
+        async fn receive(
+            &self,
+            request: tonic::Request<super::ReceiveRequest>,
+        ) -> std::result::Result<tonic::Response<Self::ReceiveStream>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct PluginOperationsServer<T> {
@@ -1359,6 +1969,101 @@ pub mod plugin_operations_server {
                     };
                     Box::pin(fut)
                 }
+                "/meridian.plugin.v1.PluginOperations/ListCustodialPositions" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListCustodialPositionsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListCustodialPositionsParams>
+                    for ListCustodialPositionsSvc<T> {
+                        type Response = super::ListCustodialPositionsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListCustodialPositionsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_custodial_positions(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListCustodialPositionsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListStatements" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListStatementsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListStatementsParams>
+                    for ListStatementsSvc<T> {
+                        type Response = super::ListStatementsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListStatementsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_statements(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListStatementsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/meridian.plugin.v1.PluginOperations/ResolveIdentifier" => {
                     #[allow(non_camel_case_types)]
                     struct ResolveIdentifierSvc<T: PluginOperations>(pub Arc<T>);
@@ -1548,6 +2253,52 @@ pub mod plugin_operations_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/Receive" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReceiveSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::ServerStreamingService<super::ReceiveRequest>
+                    for ReceiveSvc<T> {
+                        type Response = super::Delivery;
+                        type ResponseStream = T::ReceiveStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReceiveRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::receive(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReceiveSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)
