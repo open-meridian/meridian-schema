@@ -932,6 +932,16 @@
         "W3.1",
         "W3.2"
       ]
+    },
+    {
+      "number": 12,
+      "principle": "Every action is a typed operation a person could take; automation is a plugin's, chosen by the user.",
+      "says": "Core offers only typed operations, each one something a person could do by hand. Automating them (closing a cleared break, assigning, resolving by policy) is a plugin's behaviour, built from those same operations, off until the user turns it on for their workflow, and run as a service account a plugin admin set up, so the journal says who acted."
+    },
+    {
+      "number": 13,
+      "principle": "A plugin sees only the accounts and the users granted access to it.",
+      "says": "No plugin reads the firm's whole account list or user list; each sees the accounts in its own scope, and the people granted access to it on them."
     }
   ],
   "method": [
