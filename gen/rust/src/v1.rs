@@ -183,6 +183,76 @@ pub struct HeartbeatRequest {
     /// Why not, when not. Diagnostic; nothing branches on it.
     #[prost(string, tag = "2")]
     pub detail: ::prost::alloc::string::String,
+    /// W4.5. The plugin's figures as they stand, in the order to draw them.
+    /// Each heartbeat replaces the last; none clears them. At most 8, and a
+    /// heartbeat breaking a bound is refused whole, INVALID_ARGUMENT, never cut.
+    #[prost(message, repeated, tag = "3")]
+    pub figures: ::prost::alloc::vec::Vec<PluginFigure>,
+}
+/// One figure a plugin reports about its own work, which core draws as a tile
+/// on the plugin's Summary under Manage (W4.5, W4.8, W6.9). About the
+/// software: it names no account and carries none of an account's data.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginFigure {
+    /// As a person reads it, "Connections". 1 to 40 characters, once per list.
+    #[prost(string, tag = "1")]
+    pub label: ::prost::alloc::string::String,
+    /// When the value was true, where that is not the heartbeat's moment.
+    /// 0 when none is given.
+    #[prost(int64, tag = "6")]
+    pub as_of_ns: i64,
+    /// Unspecified is no state, drawn plain. A number the enum does not define
+    /// is refused.
+    #[prost(enumeration = "FigureState", tag = "7")]
+    pub state: i32,
+    /// Why, the note beside the tile. At most 200 characters.
+    #[prost(string, tag = "8")]
+    pub why: ::prost::alloc::string::String,
+    /// Exactly one. A figure with none is refused.
+    #[prost(oneof = "plugin_figure::Value", tags = "2, 3, 4, 5")]
+    pub value: ::core::option::Option<plugin_figure::Value>,
+}
+/// Nested message and enum types in `PluginFigure`.
+pub mod plugin_figure {
+    /// Exactly one. A figure with none is refused.
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        #[prost(int64, tag = "2")]
+        Count(i64),
+        /// decisions/023: refused outside its range, never rounded.
+        #[prost(message, tag = "3")]
+        Decimal(super::Decimal),
+        /// At most 40 characters.
+        #[prost(string, tag = "4")]
+        Text(::prost::alloc::string::String),
+        /// A moment, in nanoseconds since the epoch: "Last read".
+        #[prost(int64, tag = "5")]
+        AtNs(i64),
+    }
+}
+/// A number: a 128-bit two's-complement integer and its scale. The value is the
+/// integer times 10^-scale, so 1.50 is 150 at scale 2 and stays 1.50.
+///
+/// The scale travels with the value rather than being fixed for the contract,
+/// because the venues disagree: Alpaca takes nine decimal places, a crypto
+/// asset eighteen, and a cheap token's holding runs past what 64 bits hold at
+/// any fixed scale that serves them both. The scale is the one the value was
+/// stated with; nothing normalises it.
+///
+/// The integer's magnitude is below 10^38, which is at most 38 significant
+/// digits, and the scale is 0 to 18. The widest value the broker survey found,
+/// 100 billion units at 18 decimals, is well inside it.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct Decimal {
+    /// The integer's upper 64 bits, signed: negative for a negative value.
+    #[prost(sfixed64, tag = "1")]
+    pub high: i64,
+    /// Its lower 64 bits, unsigned. The integer is high * 2^64 + low.
+    #[prost(fixed64, tag = "2")]
+    pub low: u64,
+    /// How many decimal places the integer carries, 0 to 18.
+    #[prost(uint32, tag = "3")]
+    pub scale: u32,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct HeartbeatReply {}
@@ -472,6 +542,39 @@ impl SettingType {
             "SETTING_TYPE_INTEGER" => Some(Self::Integer),
             "SETTING_TYPE_BOOLEAN" => Some(Self::Boolean),
             "SETTING_TYPE_CHOICE" => Some(Self::Choice),
+            _ => None,
+        }
+    }
+}
+/// What a figure's tile is marked with (W6.9).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum FigureState {
+    Unspecified = 0,
+    Ok = 1,
+    Warn = 2,
+    Error = 3,
+}
+impl FigureState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "FIGURE_STATE_UNSPECIFIED",
+            Self::Ok => "FIGURE_STATE_OK",
+            Self::Warn => "FIGURE_STATE_WARN",
+            Self::Error => "FIGURE_STATE_ERROR",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "FIGURE_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "FIGURE_STATE_OK" => Some(Self::Ok),
+            "FIGURE_STATE_WARN" => Some(Self::Warn),
+            "FIGURE_STATE_ERROR" => Some(Self::Error),
             _ => None,
         }
     }
