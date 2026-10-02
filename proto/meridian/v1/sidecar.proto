@@ -587,6 +587,13 @@ message LinkedExternalAccount {
 // and a plugin acts on its reason, never on the words, which may change.
 message Refusal {
   RefusalReason reason = 1;
+
+  // Each field the command left out, by its path in the params as the
+  // sidecar names a field it refuses (positions[0].lots[1].cost,
+  // adjustment.lines[0].opens_lot.acquired_date), so a plugin shows a person
+  // what to complete without reading the words (contract v9). Only
+  // REFUSAL_REASON_INCOMPLETE carries any.
+  repeated string fields = 2;
 }
 
 // The typed-operations refusal catalogue (spec/typed-sidecar-operations):
@@ -641,4 +648,13 @@ enum RefusalReason {
   // and the same command is answered with the first's reply; a different
   // command under it is refused, nothing applied.
   REFUSAL_REASON_IDEMPOTENCY_CONFLICT = 10;
+
+  // An entry missing a field the book requires for tax tracking, valuation,
+  // confirmation or settlement (W9.1, W9.7, contract v9): nothing applied,
+  // and each missing field named in Refusal.fields. Of every opening
+  // position, its settled quantity, each pending quantity's value date, and
+  // its lots but on cash, each with its quantity, cost and acquisition
+  // date; a named source; and of every lot an adjustment opens, its cost and
+  // acquisition date.
+  REFUSAL_REASON_INCOMPLETE = 11;
 }

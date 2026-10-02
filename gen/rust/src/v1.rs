@@ -465,10 +465,17 @@ pub struct LinkedExternalAccount {
 /// status covers refusals a plugin must tell apart, the sidecar also sends
 /// this, in the status's trailing metadata `meridian-refusal-bin`, encoded,
 /// and a plugin acts on its reason, never on the words, which may change.
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Refusal {
     #[prost(enumeration = "RefusalReason", tag = "1")]
     pub reason: i32,
+    /// Each field the command left out, by its path in the params as the
+    /// sidecar names a field it refuses (positions\[0\].lots\[1\].cost,
+    /// adjustment.lines\[0\].opens_lot.acquired_date), so a plugin shows a person
+    /// what to complete without reading the words (contract v9). Only
+    /// REFUSAL_REASON_INCOMPLETE carries any.
+    #[prost(string, repeated, tag = "2")]
+    pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// A person's level on a plugin, the same three for every plugin: a plugin
 /// names no parts of itself for access (W6.7; decisions/026, 027). An access
@@ -631,6 +638,14 @@ pub enum RefusalReason {
     /// and the same command is answered with the first's reply; a different
     /// command under it is refused, nothing applied.
     IdempotencyConflict = 10,
+    /// An entry missing a field the book requires for tax tracking, valuation,
+    /// confirmation or settlement (W9.1, W9.7, contract v9): nothing applied,
+    /// and each missing field named in Refusal.fields. Of every opening
+    /// position, its settled quantity, each pending quantity's value date, and
+    /// its lots but on cash, each with its quantity, cost and acquisition
+    /// date; a named source; and of every lot an adjustment opens, its cost and
+    /// acquisition date.
+    Incomplete = 11,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -652,6 +667,7 @@ impl RefusalReason {
             Self::BreakState => "REFUSAL_REASON_BREAK_STATE",
             Self::LaterEntriesStand => "REFUSAL_REASON_LATER_ENTRIES_STAND",
             Self::IdempotencyConflict => "REFUSAL_REASON_IDEMPOTENCY_CONFLICT",
+            Self::Incomplete => "REFUSAL_REASON_INCOMPLETE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -672,6 +688,7 @@ impl RefusalReason {
             "REFUSAL_REASON_BREAK_STATE" => Some(Self::BreakState),
             "REFUSAL_REASON_LATER_ENTRIES_STAND" => Some(Self::LaterEntriesStand),
             "REFUSAL_REASON_IDEMPOTENCY_CONFLICT" => Some(Self::IdempotencyConflict),
+            "REFUSAL_REASON_INCOMPLETE" => Some(Self::Incomplete),
             _ => None,
         }
     }
