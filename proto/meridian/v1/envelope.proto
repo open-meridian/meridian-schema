@@ -54,6 +54,12 @@ message MessageMeta {
   // who made the change. Deployment-local subject.
   string acting_for_subject = 8;
 
+  // Set beside acting_for_subject when the person acted through a client:
+  // the delegation the assertion named (W4.9, decisions/029), so a store
+  // records the person through that client. Absent for a person at the
+  // dashboard, and for a plugin acting as itself.
+  string acting_through_delegation = 11;
+
   // Set on a read: the accounts the publishing plugin may read. A core store
   // answers only for these.
   repeated string account_scope = 9;

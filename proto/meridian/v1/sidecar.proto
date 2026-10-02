@@ -477,6 +477,19 @@ message CallerClaims {
   // external account in a session at ACCESS_LEVEL_ADMIN, the person may name
   // a new account rather than an existing one (W6.4).
   bool deployment_admin = 8;
+
+  // The delegation the person acted through, when they acted through a
+  // client -- the CLI, their own agent, an MCP client -- rather than at the
+  // dashboard in a browser; absent means a browser (W6.18, decisions/029).
+  // Deployment-local and opaque: the dashboard resolves it to its client.
+  // The person stays the actor; this says through what. The sidecar stamps
+  // it on what it sends for the person (W4.9).
+  string delegation_id = 12;
+
+  // The client's registered name, its own choice ("meridian on ada-laptop"),
+  // for a plugin to show and record as it chooses; absent with
+  // delegation_id.
+  string client_name = 13;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

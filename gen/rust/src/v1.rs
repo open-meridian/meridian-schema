@@ -364,6 +364,19 @@ pub struct CallerClaims {
     /// a new account rather than an existing one (W6.4).
     #[prost(bool, tag = "8")]
     pub deployment_admin: bool,
+    /// The delegation the person acted through, when they acted through a
+    /// client -- the CLI, their own agent, an MCP client -- rather than at the
+    /// dashboard in a browser; absent means a browser (W6.18, decisions/029).
+    /// Deployment-local and opaque: the dashboard resolves it to its client.
+    /// The person stays the actor; this says through what. The sidecar stamps
+    /// it on what it sends for the person (W4.9).
+    #[prost(string, tag = "12")]
+    pub delegation_id: ::prost::alloc::string::String,
+    /// The client's registered name, its own choice ("meridian on ada-laptop"),
+    /// for a plugin to show and record as it chooses; absent with
+    /// delegation_id.
+    #[prost(string, tag = "13")]
+    pub client_name: ::prost::alloc::string::String,
 }
 /// The sidecar knows which plugin is asking.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -1392,6 +1405,12 @@ pub struct MessageMeta {
     /// who made the change. Deployment-local subject.
     #[prost(string, tag = "8")]
     pub acting_for_subject: ::prost::alloc::string::String,
+    /// Set beside acting_for_subject when the person acted through a client:
+    /// the delegation the assertion named (W4.9, decisions/029), so a store
+    /// records the person through that client. Absent for a person at the
+    /// dashboard, and for a plugin acting as itself.
+    #[prost(string, tag = "11")]
+    pub acting_through_delegation: ::prost::alloc::string::String,
     /// Set on a read: the accounts the publishing plugin may read. A core store
     /// answers only for these.
     #[prost(string, repeated, tag = "9")]
