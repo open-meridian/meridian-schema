@@ -587,4 +587,45 @@ enum RefusalReason {
   // records it. Told apart by this alone from not being registered, which
   // is the same status.
   REFUSAL_REASON_EXTERNAL_ACCOUNT_NOT_LINKED = 1;
+
+  // The book of record's refusals (W9, contract v8), each sent with ABORTED:
+  // the book answered with a refusal of its own, and the sidecar carries its
+  // code beside the status. The first two are step 5's proposed names,
+  // landing here first.
+
+  // A command other than a finding sent with no user (W9.1, W9.6, W9.7,
+  // W9.13): an opening balance, handling, a resolution or an attribute is a
+  // person's act.
+  REFUSAL_REASON_ACTOR_REQUIRED = 2;
+
+  // A justified act sent without its reason or explanation.
+  REFUSAL_REASON_REASON_REQUIRED = 3;
+
+  // A second opening balance while one stands (W9.1).
+  REFUSAL_REASON_OPENING_BALANCE_RECORDED = 4;
+
+  // A break, figures or an entry for an account with no opening balance.
+  REFUSAL_REASON_NO_OPENING_BALANCE = 5;
+
+  // An entry moving a position effective on or before the opening
+  // balance's date (Q27).
+  REFUSAL_REASON_BEFORE_OPENING_BALANCE = 6;
+
+  // An opening position whose lots do not sum to its quantity, or an entry
+  // leaving a position's open lots so.
+  REFUSAL_REASON_LOTS_UNBALANCED = 7;
+
+  // A command the break's state does not allow: updating, handling,
+  // resolving or closing one that is not open.
+  REFUSAL_REASON_BREAK_STATE = 8;
+
+  // A reversal of an opening balance while a later entry moving the
+  // account's positions stands.
+  REFUSAL_REASON_LATER_ENTRIES_STAND = 9;
+
+  // A command carrying an idempotency key the account's book holds for a
+  // different command (Q12 of the sample operations plugin): the same key
+  // and the same command is answered with the first's reply; a different
+  // command under it is refused, nothing applied.
+  REFUSAL_REASON_IDEMPOTENCY_CONFLICT = 10;
 }

@@ -134,6 +134,12 @@ pub struct RecordHoldingsStatementParams {
     /// direct connector. Empty where it does not say.
     #[prost(string, tag = "13")]
     pub institution: ::prost::alloc::string::String,
+    /// The account servicer holds a lien or a right of set-off over the
+    /// account, as the statement reports it; unset where it does not say
+    /// (contract v8; reference/encumbrance-survey). Not an encumbrance: it
+    /// reduces no holding's available quantity.
+    #[prost(bool, optional, tag = "14")]
+    pub security_interest: ::core::option::Option<bool>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -241,6 +247,21 @@ pub struct RecordHoldingParams {
     /// quantity or a multiplier (Q-A, 2026-10-01).
     #[prost(message, optional, tag = "18")]
     pub average_cost: ::core::option::Option<Money>,
+    /// Available and not, each as the source reports it, never derived from
+    /// the other or from the quantity, unset where the source gives none --
+    /// never zero, never the holding's quantity (W2.3; contract v8;
+    /// reference/encumbrance-survey): the statement's AVAI and NAVL, a venue's
+    /// order-netted figure with its basis saying so.
+    #[prost(message, optional, tag = "19")]
+    pub available_quantity: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "20")]
+    pub not_available_quantity: ::core::option::Option<Decimal>,
+    #[prost(enumeration = "AvailableBasis", tag = "21")]
+    pub available_basis: i32,
+    /// Each sub-balance the source reports as encumbered, one per kind,
+    /// location and pledgee; empty means none reported, not none held.
+    #[prost(message, repeated, tag = "22")]
+    pub encumbrances: ::prost::alloc::vec::Vec<ReportedEncumbrance>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -397,6 +418,23 @@ pub struct ReportMissingInstrumentParams {
     #[prost(int64, tag = "7")]
     pub observed_at_ns: i64,
 }
+/// Forward resolution: an instrument identifier to its record.
+/// The params of ResolveInstrument: meridian.v1.ResolveInstrumentRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResolveInstrumentParams {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub as_of_ns: i64,
+}
+/// The result of ResolveInstrument: meridian.v1.ResolveInstrumentReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResolveInstrumentResult {
+    #[prost(bool, tag = "1")]
+    pub found: bool,
+    #[prost(message, optional, tag = "2")]
+    pub instrument: ::core::option::Option<InstrumentRecord>,
+}
 /// Links an external account a plugin reported, or removes its link.
 /// Names an existing account, or a new account's name for the conductor to
 /// create and link in one step, or neither to remove the link; never both. Held
@@ -468,6 +506,514 @@ pub struct ReadAccountsForLinkingResult {
     #[prost(message, repeated, tag = "1")]
     pub accounts: ::prost::alloc::vec::Vec<AccountRecord>,
 }
+/// The params of RecordOpeningBalance: meridian.v1.RecordOpeningBalanceRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordOpeningBalanceParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// ISO 8601: the business date it stands for (D0).
+    #[prost(string, tag = "2")]
+    pub as_of_date: ::prost::alloc::string::String,
+    /// One per custodian or system it was composed from.
+    #[prost(message, repeated, tag = "3")]
+    pub sources: ::prost::alloc::vec::Vec<OpeningSource>,
+    /// Empty: the account enters holding nothing.
+    #[prost(message, repeated, tag = "4")]
+    pub positions: ::prost::alloc::vec::Vec<OpeningPosition>,
+    #[prost(string, tag = "5")]
+    pub reason: ::prost::alloc::string::String,
+    /// The reversed opening balance this replaces (Q27); empty for the first.
+    #[prost(string, tag = "6")]
+    pub replaces_entry_id: ::prost::alloc::string::String,
+    /// The plugin's key for this command, derived from its source (Q12 of the
+    /// sample operations plugin, ruled 2026-10-01, as FIX's ClOrdID): unique per
+    /// account; the same command again with the same key is answered with the
+    /// first's reply and applies nothing, and a different command with it is
+    /// refused (REFUSAL_REASON_IDEMPOTENCY_CONFLICT). Empty: none.
+    #[prost(string, tag = "7")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of RecordOpeningBalance: meridian.v1.BookEntryReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordOpeningBalanceResult {
+    /// A duplicate, by its message identifier or its idempotency key, is
+    /// answered with the first's.
+    #[prost(message, optional, tag = "1")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    /// The entry's place in its partition: the number of the first change it
+    /// made.
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+    /// Each record the entry changed, as it stands after it.
+    #[prost(message, repeated, tag = "3")]
+    pub positions: ::prost::alloc::vec::Vec<BookPosition>,
+    #[prost(message, repeated, tag = "4")]
+    pub breaks: ::prost::alloc::vec::Vec<Break>,
+    #[prost(message, repeated, tag = "5")]
+    pub figures: ::prost::alloc::vec::Vec<AccountFigures>,
+    /// The account's attributes, where the entry changed them: an opening
+    /// balance and its reversal set and clear the standing one (Q21).
+    #[prost(message, optional, tag = "6")]
+    pub attributes: ::core::option::Option<AccountAttributes>,
+}
+/// W9.4. A new break, or an open one brought up to date.
+/// The params of RecordBreak: meridian.v1.RecordBreakRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordBreakParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// Empty: a new break, whose identifier the book mints.
+    #[prost(string, tag = "2")]
+    pub break_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "BreakCategory", tag = "5")]
+    pub category: i32,
+    #[prost(message, repeated, tag = "6")]
+    pub differences: ::prost::alloc::vec::Vec<BreakDifference>,
+    #[prost(message, optional, tag = "7")]
+    pub book_watermark: ::core::option::Option<Watermark>,
+    #[prost(message, optional, tag = "8")]
+    pub street: ::core::option::Option<StreetRecordRef>,
+    /// The reconciliation's business date: first seen for a new break, last
+    /// seen for one brought up to date.
+    #[prost(string, tag = "9")]
+    pub business_date: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "10")]
+    pub candidate_causes: ::prost::alloc::vec::Vec<BreakCause>,
+    /// The plugin's key for this command, derived from its source (Q12):
+    /// answered with the first's reply when it is sent again.
+    #[prost(string, tag = "11")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+    #[prost(oneof = "record_break_params::Subject", tags = "3, 4")]
+    pub subject: ::core::option::Option<record_break_params::Subject>,
+}
+/// Nested message and enum types in `RecordBreakParams`.
+pub mod record_break_params {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Subject {
+        #[prost(message, tag = "3")]
+        Position(super::PositionKey),
+        #[prost(message, tag = "4")]
+        Figure(super::FigureKey),
+    }
+}
+/// The result of RecordBreak: meridian.v1.BookEntryReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordBreakResult {
+    /// A duplicate, by its message identifier or its idempotency key, is
+    /// answered with the first's.
+    #[prost(message, optional, tag = "1")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    /// The entry's place in its partition: the number of the first change it
+    /// made.
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+    /// Each record the entry changed, as it stands after it.
+    #[prost(message, repeated, tag = "3")]
+    pub positions: ::prost::alloc::vec::Vec<BookPosition>,
+    #[prost(message, repeated, tag = "4")]
+    pub breaks: ::prost::alloc::vec::Vec<Break>,
+    #[prost(message, repeated, tag = "5")]
+    pub figures: ::prost::alloc::vec::Vec<AccountFigures>,
+    /// The account's attributes, where the entry changed them: an opening
+    /// balance and its reversal set and clear the standing one (Q21).
+    #[prost(message, optional, tag = "6")]
+    pub attributes: ::core::option::Option<AccountAttributes>,
+}
+/// The params of RecordAccountFigures: meridian.v1.RecordAccountFiguresRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordAccountFiguresParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub business_date: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub source: ::core::option::Option<StreetRecordRef>,
+    #[prost(message, repeated, tag = "4")]
+    pub agreements: ::prost::alloc::vec::Vec<AgreementFigures>,
+    /// The plugin's key for this command, derived from its source (Q12).
+    #[prost(string, tag = "5")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of RecordAccountFigures: meridian.v1.BookEntryReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordAccountFiguresResult {
+    /// A duplicate, by its message identifier or its idempotency key, is
+    /// answered with the first's.
+    #[prost(message, optional, tag = "1")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    /// The entry's place in its partition: the number of the first change it
+    /// made.
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+    /// Each record the entry changed, as it stands after it.
+    #[prost(message, repeated, tag = "3")]
+    pub positions: ::prost::alloc::vec::Vec<BookPosition>,
+    #[prost(message, repeated, tag = "4")]
+    pub breaks: ::prost::alloc::vec::Vec<Break>,
+    #[prost(message, repeated, tag = "5")]
+    pub figures: ::prost::alloc::vec::Vec<AccountFigures>,
+    /// The account's attributes, where the entry changed them: an opening
+    /// balance and its reversal set and clear the standing one (Q21).
+    #[prost(message, optional, tag = "6")]
+    pub attributes: ::core::option::Option<AccountAttributes>,
+}
+/// W9.15. A finding, so the plugin may send it as itself.
+/// The params of RecordEncumbrances: meridian.v1.RecordEncumbrancesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordEncumbrancesParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub business_date: ::prost::alloc::string::String,
+    /// The statement they were read from.
+    #[prost(message, optional, tag = "3")]
+    pub source: ::core::option::Option<StreetRecordRef>,
+    #[prost(message, repeated, tag = "4")]
+    pub positions: ::prost::alloc::vec::Vec<PositionEncumbrances>,
+    /// The plugin's key for this command, derived from its source (Q12).
+    #[prost(string, tag = "5")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of RecordEncumbrances: meridian.v1.BookEntryReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordEncumbrancesResult {
+    /// A duplicate, by its message identifier or its idempotency key, is
+    /// answered with the first's.
+    #[prost(message, optional, tag = "1")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    /// The entry's place in its partition: the number of the first change it
+    /// made.
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+    /// Each record the entry changed, as it stands after it.
+    #[prost(message, repeated, tag = "3")]
+    pub positions: ::prost::alloc::vec::Vec<BookPosition>,
+    #[prost(message, repeated, tag = "4")]
+    pub breaks: ::prost::alloc::vec::Vec<Break>,
+    #[prost(message, repeated, tag = "5")]
+    pub figures: ::prost::alloc::vec::Vec<AccountFigures>,
+    /// The account's attributes, where the entry changed them: an opening
+    /// balance and its reversal set and clear the standing one (Q21).
+    #[prost(message, optional, tag = "6")]
+    pub attributes: ::core::option::Option<AccountAttributes>,
+}
+/// W9.6. For a person.
+/// The params of HandleBreak: meridian.v1.HandleBreakRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HandleBreakParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub break_id: ::prost::alloc::string::String,
+    /// Unset: unchanged.
+    #[prost(message, optional, tag = "3")]
+    pub confirmed_cause: ::core::option::Option<BreakCause>,
+    /// Unset: unchanged; set: replaces the handling whole.
+    #[prost(message, optional, tag = "4")]
+    pub handling: ::core::option::Option<BreakHandling>,
+    #[prost(string, tag = "5")]
+    pub reason: ::prost::alloc::string::String,
+    /// The plugin's key for this command (Q12).
+    #[prost(string, tag = "6")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of HandleBreak: meridian.v1.BookEntryReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HandleBreakResult {
+    /// A duplicate, by its message identifier or its idempotency key, is
+    /// answered with the first's.
+    #[prost(message, optional, tag = "1")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    /// The entry's place in its partition: the number of the first change it
+    /// made.
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+    /// Each record the entry changed, as it stands after it.
+    #[prost(message, repeated, tag = "3")]
+    pub positions: ::prost::alloc::vec::Vec<BookPosition>,
+    #[prost(message, repeated, tag = "4")]
+    pub breaks: ::prost::alloc::vec::Vec<Break>,
+    #[prost(message, repeated, tag = "5")]
+    pub figures: ::prost::alloc::vec::Vec<AccountFigures>,
+    /// The account's attributes, where the entry changed them: an opening
+    /// balance and its reversal set and clear the standing one (Q21).
+    #[prost(message, optional, tag = "6")]
+    pub attributes: ::core::option::Option<AccountAttributes>,
+}
+/// W9.7. For a person.
+/// The params of ResolveBreak: meridian.v1.ResolveBreakRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResolveBreakParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "2")]
+    pub break_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+    /// The plugin's key for this command (Q12).
+    #[prost(string, tag = "9")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+    #[prost(oneof = "resolve_break_params::Resolution", tags = "4, 5, 6, 7")]
+    pub resolution: ::core::option::Option<resolve_break_params::Resolution>,
+}
+/// Nested message and enum types in `ResolveBreakParams`.
+pub mod resolve_break_params {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Resolution {
+        /// The correcting entry, journalled in the same act.
+        #[prost(message, tag = "4")]
+        Adjustment(super::Adjustment),
+        #[prost(message, tag = "5")]
+        Reversal(super::Reversal),
+        /// Entries already recorded.
+        #[prost(message, tag = "6")]
+        Entries(super::ResolvedByEntries),
+        /// Closes the breaks, with no entry.
+        #[prost(string, tag = "7")]
+        Explanation(::prost::alloc::string::String),
+    }
+}
+/// The result of ResolveBreak: meridian.v1.BookEntryReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResolveBreakResult {
+    /// A duplicate, by its message identifier or its idempotency key, is
+    /// answered with the first's.
+    #[prost(message, optional, tag = "1")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    /// The entry's place in its partition: the number of the first change it
+    /// made.
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+    /// Each record the entry changed, as it stands after it.
+    #[prost(message, repeated, tag = "3")]
+    pub positions: ::prost::alloc::vec::Vec<BookPosition>,
+    #[prost(message, repeated, tag = "4")]
+    pub breaks: ::prost::alloc::vec::Vec<Break>,
+    #[prost(message, repeated, tag = "5")]
+    pub figures: ::prost::alloc::vec::Vec<AccountFigures>,
+    /// The account's attributes, where the entry changed them: an opening
+    /// balance and its reversal set and clear the standing one (Q21).
+    #[prost(message, optional, tag = "6")]
+    pub attributes: ::core::option::Option<AccountAttributes>,
+}
+/// W9.7. Close breaks as cleared, with no entry.
+/// Citing the statement where the difference was gone (Q2 of the sample operations plugin, ruled
+/// 2026-10-01: one typed operation a person takes; an opt-in automation runs
+/// it as a service account once
+/// sdk-contract/a-service-account-runs-a-plugins-autonomous-work lands, its
+/// actor an arm of Actor of its own). For a person until then.
+/// The params of CloseBreaksAsCleared: meridian.v1.CloseBreaksAsClearedRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CloseBreaksAsClearedParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "2")]
+    pub break_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The street record of the statement where the difference was gone, by
+    /// value.
+    #[prost(message, optional, tag = "3")]
+    pub cleared_at: ::core::option::Option<StreetRecordRef>,
+    #[prost(string, tag = "4")]
+    pub reason: ::prost::alloc::string::String,
+    /// The plugin's key for this command (Q12).
+    #[prost(string, tag = "5")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of CloseBreaksAsCleared: meridian.v1.BookEntryReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CloseBreaksAsClearedResult {
+    /// A duplicate, by its message identifier or its idempotency key, is
+    /// answered with the first's.
+    #[prost(message, optional, tag = "1")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    /// The entry's place in its partition: the number of the first change it
+    /// made.
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+    /// Each record the entry changed, as it stands after it.
+    #[prost(message, repeated, tag = "3")]
+    pub positions: ::prost::alloc::vec::Vec<BookPosition>,
+    #[prost(message, repeated, tag = "4")]
+    pub breaks: ::prost::alloc::vec::Vec<Break>,
+    #[prost(message, repeated, tag = "5")]
+    pub figures: ::prost::alloc::vec::Vec<AccountFigures>,
+    /// The account's attributes, where the entry changed them: an opening
+    /// balance and its reversal set and clear the standing one (Q21).
+    #[prost(message, optional, tag = "6")]
+    pub attributes: ::core::option::Option<AccountAttributes>,
+}
+/// The params of ListPositions: meridian.v1.ListPositionsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListPositionsParams {
+    /// Empty: every account in the reader's scope.
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// Only positions whose last change is above it, tombstones included.
+    #[prost(message, optional, tag = "2")]
+    pub since: ::core::option::Option<Watermark>,
+    /// The positions at the end of this business date (Q22), as known at
+    /// `at`, or now; served by replay. Neither with `since`.
+    #[prost(string, tag = "3")]
+    pub business_date: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub at: ::core::option::Option<Watermark>,
+    #[prost(int32, tag = "5")]
+    pub page_size: i32,
+    #[prost(string, tag = "6")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListPositions: meridian.v1.ListPositionsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListPositionsResult {
+    #[prost(message, repeated, tag = "1")]
+    pub positions: ::prost::alloc::vec::Vec<BookPosition>,
+    #[prost(string, tag = "2")]
+    pub next_cursor: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub as_of: ::core::option::Option<Watermark>,
+}
+/// The params of ListBreaks: meridian.v1.ListBreaksRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListBreaksParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// Empty: every state.
+    #[prost(enumeration = "BreakState", repeated, tag = "2")]
+    pub states: ::prost::alloc::vec::Vec<i32>,
+    #[prost(message, optional, tag = "3")]
+    pub since: ::core::option::Option<Watermark>,
+    #[prost(int32, tag = "4")]
+    pub page_size: i32,
+    #[prost(string, tag = "5")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListBreaks: meridian.v1.ListBreaksReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListBreaksResult {
+    #[prost(message, repeated, tag = "1")]
+    pub breaks: ::prost::alloc::vec::Vec<Break>,
+    #[prost(string, tag = "2")]
+    pub next_cursor: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub as_of: ::core::option::Option<Watermark>,
+}
+/// The params of ListAccountFigures: meridian.v1.ListAccountFiguresRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAccountFiguresParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// Unset: every agreement.
+    #[prost(message, optional, tag = "2")]
+    pub agreement: ::core::option::Option<MarginAgreementRef>,
+    /// ISO 8601 business dates, inclusive; empty for open-ended.
+    #[prost(string, tag = "3")]
+    pub from_date: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub to_date: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "5")]
+    pub since: ::core::option::Option<Watermark>,
+    #[prost(message, optional, tag = "6")]
+    pub at: ::core::option::Option<Watermark>,
+    #[prost(int32, tag = "7")]
+    pub page_size: i32,
+    #[prost(string, tag = "8")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListAccountFigures: meridian.v1.ListAccountFiguresReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAccountFiguresResult {
+    #[prost(message, repeated, tag = "1")]
+    pub figures: ::prost::alloc::vec::Vec<AccountFigures>,
+    #[prost(string, tag = "2")]
+    pub next_cursor: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub as_of: ::core::option::Option<Watermark>,
+}
+/// The params of ListAccountAttributes: meridian.v1.ListAccountAttributesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAccountAttributesParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub since: ::core::option::Option<Watermark>,
+    #[prost(int32, tag = "3")]
+    pub page_size: i32,
+    #[prost(string, tag = "4")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListAccountAttributes: meridian.v1.ListAccountAttributesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAccountAttributesResult {
+    #[prost(message, repeated, tag = "1")]
+    pub attributes: ::prost::alloc::vec::Vec<AccountAttributes>,
+    #[prost(string, tag = "2")]
+    pub next_cursor: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub as_of: ::core::option::Option<Watermark>,
+}
 /// What a plugin asks to hear. A row it names that no role it holds hears
 /// is refused, PERMISSION_DENIED, naming it.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -485,7 +1031,7 @@ pub struct ReceiveRequest {
 pub struct Delivery {
     #[prost(message, optional, tag = "1")]
     pub meta: ::core::option::Option<DeliveryMeta>,
-    #[prost(oneof = "delivery::Item", tags = "2, 16, 17")]
+    #[prost(oneof = "delivery::Item", tags = "2, 16, 17, 18, 19, 20, 21")]
     pub item: ::core::option::Option<delivery::Item>,
 }
 /// Nested message and enum types in `Delivery`.
@@ -502,6 +1048,18 @@ pub mod delivery {
         /// W2.6: platform.street.event.custodial-position-updated.
         #[prost(message, tag = "17")]
         CustodialPositionUpdated(super::CustodialPositionUpdatedEvent),
+        /// W9.8: platform.book.event.position-changed.
+        #[prost(message, tag = "18")]
+        PositionChanged(super::PositionChangedEvent),
+        /// W9.8: platform.book.event.break-changed.
+        #[prost(message, tag = "19")]
+        BreakChanged(super::BreakChangedEvent),
+        /// W9.8: platform.book.event.account-figures-recorded.
+        #[prost(message, tag = "20")]
+        AccountFiguresRecorded(super::AccountFiguresRecordedEvent),
+        /// W9.8: platform.book.event.account-attribute-changed.
+        #[prost(message, tag = "21")]
+        AccountAttributeChanged(super::AccountAttributeChangedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -664,6 +1222,11 @@ pub struct ReportedCollateral {
     /// third-party custodian. Empty where it does not say.
     #[prost(string, tag = "8")]
     pub held_at: ::prost::alloc::string::String,
+    /// Whether the receiver may reuse it, as the agreement states and the venue
+    /// reports it; unset where it does not say (contract v8). Received
+    /// collateral is never a position (Q13), reusable or not.
+    #[prost(bool, optional, tag = "9")]
+    pub reusable: ::core::option::Option<bool>,
 }
 /// One typed identifier for an instrument.
 ///
@@ -697,6 +1260,40 @@ pub struct ReportedLot {
     /// ISO 8601; empty where not reported.
     #[prost(string, tag = "3")]
     pub acquired_date: ::prost::alloc::string::String,
+}
+/// One sub-balance of a holding, as the source reports it.
+/// A mirror of meridian.v1.ReportedEncumbrance.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportedEncumbrance {
+    #[prost(enumeration = "EncumbranceKind", tag = "1")]
+    pub kind: i32,
+    /// Signed as the holding's quantity. Larger than the holding is recorded
+    /// as reported: the custodian's data, which the reconciliation flags.
+    #[prost(message, optional, tag = "2")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// Whether the source reports it available; unset where it does not say,
+    /// since the kind does not imply it.
+    #[prost(bool, optional, tag = "3")]
+    pub available: ::core::option::Option<bool>,
+    /// The source's own code or label, verbatim ("PLED"); required for OTHER.
+    #[prost(string, tag = "4")]
+    pub source_code: ::prost::alloc::string::String,
+    /// To whom it is pledged, posted or lent, as reported (a name, a BIC or an
+    /// LEI); empty where not stated.
+    #[prost(string, tag = "5")]
+    pub pledgee: ::prost::alloc::string::String,
+    /// The safekeeping place or third party holding it, as reported; empty
+    /// where not stated.
+    #[prost(string, tag = "6")]
+    pub held_at: ::prost::alloc::string::String,
+    /// The margin segment it is under where the source names one, as the venue
+    /// names it; with the holding's external account, a margin agreement's key.
+    /// Empty otherwise: a custody statement never names one.
+    #[prost(string, tag = "7")]
+    pub segment: ::prost::alloc::string::String,
+    /// The source's narrative; empty where none.
+    #[prost(string, tag = "8")]
+    pub detail: ::prost::alloc::string::String,
 }
 /// A point in a store's record: a sequence per partition. What a read
 /// answers it was read at, and what a read of changes since takes.
@@ -777,6 +1374,15 @@ pub struct CustodialPosition {
     /// As on RecordHoldingRequest (Q-A).
     #[prost(message, optional, tag = "19")]
     pub average_cost: ::core::option::Option<Money>,
+    /// As on RecordHoldingRequest, from the row that last stated this.
+    #[prost(message, optional, tag = "20")]
+    pub available_quantity: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "21")]
+    pub not_available_quantity: ::core::option::Option<Decimal>,
+    #[prost(enumeration = "AvailableBasis", tag = "22")]
+    pub available_basis: i32,
+    #[prost(message, repeated, tag = "23")]
+    pub encumbrances: ::prost::alloc::vec::Vec<ReportedEncumbrance>,
 }
 /// Where a change sits in its store's record (spec/plugins-hear-and-read, Q1
 /// as clarified 2026-10-01).
@@ -868,6 +1474,9 @@ pub struct StatementRecordedEvent {
     pub external_account_id: ::prost::alloc::string::String,
     #[prost(string, tag = "14")]
     pub institution: ::prost::alloc::string::String,
+    /// As the statement reported it (contract v8).
+    #[prost(bool, optional, tag = "15")]
+    pub security_interest: ::core::option::Option<bool>,
 }
 /// Who caused a change, as the store recorded it when it committed (Q3).
 /// A mirror of meridian.v1.ChangeCause.
@@ -886,6 +1495,59 @@ pub struct ChangeCause {
     pub causation_id: ::prost::alloc::string::String,
     #[prost(int64, tag = "5")]
     pub committed_at_ns: i64,
+}
+/// The canonical instrument record.
+///
+/// Three time axes, and conflating any two of them produces a resolution bug
+/// that only appears when an identifier is reused:
+///
+///    reference time  the as-of a resolution is FOR. A query parameter, never a
+///                    field here.
+///    effective time  valid_from_ns -- when this mapping became true in the world.
+///    record time     record_time_ns -- when the authority knew it.
+///
+/// Identifiers get reused: a ticker freed by a delisting is later reassigned to
+/// a different instrument. A consumer resolving a historical date must key on
+/// effective time, not on when it happened to learn the mapping.
+/// A mirror of meridian.v1.InstrumentRecord.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstrumentRecord {
+    /// Canonical identifier, "INS-..." and minted only by the central authority.
+    ///
+    /// A deployment's stores may also hold its own placeholder, "LCL-...", which
+    /// its instrument store mints for an identifier set nothing matched (W3.7)
+    /// and which the INS- ID replaces in everything live when it arrives (W3.8).
+    /// A placeholder is never minted by the authority and never leaves the
+    /// deployment except on its own escalation.
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    /// The full identifier set. An amend replaces this authoritatively.
+    #[prost(message, repeated, tag = "2")]
+    pub identifiers: ::prost::alloc::vec::Vec<Identifier>,
+    #[prost(enumeration = "AssetClass", tag = "11")]
+    pub asset_class: i32,
+    /// ISO 4217.
+    #[prost(string, tag = "4")]
+    pub currency: ::prost::alloc::string::String,
+    /// ISO 10383 market identifier code. Empty where there is no listing venue.
+    #[prost(string, tag = "5")]
+    pub exchange_mic: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(enumeration = "InstrumentLifecycleState", tag = "7")]
+    pub lifecycle_state: i32,
+    /// Monotonic, assigned by the store, starting at 1. An apply carrying a
+    /// version at or below the one held is a no-op, which is what makes replica
+    /// application idempotent and overlapping pulls harmless.
+    #[prost(int64, tag = "8")]
+    pub version: i64,
+    /// Effective time. When this version's mapping became true.
+    #[prost(int64, tag = "9")]
+    pub valid_from_ns: i64,
+    /// Record time. Stamped by the store, never accepted from a caller: knowledge
+    /// cannot be back-dated.
+    #[prost(int64, tag = "10")]
+    pub record_time_ns: i64,
 }
 /// The only thing holdings are recorded against. A plugin creates one only by
 /// linking an external account to a new one, acting for a deployment admin in
@@ -915,6 +1577,677 @@ pub struct AccountRecord {
     #[prost(string, tag = "8")]
     pub note: ::prost::alloc::string::String,
 }
+/// A mirror of meridian.v1.OpeningSource.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpeningSource {
+    #[prost(enumeration = "OpeningSourceKind", tag = "1")]
+    pub kind: i32,
+    /// The custodian or system as it is known in the deployment (the external
+    /// account's institution, the prior system's name).
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    /// ISO 8601: the date the source's figures are as of.
+    #[prost(string, tag = "3")]
+    pub as_of_date: ::prost::alloc::string::String,
+    #[prost(enumeration = "PositionBasis", tag = "4")]
+    pub basis: i32,
+    /// The street records it was composed from, by value (decisions/012).
+    #[prost(message, repeated, tag = "5")]
+    pub street_records: ::prost::alloc::vec::Vec<StreetRecordRef>,
+}
+/// A street record named by value: never a key the book follows.
+/// A mirror of meridian.v1.StreetRecordRef.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StreetRecordRef {
+    #[prost(string, tag = "1")]
+    pub statement_id: ::prost::alloc::string::String,
+    /// The custodial position's change, where one was compared or used.
+    #[prost(message, optional, tag = "2")]
+    pub change: ::core::option::Option<JournalRef>,
+    /// ISO 8601: the custodian's as-of date.
+    #[prost(string, tag = "3")]
+    pub as_of_date: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.OpeningPosition.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpeningPosition {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "HoldingSide", tag = "2")]
+    pub side: i32,
+    #[prost(message, optional, tag = "3")]
+    pub trade_date_quantity: ::core::option::Option<Decimal>,
+    /// Unset where the source states none.
+    #[prost(message, optional, tag = "4")]
+    pub settled_quantity: ::core::option::Option<Decimal>,
+    #[prost(message, repeated, tag = "5")]
+    pub pending: ::prost::alloc::vec::Vec<PendingSettlement>,
+    /// As reported; a position whose source reports none sends one, its cost
+    /// unknown; cash sends none.
+    #[prost(message, repeated, tag = "6")]
+    pub lots: ::prost::alloc::vec::Vec<OpeningLot>,
+}
+/// A mirror of meridian.v1.PendingSettlement.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PendingSettlement {
+    /// ISO 8601; empty only for "date not stated" at an opening balance.
+    #[prost(string, tag = "1")]
+    pub value_date: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub quantity: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "3")]
+    pub state: ::core::option::Option<PendingState>,
+}
+/// A mirror of meridian.v1.PendingState.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PendingState {
+    #[prost(bool, tag = "1")]
+    pub failing: bool,
+    /// As reported.
+    #[prost(string, tag = "2")]
+    pub fail_reason: ::prost::alloc::string::String,
+    /// ISO 8601; the date it is now expected; the bucket keeps its intended
+    /// date ("Three more considerations", 2).
+    #[prost(string, tag = "3")]
+    pub expected_date: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.OpeningLot.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpeningLot {
+    #[prost(message, optional, tag = "1")]
+    pub quantity: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "2")]
+    pub terms: ::core::option::Option<LotTerms>,
+}
+/// A mirror of meridian.v1.LotTerms.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LotTerms {
+    /// Each unset where not known; never derived one from the other.
+    #[prost(message, optional, tag = "1")]
+    pub unit_cost: ::core::option::Option<Money>,
+    #[prost(message, optional, tag = "2")]
+    pub cost: ::core::option::Option<Money>,
+    #[prost(string, tag = "3")]
+    pub acquired_date: ::prost::alloc::string::String,
+    /// Apart from acquisition, for wash-sale tacking; empty is the acquired
+    /// date.
+    #[prost(string, tag = "4")]
+    pub holding_period_start: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub settlement_date: ::prost::alloc::string::String,
+    #[prost(enumeration = "LotSource", tag = "6")]
+    pub source: i32,
+}
+/// What a journal entry records beside its JournalRef and ChangeCause.
+/// A mirror of meridian.v1.EntryMeta.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EntryMeta {
+    /// Minted by the book.
+    #[prost(string, tag = "1")]
+    pub entry_id: ::prost::alloc::string::String,
+    /// An open list a reader takes as data (Q19): in v8 opening-balance,
+    /// placeholder-moved, figures-recorded, break-recorded, break-handled,
+    /// break-resolved, break-closed, adjustment, reversal, attribute-set.
+    #[prost(string, tag = "2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub actor: ::core::option::Option<Actor>,
+    /// The time on the message that caused it, and when the book received it;
+    /// when it committed is the cause's committed_at_ns.
+    #[prost(int64, tag = "4")]
+    pub event_time_ns: i64,
+    #[prost(int64, tag = "5")]
+    pub received_at_ns: i64,
+    /// ISO 8601: the business date it stands for.
+    #[prost(string, tag = "6")]
+    pub effective_date: ::prost::alloc::string::String,
+    /// The control partition's sequence in force (decisions/024's note).
+    #[prost(uint64, tag = "7")]
+    pub control_sequence: u64,
+    /// Each instrument it names, with the reference record's version in force
+    /// when it was recorded; none where the store has no version (Q31).
+    #[prost(message, repeated, tag = "8")]
+    pub reference_versions: ::prost::alloc::vec::Vec<ReferenceVersion>,
+    /// Required on a justified act: an opening balance, an adjustment, a
+    /// reversal, a resolution, handling, an attribute.
+    #[prost(string, tag = "9")]
+    pub reason: ::prost::alloc::string::String,
+    /// The breaks it records, handles, resolves or closes.
+    #[prost(string, repeated, tag = "10")]
+    pub break_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The key the plugin sent the command with, where it sent one (Q12 of the
+    /// sample operations plugin, ruled 2026-10-01).
+    #[prost(string, tag = "11")]
+    pub idempotency_key: ::prost::alloc::string::String,
+}
+/// Who made a change (step 5's requirement 28, landed with v8). Set by the
+/// book from the envelope the sidecar stamped (W4.9), never by a plugin.
+/// A mirror of meridian.v1.Actor.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Actor {
+    #[prost(oneof = "actor::Kind", tags = "1, 2")]
+    pub kind: ::core::option::Option<actor::Kind>,
+}
+/// Nested message and enum types in `Actor`.
+pub mod actor {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Kind {
+        /// A person the sidecar vouched for, by the deployment-local subject
+        /// W6.1 records.
+        #[prost(message, tag = "1")]
+        Person(super::PersonActor),
+        /// A finding reported with no user: the plugin instance that sent it;
+        /// the book's own act (a placeholder followed) leaves it empty.
+        #[prost(message, tag = "2")]
+        System(super::SystemActor),
+    }
+}
+/// A mirror of meridian.v1.PersonActor.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PersonActor {
+    #[prost(string, tag = "1")]
+    pub subject: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.SystemActor.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SystemActor {
+    #[prost(string, tag = "1")]
+    pub instance_id: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.ReferenceVersion.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReferenceVersion {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    /// The InstrumentRecord's version (W3.6).
+    #[prost(int64, tag = "2")]
+    pub version: i64,
+}
+/// A mirror of meridian.v1.BookPosition.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BookPosition {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "HoldingSide", tag = "3")]
+    pub side: i32,
+    /// Settled, plus pending, plus not stated: by construction.
+    #[prost(message, optional, tag = "4")]
+    pub trade_date_quantity: ::core::option::Option<Decimal>,
+    /// Unset while any of the quantity is not stated: unknown, never zero.
+    #[prost(message, optional, tag = "5")]
+    pub settled_quantity: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "6")]
+    pub not_stated_quantity: ::core::option::Option<Decimal>,
+    #[prost(message, repeated, tag = "7")]
+    pub pending: ::prost::alloc::vec::Vec<PendingSettlement>,
+    /// Open lots; their open quantities sum to trade_date_quantity, cash
+    /// excepted.
+    #[prost(message, repeated, tag = "8")]
+    pub lots: ::prost::alloc::vec::Vec<Lot>,
+    /// The opening balance's sources, with their as-of and basis.
+    #[prost(message, repeated, tag = "9")]
+    pub opened_from: ::prost::alloc::vec::Vec<OpeningSource>,
+    /// The business date of its last change.
+    #[prost(string, tag = "10")]
+    pub effective_date: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "11")]
+    pub last_change: ::core::option::Option<JournalRef>,
+    /// A tombstone, after a placeholder's move (W9.9): returned only to a read
+    /// since a watermark, and delivered once.
+    #[prost(bool, tag = "12")]
+    pub removed: bool,
+    /// Held under a placeholder instrument (W3.7) while the street's holding is
+    /// unresolved: in the opening balance and in reconciliation as any position,
+    /// flagged, until the book follows its replacement (W9.9).
+    #[prost(bool, tag = "13")]
+    pub placeholder: bool,
+    /// What of it cannot move, as the operations plugin last recorded it from
+    /// a statement (W9.15): an attribute, never a movement.
+    #[prost(message, repeated, tag = "14")]
+    pub encumbrances: ::prost::alloc::vec::Vec<Encumbrance>,
+    /// Derived, never reported: the quantity on free_basis less its
+    /// encumbrances. Unset while that quantity is unknown (some not stated).
+    #[prost(message, optional, tag = "15")]
+    pub free_quantity: ::core::option::Option<Decimal>,
+    #[prost(enumeration = "FreeBasis", tag = "16")]
+    pub free_basis: i32,
+}
+/// A mirror of meridian.v1.Lot.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Lot {
+    /// Minted by the book.
+    #[prost(string, tag = "1")]
+    pub lot_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub open_quantity: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "3")]
+    pub original_quantity: ::core::option::Option<Decimal>,
+    /// As opened, with each basis adjustment applied.
+    #[prost(message, optional, tag = "4")]
+    pub terms: ::core::option::Option<LotTerms>,
+    #[prost(message, optional, tag = "5")]
+    pub opened_by: ::core::option::Option<JournalRef>,
+    #[prost(message, repeated, tag = "6")]
+    pub relieved_by: ::prost::alloc::vec::Vec<JournalRef>,
+    #[prost(message, repeated, tag = "7")]
+    pub adjusted_by: ::prost::alloc::vec::Vec<JournalRef>,
+}
+/// One encumbrance of a position, as the book holds it.
+/// A mirror of meridian.v1.Encumbrance.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Encumbrance {
+    /// PLEDGED to OTHER only; the street's PENDING, REHYPOTHECATED and
+    /// BORROWED are refused.
+    #[prost(enumeration = "EncumbranceKind", tag = "1")]
+    pub kind: i32,
+    /// Signed as the position's quantity.
+    #[prost(message, optional, tag = "2")]
+    pub quantity: ::core::option::Option<Decimal>,
+    #[prost(string, tag = "3")]
+    pub pledgee: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub held_at: ::prost::alloc::string::String,
+    /// Unset where the source names none.
+    #[prost(message, optional, tag = "5")]
+    pub agreement: ::core::option::Option<MarginAgreementRef>,
+    /// The source's code, verbatim; required for OTHER.
+    #[prost(string, tag = "6")]
+    pub source_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub detail: ::prost::alloc::string::String,
+    /// The statement it was recorded from.
+    #[prost(message, optional, tag = "8")]
+    pub source: ::core::option::Option<StreetRecordRef>,
+    /// Set by the book: the business date it was first recorded under its
+    /// kind, pledgee, location and agreement, and the change that last set it.
+    #[prost(string, tag = "9")]
+    pub since_date: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "10")]
+    pub set_by: ::core::option::Option<JournalRef>,
+}
+/// A mirror of meridian.v1.MarginAgreementRef.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MarginAgreementRef {
+    #[prost(oneof = "margin_agreement_ref::Agreement", tags = "1")]
+    pub agreement: ::core::option::Option<margin_agreement_ref::Agreement>,
+}
+/// Nested message and enum types in `MarginAgreementRef`.
+pub mod margin_agreement_ref {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Agreement {
+        /// Step 4: the statement's external account and segment (Q12). An
+        /// agreement the book records under a template arrives as another arm.
+        #[prost(message, tag = "1")]
+        StatementSegment(super::StatementSegmentRef),
+    }
+}
+/// A mirror of meridian.v1.StatementSegmentRef.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StatementSegmentRef {
+    #[prost(string, tag = "1")]
+    pub external_account_id: ::prost::alloc::string::String,
+    /// As the venue names it; empty for the account as a whole.
+    #[prost(string, tag = "2")]
+    pub segment: ::prost::alloc::string::String,
+    /// As reported: the external account's institution.
+    #[prost(string, tag = "3")]
+    pub counterparty: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.Break.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Break {
+    #[prost(string, tag = "1")]
+    pub break_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "BreakCategory", tag = "5")]
+    pub category: i32,
+    #[prost(message, repeated, tag = "6")]
+    pub differences: ::prost::alloc::vec::Vec<BreakDifference>,
+    #[prost(message, optional, tag = "7")]
+    pub book_watermark: ::core::option::Option<Watermark>,
+    #[prost(message, optional, tag = "8")]
+    pub street: ::core::option::Option<StreetRecordRef>,
+    /// ISO 8601 business dates; age is derived from them, never stored.
+    #[prost(string, tag = "9")]
+    pub first_seen_date: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub last_seen_date: ::prost::alloc::string::String,
+    #[prost(enumeration = "BreakState", tag = "11")]
+    pub state: i32,
+    #[prost(message, repeated, tag = "12")]
+    pub candidate_causes: ::prost::alloc::vec::Vec<BreakCause>,
+    #[prost(message, optional, tag = "13")]
+    pub confirmed_cause: ::core::option::Option<BreakCause>,
+    #[prost(message, optional, tag = "14")]
+    pub handling: ::core::option::Option<BreakHandling>,
+    #[prost(message, optional, tag = "15")]
+    pub resolution: ::core::option::Option<BreakResolution>,
+    #[prost(message, optional, tag = "16")]
+    pub recorded_by: ::core::option::Option<Actor>,
+    #[prost(message, optional, tag = "17")]
+    pub last_change: ::core::option::Option<JournalRef>,
+    #[prost(oneof = "r#break::Subject", tags = "3, 4")]
+    pub subject: ::core::option::Option<r#break::Subject>,
+}
+/// Nested message and enum types in `Break`.
+pub mod r#break {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Subject {
+        #[prost(message, tag = "3")]
+        Position(super::PositionKey),
+        #[prost(message, tag = "4")]
+        Figure(super::FigureKey),
+    }
+}
+/// A mirror of meridian.v1.PositionKey.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PositionKey {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "HoldingSide", tag = "2")]
+    pub side: i32,
+}
+/// A mirror of meridian.v1.FigureKey.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FigureKey {
+    #[prost(message, optional, tag = "1")]
+    pub agreement: ::core::option::Option<MarginAgreementRef>,
+    /// The figure, by its field's name in the data dictionary.
+    #[prost(string, tag = "2")]
+    pub figure: ::prost::alloc::string::String,
+    /// For a collateral balance: its instrument.
+    #[prost(string, tag = "3")]
+    pub instrument_id: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.BreakDifference.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BreakDifference {
+    /// The field, by its name in the data dictionary ("settled_quantity",
+    /// "lots\[2\].terms.cost").
+    #[prost(string, tag = "1")]
+    pub field: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub book: ::core::option::Option<BreakValue>,
+    #[prost(message, optional, tag = "3")]
+    pub street: ::core::option::Option<BreakValue>,
+}
+/// One side of a difference; unset: absent on that side.
+/// A mirror of meridian.v1.BreakValue.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BreakValue {
+    #[prost(oneof = "break_value::Value", tags = "1, 2, 3")]
+    pub value: ::core::option::Option<break_value::Value>,
+}
+/// Nested message and enum types in `BreakValue`.
+pub mod break_value {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        #[prost(message, tag = "1")]
+        Quantity(super::Decimal),
+        #[prost(message, tag = "2")]
+        Amount(super::Money),
+        #[prost(string, tag = "3")]
+        Text(::prost::alloc::string::String),
+    }
+}
+/// The item found to cause a break, linked by value (Q23's target).
+/// A mirror of meridian.v1.BreakCause.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BreakCause {
+    #[prost(enumeration = "BreakCauseCategory", tag = "1")]
+    pub category: i32,
+    #[prost(string, tag = "7")]
+    pub note: ::prost::alloc::string::String,
+    #[prost(oneof = "break_cause::Item", tags = "2, 3, 4, 5, 6")]
+    pub item: ::core::option::Option<break_cause::Item>,
+}
+/// Nested message and enum types in `BreakCause`.
+pub mod break_cause {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Item {
+        #[prost(message, tag = "2")]
+        StreetRecord(super::StreetRecordRef),
+        #[prost(message, tag = "3")]
+        BookEntry(super::JournalRef),
+        #[prost(message, tag = "4")]
+        PendingSettlement(super::PendingSettlementRef),
+        /// A corporate action's reference, as reported.
+        #[prost(string, tag = "5")]
+        EventReference(::prost::alloc::string::String),
+        #[prost(bool, tag = "6")]
+        NoneFound(bool),
+    }
+}
+/// A mirror of meridian.v1.PendingSettlementRef.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PendingSettlementRef {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "HoldingSide", tag = "2")]
+    pub side: i32,
+    #[prost(string, tag = "3")]
+    pub value_date: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.BreakHandling.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BreakHandling {
+    /// A user the deployment knows (W6.1): one granted write on the account
+    /// through the plugin, or the person taking it (Q11 of the sample
+    /// operations plugin, ruled 2026-10-01).
+    #[prost(string, tag = "1")]
+    pub owner_subject: ::prost::alloc::string::String,
+    /// The operations plugin's own levels; core gives them no meaning.
+    #[prost(uint32, tag = "2")]
+    pub escalation_level: u32,
+    /// ISO 8601.
+    #[prost(string, tag = "3")]
+    pub due_date: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.BreakResolution.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BreakResolution {
+    /// Resolved: the entries that corrected the book.
+    #[prost(message, repeated, tag = "1")]
+    pub entries: ::prost::alloc::vec::Vec<JournalRef>,
+    /// Closed: the explanation, no entry.
+    #[prost(string, tag = "2")]
+    pub explanation: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub actor: ::core::option::Option<Actor>,
+    #[prost(string, tag = "4")]
+    pub reason: ::prost::alloc::string::String,
+    /// Closed as cleared: the street record where the difference was gone (Q2
+    /// of the sample operations plugin, ruled 2026-10-01).
+    #[prost(message, optional, tag = "5")]
+    pub cleared_at: ::core::option::Option<StreetRecordRef>,
+}
+/// The record: one per account, agreement and business date.
+/// A mirror of meridian.v1.AccountFigures.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountFigures {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub business_date: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub agreement: ::core::option::Option<MarginAgreementRef>,
+    #[prost(message, optional, tag = "4")]
+    pub figures: ::core::option::Option<StatementFigures>,
+    #[prost(message, repeated, tag = "5")]
+    pub position_values: ::prost::alloc::vec::Vec<ReportedPositionValue>,
+    #[prost(message, optional, tag = "6")]
+    pub source: ::core::option::Option<StreetRecordRef>,
+    #[prost(message, optional, tag = "7")]
+    pub last_change: ::core::option::Option<JournalRef>,
+}
+/// The custodian's, labelled as such (Q8, revised and ruled); never a
+/// position's own.
+/// A mirror of meridian.v1.ReportedPositionValue.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportedPositionValue {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "HoldingSide", tag = "2")]
+    pub side: i32,
+    #[prost(message, optional, tag = "3")]
+    pub market_value: ::core::option::Option<Money>,
+    #[prost(message, optional, tag = "4")]
+    pub margin_requirement: ::core::option::Option<Money>,
+}
+/// A mirror of meridian.v1.AccountAttributes.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountAttributes {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// ISO 4217 until the money revision names an asset
+    /// (sdk-contract/money-names-an-asset-not-only-an-iso-currency).
+    #[prost(string, tag = "2")]
+    pub base_currency_code: ::prost::alloc::string::String,
+    #[prost(enumeration = "LotReliefMethod", tag = "3")]
+    pub lot_relief_default: i32,
+    #[prost(message, optional, tag = "4")]
+    pub last_change: ::core::option::Option<JournalRef>,
+    /// The standing opening balance, set by the book when it journals W9.1;
+    /// unset while none stands (Q21 of the sample operations plugin, ruled
+    /// 2026-10-01).
+    #[prost(message, optional, tag = "5")]
+    pub opening_balance: ::core::option::Option<OpeningBalance>,
+}
+/// The account's standing opening balance, set by the book when it journals
+/// W9.1 and cleared when it is reversed (Q21 of the sample operations plugin,
+/// ruled 2026-10-01): its entry, D0 and sources, read on the account's
+/// attributes (W9.14).
+/// A mirror of meridian.v1.OpeningBalance.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpeningBalance {
+    #[prost(string, tag = "1")]
+    pub entry_id: ::prost::alloc::string::String,
+    /// ISO 8601: D0.
+    #[prost(string, tag = "2")]
+    pub as_of_date: ::prost::alloc::string::String,
+    /// As recorded, the street records it was composed from among them.
+    #[prost(message, repeated, tag = "3")]
+    pub sources: ::prost::alloc::vec::Vec<OpeningSource>,
+    #[prost(message, optional, tag = "4")]
+    pub recorded_by: ::core::option::Option<Actor>,
+    #[prost(message, optional, tag = "5")]
+    pub journal: ::core::option::Option<JournalRef>,
+    /// The reason the person gave.
+    #[prost(string, tag = "6")]
+    pub reason: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.AgreementFigures.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgreementFigures {
+    #[prost(message, optional, tag = "1")]
+    pub agreement: ::core::option::Option<MarginAgreementRef>,
+    /// As the street recorded them (W2.2), its segment equal to the
+    /// agreement's.
+    #[prost(message, optional, tag = "2")]
+    pub figures: ::core::option::Option<StatementFigures>,
+    /// On the set with no segment only.
+    #[prost(message, repeated, tag = "3")]
+    pub position_values: ::prost::alloc::vec::Vec<ReportedPositionValue>,
+}
+/// One position's encumbrances, as a statement states them: the whole set,
+/// empty when the statement reports none.
+/// A mirror of meridian.v1.PositionEncumbrances.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PositionEncumbrances {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "HoldingSide", tag = "2")]
+    pub side: i32,
+    #[prost(message, repeated, tag = "3")]
+    pub encumbrances: ::prost::alloc::vec::Vec<Encumbrance>,
+}
+/// Step 5's non-order transaction's first kind (Q28). Slice D adds the
+/// cash-flow class and the other kinds as fields of their own (Q20).
+/// A mirror of meridian.v1.Adjustment.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Adjustment {
+    /// After the opening balance's date.
+    #[prost(string, tag = "1")]
+    pub effective_date: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub lines: ::prost::alloc::vec::Vec<MovementLine>,
+    #[prost(message, repeated, tag = "3")]
+    pub basis_adjustments: ::prost::alloc::vec::Vec<BasisAdjustment>,
+    /// A corporate action's reference, as reported, where it records one.
+    #[prost(string, tag = "4")]
+    pub event_reference: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.MovementLine.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MovementLine {
+    /// An instrument, a placeholder, or a currency's cash instrument.
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "HoldingSide", tag = "2")]
+    pub side: i32,
+    #[prost(enumeration = "SettlementBucket", tag = "3")]
+    pub bucket: i32,
+    /// ISO 8601; required on a pending line but at an opening balance; may be
+    /// years out.
+    #[prost(string, tag = "4")]
+    pub value_date: ::prost::alloc::string::String,
+    /// Signed as the position's quantity is, and added to it.
+    #[prost(message, optional, tag = "5")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// The lot it adds to or relieves. Empty on a line that opens a lot, whose
+    /// identifier the book mints, and on cash, which has no lots.
+    #[prost(string, tag = "6")]
+    pub lot_id: ::prost::alloc::string::String,
+    /// Set on the line that opens a lot, and only there.
+    #[prost(message, optional, tag = "7")]
+    pub opens_lot: ::core::option::Option<LotTerms>,
+    /// A pending line's fail, where its source reports one.
+    #[prost(message, optional, tag = "8")]
+    pub pending_state: ::core::option::Option<PendingState>,
+}
+/// A mirror of meridian.v1.BasisAdjustment.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BasisAdjustment {
+    #[prost(string, tag = "1")]
+    pub lot_id: ::prost::alloc::string::String,
+    /// Where it moves; empty is unchanged.
+    #[prost(string, tag = "3")]
+    pub holding_period_start: ::prost::alloc::string::String,
+    #[prost(oneof = "basis_adjustment::Cost", tags = "2, 4")]
+    pub cost: ::core::option::Option<basis_adjustment::Cost>,
+}
+/// Nested message and enum types in `BasisAdjustment`.
+pub mod basis_adjustment {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Cost {
+        /// Added to the lot's cost; signed. Only on a lot whose cost is known.
+        #[prost(message, tag = "2")]
+        CostChange(super::Money),
+        /// The lot's cost, stated where it was unknown: a lot opened with no
+        /// cost -- a remainder lot, one of unknown cost because the source listed
+        /// none, a future's -- given its cost once it is known. Only on a lot
+        /// whose cost is unknown.
+        #[prost(message, tag = "4")]
+        StatedCost(super::Money),
+    }
+}
+/// Names the entry it reverses; the book negates its lines, at that entry's
+/// effective date.
+/// A mirror of meridian.v1.Reversal.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Reversal {
+    #[prost(string, tag = "1")]
+    pub entry_id: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.ResolvedByEntries.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResolvedByEntries {
+    #[prost(string, repeated, tag = "1")]
+    pub entry_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 /// A custodial position that changed, and the statement that changed it.
 /// A mirror of meridian.v1.CustodialPositionUpdatedEvent.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -934,6 +2267,57 @@ pub struct CustodialPositionUpdatedEvent {
     #[prost(message, optional, tag = "5")]
     pub journal: ::core::option::Option<JournalRef>,
     #[prost(message, optional, tag = "6")]
+    pub cause: ::core::option::Option<ChangeCause>,
+}
+/// A mirror of meridian.v1.PositionChangedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PositionChangedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub position: ::core::option::Option<BookPosition>,
+    #[prost(message, optional, tag = "2")]
+    pub previous_trade_date_quantity: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "3")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "4")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "5")]
+    pub cause: ::core::option::Option<ChangeCause>,
+}
+/// A mirror of meridian.v1.BreakChangedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BreakChangedEvent {
+    /// Not `break`, a keyword in the SDKs' languages.
+    #[prost(message, optional, tag = "1")]
+    pub break_record: ::core::option::Option<Break>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "4")]
+    pub cause: ::core::option::Option<ChangeCause>,
+}
+/// A mirror of meridian.v1.AccountFiguresRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountFiguresRecordedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub figures: ::core::option::Option<AccountFigures>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "4")]
+    pub cause: ::core::option::Option<ChangeCause>,
+}
+/// A mirror of meridian.v1.AccountAttributeChangedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountAttributeChangedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub attributes: ::core::option::Option<AccountAttributes>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "4")]
     pub cause: ::core::option::Option<ChangeCause>,
 }
 /// Why a connection's data is, or is not, current.
@@ -1067,6 +2451,117 @@ impl HoldingSide {
         }
     }
 }
+/// What a source's available figure is net of.
+/// A mirror of meridian.v1.AvailableBasis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AvailableBasis {
+    /// The source does not say.
+    Unspecified = 0,
+    Settled = 1,
+    Traded = 2,
+    Contractual = 3,
+    /// A venue's figure net of its open orders (Alpaca's qty_available,
+    /// Binance's free): the order reservation is the oms's, never an
+    /// encumbrance.
+    OrderNetted = 4,
+}
+impl AvailableBasis {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "AVAILABLE_BASIS_UNSPECIFIED",
+            Self::Settled => "AVAILABLE_BASIS_SETTLED",
+            Self::Traded => "AVAILABLE_BASIS_TRADED",
+            Self::Contractual => "AVAILABLE_BASIS_CONTRACTUAL",
+            Self::OrderNetted => "AVAILABLE_BASIS_ORDER_NETTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "AVAILABLE_BASIS_UNSPECIFIED" => Some(Self::Unspecified),
+            "AVAILABLE_BASIS_SETTLED" => Some(Self::Settled),
+            "AVAILABLE_BASIS_TRADED" => Some(Self::Traded),
+            "AVAILABLE_BASIS_CONTRACTUAL" => Some(Self::Contractual),
+            "AVAILABLE_BASIS_ORDER_NETTED" => Some(Self::OrderNetted),
+            _ => None,
+        }
+    }
+}
+/// Why some of a holding cannot move (reference/encumbrance-survey, 3.1).
+/// Pending settlement stays in the settlement buckets: PENDING, like
+/// REHYPOTHECATED and BORROWED, is the street's, for the statement's own
+/// consistency, and the book holds none of the three.
+/// A mirror of meridian.v1.EncumbranceKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EncumbranceKind {
+    /// Not said. Refused: a sub-balance says which it is.
+    Unspecified = 0,
+    /// Pledged in place to a pledgee (PLED).
+    Pledged = 1,
+    /// Delivered to a third party as collateral (COLO).
+    Posted = 2,
+    /// Lent (LOAN).
+    OnLoan = 3,
+    /// Blocked for a stated purpose (BLOK, BLCA, BLOT, BLOV).
+    Blocked = 4,
+    /// Movable only under conditions or with documents (RSTR, WDOC).
+    Restricted = 5,
+    /// Between depositories, agents or registers (TRAN, REGO, BTRA).
+    InTransit = 6,
+    /// A sub-balance the plugin cannot map: its source_code required.
+    Other = 7,
+    /// The street's only: as reported, for the consistency check.
+    Pending = 8,
+    /// The street's only: used by the broker under a right of use; it does not
+    /// reduce the available quantity.
+    Rehypothecated = 9,
+    /// The street's only: borrowed, title to us, with a return obligation.
+    Borrowed = 10,
+}
+impl EncumbranceKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ENCUMBRANCE_KIND_UNSPECIFIED",
+            Self::Pledged => "ENCUMBRANCE_KIND_PLEDGED",
+            Self::Posted => "ENCUMBRANCE_KIND_POSTED",
+            Self::OnLoan => "ENCUMBRANCE_KIND_ON_LOAN",
+            Self::Blocked => "ENCUMBRANCE_KIND_BLOCKED",
+            Self::Restricted => "ENCUMBRANCE_KIND_RESTRICTED",
+            Self::InTransit => "ENCUMBRANCE_KIND_IN_TRANSIT",
+            Self::Other => "ENCUMBRANCE_KIND_OTHER",
+            Self::Pending => "ENCUMBRANCE_KIND_PENDING",
+            Self::Rehypothecated => "ENCUMBRANCE_KIND_REHYPOTHECATED",
+            Self::Borrowed => "ENCUMBRANCE_KIND_BORROWED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ENCUMBRANCE_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "ENCUMBRANCE_KIND_PLEDGED" => Some(Self::Pledged),
+            "ENCUMBRANCE_KIND_POSTED" => Some(Self::Posted),
+            "ENCUMBRANCE_KIND_ON_LOAN" => Some(Self::OnLoan),
+            "ENCUMBRANCE_KIND_BLOCKED" => Some(Self::Blocked),
+            "ENCUMBRANCE_KIND_RESTRICTED" => Some(Self::Restricted),
+            "ENCUMBRANCE_KIND_IN_TRANSIT" => Some(Self::InTransit),
+            "ENCUMBRANCE_KIND_OTHER" => Some(Self::Other),
+            "ENCUMBRANCE_KIND_PENDING" => Some(Self::Pending),
+            "ENCUMBRANCE_KIND_REHYPOTHECATED" => Some(Self::Rehypothecated),
+            "ENCUMBRANCE_KIND_BORROWED" => Some(Self::Borrowed),
+            _ => None,
+        }
+    }
+}
 /// Why a resolution did not produce exactly one instrument.
 /// A mirror of meridian.v1.MissReason.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -1165,6 +2660,46 @@ impl AssetClass {
         }
     }
 }
+/// Lifecycle. The transition verbs are the commands; nothing sets this directly.
+/// A mirror of meridian.v1.InstrumentLifecycleState.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum InstrumentLifecycleState {
+    Unspecified = 0,
+    /// Identity exists, attributes may be incomplete. A holding can reference it,
+    /// which is the point: a position may arrive before anyone has decided what
+    /// the instrument is.
+    Define = 1,
+    /// Fully defined.
+    Active = 2,
+    /// Retired. Existing holdings stay resolvable, because history does not stop
+    /// being true when an instrument stops trading.
+    Decommissioned = 3,
+}
+impl InstrumentLifecycleState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "INSTRUMENT_LIFECYCLE_STATE_UNSPECIFIED",
+            Self::Define => "INSTRUMENT_LIFECYCLE_STATE_DEFINE",
+            Self::Active => "INSTRUMENT_LIFECYCLE_STATE_ACTIVE",
+            Self::Decommissioned => "INSTRUMENT_LIFECYCLE_STATE_DECOMMISSIONED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "INSTRUMENT_LIFECYCLE_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "INSTRUMENT_LIFECYCLE_STATE_DEFINE" => Some(Self::Define),
+            "INSTRUMENT_LIFECYCLE_STATE_ACTIVE" => Some(Self::Active),
+            "INSTRUMENT_LIFECYCLE_STATE_DECOMMISSIONED" => Some(Self::Decommissioned),
+            _ => None,
+        }
+    }
+}
 /// A mirror of meridian.v1.AccountState.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -1192,6 +2727,337 @@ impl AccountState {
             "ACCOUNT_STATE_UNSPECIFIED" => Some(Self::Unspecified),
             "ACCOUNT_STATE_OPEN" => Some(Self::Open),
             "ACCOUNT_STATE_CLOSED" => Some(Self::Closed),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.OpeningSourceKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum OpeningSourceKind {
+    Unspecified = 0,
+    Custodian = 1,
+    PriorSystem = 2,
+}
+impl OpeningSourceKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "OPENING_SOURCE_KIND_UNSPECIFIED",
+            Self::Custodian => "OPENING_SOURCE_KIND_CUSTODIAN",
+            Self::PriorSystem => "OPENING_SOURCE_KIND_PRIOR_SYSTEM",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "OPENING_SOURCE_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "OPENING_SOURCE_KIND_CUSTODIAN" => Some(Self::Custodian),
+            "OPENING_SOURCE_KIND_PRIOR_SYSTEM" => Some(Self::PriorSystem),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.PositionBasis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PositionBasis {
+    Unspecified = 0,
+    TradeDate = 1,
+    SettleDate = 2,
+}
+impl PositionBasis {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "POSITION_BASIS_UNSPECIFIED",
+            Self::TradeDate => "POSITION_BASIS_TRADE_DATE",
+            Self::SettleDate => "POSITION_BASIS_SETTLE_DATE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "POSITION_BASIS_UNSPECIFIED" => Some(Self::Unspecified),
+            "POSITION_BASIS_TRADE_DATE" => Some(Self::TradeDate),
+            "POSITION_BASIS_SETTLE_DATE" => Some(Self::SettleDate),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.LotSource.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LotSource {
+    Unspecified = 0,
+    /// As the opening balance's source reported it (Q2).
+    OpeningBalance = 1,
+    /// Opened by an adjustment resolving a break (Q28). Step 5 adds the
+    /// book's own trade, slice D a transfer in.
+    Adjustment = 2,
+}
+impl LotSource {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LOT_SOURCE_UNSPECIFIED",
+            Self::OpeningBalance => "LOT_SOURCE_OPENING_BALANCE",
+            Self::Adjustment => "LOT_SOURCE_ADJUSTMENT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LOT_SOURCE_UNSPECIFIED" => Some(Self::Unspecified),
+            "LOT_SOURCE_OPENING_BALANCE" => Some(Self::OpeningBalance),
+            "LOT_SOURCE_ADJUSTMENT" => Some(Self::Adjustment),
+            _ => None,
+        }
+    }
+}
+/// The basis a position's free quantity is computed on.
+/// A mirror of meridian.v1.FreeBasis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum FreeBasis {
+    Unspecified = 0,
+    /// Settled: a pledged or lent security that has not settled cannot be
+    /// delivered either (the product owner, 2026-10-01, Q2). The book's
+    /// default, and in v8 its only basis.
+    Settled = 1,
+    TradeDate = 2,
+}
+impl FreeBasis {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "FREE_BASIS_UNSPECIFIED",
+            Self::Settled => "FREE_BASIS_SETTLED",
+            Self::TradeDate => "FREE_BASIS_TRADE_DATE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "FREE_BASIS_UNSPECIFIED" => Some(Self::Unspecified),
+            "FREE_BASIS_SETTLED" => Some(Self::Settled),
+            "FREE_BASIS_TRADE_DATE" => Some(Self::TradeDate),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.BreakCategory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum BreakCategory {
+    Unspecified = 0,
+    TradeDateQuantity = 1,
+    SettledQuantity = 2,
+    CostOrLots = 3,
+    SettledAgainstPending = 4,
+    BookOnly = 5,
+    StreetOnly = 6,
+    /// A figure the book holds a value of its own for, such as the street's
+    /// available and not available against the book's position, or an
+    /// encumbrance against the book's of that kind, location and pledgee.
+    Figure = 7,
+}
+impl BreakCategory {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "BREAK_CATEGORY_UNSPECIFIED",
+            Self::TradeDateQuantity => "BREAK_CATEGORY_TRADE_DATE_QUANTITY",
+            Self::SettledQuantity => "BREAK_CATEGORY_SETTLED_QUANTITY",
+            Self::CostOrLots => "BREAK_CATEGORY_COST_OR_LOTS",
+            Self::SettledAgainstPending => "BREAK_CATEGORY_SETTLED_AGAINST_PENDING",
+            Self::BookOnly => "BREAK_CATEGORY_BOOK_ONLY",
+            Self::StreetOnly => "BREAK_CATEGORY_STREET_ONLY",
+            Self::Figure => "BREAK_CATEGORY_FIGURE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "BREAK_CATEGORY_UNSPECIFIED" => Some(Self::Unspecified),
+            "BREAK_CATEGORY_TRADE_DATE_QUANTITY" => Some(Self::TradeDateQuantity),
+            "BREAK_CATEGORY_SETTLED_QUANTITY" => Some(Self::SettledQuantity),
+            "BREAK_CATEGORY_COST_OR_LOTS" => Some(Self::CostOrLots),
+            "BREAK_CATEGORY_SETTLED_AGAINST_PENDING" => Some(Self::SettledAgainstPending),
+            "BREAK_CATEGORY_BOOK_ONLY" => Some(Self::BookOnly),
+            "BREAK_CATEGORY_STREET_ONLY" => Some(Self::StreetOnly),
+            "BREAK_CATEGORY_FIGURE" => Some(Self::Figure),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.BreakState.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum BreakState {
+    Unspecified = 0,
+    Open = 1,
+    Resolved = 2,
+    Closed = 3,
+}
+impl BreakState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "BREAK_STATE_UNSPECIFIED",
+            Self::Open => "BREAK_STATE_OPEN",
+            Self::Resolved => "BREAK_STATE_RESOLVED",
+            Self::Closed => "BREAK_STATE_CLOSED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "BREAK_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "BREAK_STATE_OPEN" => Some(Self::Open),
+            "BREAK_STATE_RESOLVED" => Some(Self::Resolved),
+            "BREAK_STATE_CLOSED" => Some(Self::Closed),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.BreakCauseCategory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum BreakCauseCategory {
+    Unspecified = 0,
+    UnbookedTrade = 1,
+    SettlementTiming = 2,
+    CostOrPrice = 3,
+    CorporateAction = 4,
+    Fail = 5,
+    CustodianError = 6,
+    Unknown = 7,
+}
+impl BreakCauseCategory {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "BREAK_CAUSE_CATEGORY_UNSPECIFIED",
+            Self::UnbookedTrade => "BREAK_CAUSE_CATEGORY_UNBOOKED_TRADE",
+            Self::SettlementTiming => "BREAK_CAUSE_CATEGORY_SETTLEMENT_TIMING",
+            Self::CostOrPrice => "BREAK_CAUSE_CATEGORY_COST_OR_PRICE",
+            Self::CorporateAction => "BREAK_CAUSE_CATEGORY_CORPORATE_ACTION",
+            Self::Fail => "BREAK_CAUSE_CATEGORY_FAIL",
+            Self::CustodianError => "BREAK_CAUSE_CATEGORY_CUSTODIAN_ERROR",
+            Self::Unknown => "BREAK_CAUSE_CATEGORY_UNKNOWN",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "BREAK_CAUSE_CATEGORY_UNSPECIFIED" => Some(Self::Unspecified),
+            "BREAK_CAUSE_CATEGORY_UNBOOKED_TRADE" => Some(Self::UnbookedTrade),
+            "BREAK_CAUSE_CATEGORY_SETTLEMENT_TIMING" => Some(Self::SettlementTiming),
+            "BREAK_CAUSE_CATEGORY_COST_OR_PRICE" => Some(Self::CostOrPrice),
+            "BREAK_CAUSE_CATEGORY_CORPORATE_ACTION" => Some(Self::CorporateAction),
+            "BREAK_CAUSE_CATEGORY_FAIL" => Some(Self::Fail),
+            "BREAK_CAUSE_CATEGORY_CUSTODIAN_ERROR" => Some(Self::CustodianError),
+            "BREAK_CAUSE_CATEGORY_UNKNOWN" => Some(Self::Unknown),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.LotReliefMethod.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LotReliefMethod {
+    Unspecified = 0,
+    FirstInFirstOut = 1,
+    LastInFirstOut = 2,
+    HighestCost = 3,
+    LowestCost = 4,
+    AverageCost = 5,
+}
+impl LotReliefMethod {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LOT_RELIEF_METHOD_UNSPECIFIED",
+            Self::FirstInFirstOut => "LOT_RELIEF_METHOD_FIRST_IN_FIRST_OUT",
+            Self::LastInFirstOut => "LOT_RELIEF_METHOD_LAST_IN_FIRST_OUT",
+            Self::HighestCost => "LOT_RELIEF_METHOD_HIGHEST_COST",
+            Self::LowestCost => "LOT_RELIEF_METHOD_LOWEST_COST",
+            Self::AverageCost => "LOT_RELIEF_METHOD_AVERAGE_COST",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LOT_RELIEF_METHOD_UNSPECIFIED" => Some(Self::Unspecified),
+            "LOT_RELIEF_METHOD_FIRST_IN_FIRST_OUT" => Some(Self::FirstInFirstOut),
+            "LOT_RELIEF_METHOD_LAST_IN_FIRST_OUT" => Some(Self::LastInFirstOut),
+            "LOT_RELIEF_METHOD_HIGHEST_COST" => Some(Self::HighestCost),
+            "LOT_RELIEF_METHOD_LOWEST_COST" => Some(Self::LowestCost),
+            "LOT_RELIEF_METHOD_AVERAGE_COST" => Some(Self::AverageCost),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.SettlementBucket.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SettlementBucket {
+    /// Refused.
+    Unspecified = 0,
+    Settled = 1,
+    /// Pending settlement on the line's value date. With no value date only at
+    /// an opening balance: the source's difference between trade-date and
+    /// settled quantities, "date not stated".
+    Pending = 2,
+    /// The source did not say whether it is settled or pending: only at an
+    /// opening balance whose source gave no settled quantity.
+    NotStated = 3,
+}
+impl SettlementBucket {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SETTLEMENT_BUCKET_UNSPECIFIED",
+            Self::Settled => "SETTLEMENT_BUCKET_SETTLED",
+            Self::Pending => "SETTLEMENT_BUCKET_PENDING",
+            Self::NotStated => "SETTLEMENT_BUCKET_NOT_STATED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SETTLEMENT_BUCKET_UNSPECIFIED" => Some(Self::Unspecified),
+            "SETTLEMENT_BUCKET_SETTLED" => Some(Self::Settled),
+            "SETTLEMENT_BUCKET_PENDING" => Some(Self::Pending),
+            "SETTLEMENT_BUCKET_NOT_STATED" => Some(Self::NotStated),
             _ => None,
         }
     }
@@ -1518,6 +3384,36 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W3.6: platform.reference.query.resolve-instrument (query).
+        pub async fn resolve_instrument(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ResolveInstrumentParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResolveInstrumentResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ResolveInstrument",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ResolveInstrument",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W6.4: platform.config.command.link-external-account (command).
         pub async fn link_external_account(
             &mut self,
@@ -1574,6 +3470,327 @@ pub mod plugin_operations_client {
                     GrpcMethod::new(
                         "meridian.plugin.v1.PluginOperations",
                         "ReadAccountsForLinking",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.1: platform.book.command.record-opening-balance (command).
+        pub async fn record_opening_balance(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordOpeningBalanceParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordOpeningBalanceResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordOpeningBalance",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "RecordOpeningBalance",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.4: platform.book.command.record-break (command).
+        pub async fn record_break(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordBreakParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordBreakResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordBreak",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "RecordBreak"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.5: platform.book.command.record-account-figures (command).
+        pub async fn record_account_figures(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordAccountFiguresParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordAccountFiguresResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordAccountFigures",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "RecordAccountFigures",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.15: platform.book.command.record-encumbrances (command).
+        pub async fn record_encumbrances(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordEncumbrancesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordEncumbrancesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordEncumbrances",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "RecordEncumbrances",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.6: platform.book.command.handle-break (command).
+        pub async fn handle_break(
+            &mut self,
+            request: impl tonic::IntoRequest<super::HandleBreakParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::HandleBreakResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/HandleBreak",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "HandleBreak"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.7: platform.book.command.resolve-break (command).
+        pub async fn resolve_break(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ResolveBreakParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResolveBreakResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ResolveBreak",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ResolveBreak",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.7: platform.book.command.close-breaks-as-cleared (command).
+        pub async fn close_breaks_as_cleared(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CloseBreaksAsClearedParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::CloseBreaksAsClearedResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/CloseBreaksAsCleared",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "CloseBreaksAsCleared",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.10: platform.book.query.list-positions (query).
+        pub async fn list_positions(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListPositionsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListPositionsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListPositions",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListPositions",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.11: platform.book.query.list-breaks (query).
+        pub async fn list_breaks(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListBreaksParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListBreaksResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListBreaks",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "ListBreaks"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.12: platform.book.query.list-account-figures (query).
+        pub async fn list_account_figures(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListAccountFiguresParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAccountFiguresResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListAccountFigures",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListAccountFigures",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W9.14: platform.book.query.list-account-attributes (query).
+        pub async fn list_account_attributes(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListAccountAttributesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAccountAttributesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListAccountAttributes",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListAccountAttributes",
                     ),
                 );
             self.inner.unary(req, path, codec).await
@@ -1675,6 +3892,14 @@ pub mod plugin_operations_server {
             &self,
             request: tonic::Request<super::ReportMissingInstrumentParams>,
         ) -> std::result::Result<tonic::Response<super::Published>, tonic::Status>;
+        /// W3.6: platform.reference.query.resolve-instrument (query).
+        async fn resolve_instrument(
+            &self,
+            request: tonic::Request<super::ResolveInstrumentParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResolveInstrumentResult>,
+            tonic::Status,
+        >;
         /// W6.4: platform.config.command.link-external-account (command).
         async fn link_external_account(
             &self,
@@ -1689,6 +3914,94 @@ pub mod plugin_operations_server {
             request: tonic::Request<super::ReadAccountsForLinkingParams>,
         ) -> std::result::Result<
             tonic::Response<super::ReadAccountsForLinkingResult>,
+            tonic::Status,
+        >;
+        /// W9.1: platform.book.command.record-opening-balance (command).
+        async fn record_opening_balance(
+            &self,
+            request: tonic::Request<super::RecordOpeningBalanceParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordOpeningBalanceResult>,
+            tonic::Status,
+        >;
+        /// W9.4: platform.book.command.record-break (command).
+        async fn record_break(
+            &self,
+            request: tonic::Request<super::RecordBreakParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordBreakResult>,
+            tonic::Status,
+        >;
+        /// W9.5: platform.book.command.record-account-figures (command).
+        async fn record_account_figures(
+            &self,
+            request: tonic::Request<super::RecordAccountFiguresParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordAccountFiguresResult>,
+            tonic::Status,
+        >;
+        /// W9.15: platform.book.command.record-encumbrances (command).
+        async fn record_encumbrances(
+            &self,
+            request: tonic::Request<super::RecordEncumbrancesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordEncumbrancesResult>,
+            tonic::Status,
+        >;
+        /// W9.6: platform.book.command.handle-break (command).
+        async fn handle_break(
+            &self,
+            request: tonic::Request<super::HandleBreakParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::HandleBreakResult>,
+            tonic::Status,
+        >;
+        /// W9.7: platform.book.command.resolve-break (command).
+        async fn resolve_break(
+            &self,
+            request: tonic::Request<super::ResolveBreakParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResolveBreakResult>,
+            tonic::Status,
+        >;
+        /// W9.7: platform.book.command.close-breaks-as-cleared (command).
+        async fn close_breaks_as_cleared(
+            &self,
+            request: tonic::Request<super::CloseBreaksAsClearedParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::CloseBreaksAsClearedResult>,
+            tonic::Status,
+        >;
+        /// W9.10: platform.book.query.list-positions (query).
+        async fn list_positions(
+            &self,
+            request: tonic::Request<super::ListPositionsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListPositionsResult>,
+            tonic::Status,
+        >;
+        /// W9.11: platform.book.query.list-breaks (query).
+        async fn list_breaks(
+            &self,
+            request: tonic::Request<super::ListBreaksParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListBreaksResult>,
+            tonic::Status,
+        >;
+        /// W9.12: platform.book.query.list-account-figures (query).
+        async fn list_account_figures(
+            &self,
+            request: tonic::Request<super::ListAccountFiguresParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAccountFiguresResult>,
+            tonic::Status,
+        >;
+        /// W9.14: platform.book.query.list-account-attributes (query).
+        async fn list_account_attributes(
+            &self,
+            request: tonic::Request<super::ListAccountAttributesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAccountAttributesResult>,
             tonic::Status,
         >;
         /// Server streaming response type for the Receive method.
@@ -2159,6 +4472,52 @@ pub mod plugin_operations_server {
                     };
                     Box::pin(fut)
                 }
+                "/meridian.plugin.v1.PluginOperations/ResolveInstrument" => {
+                    #[allow(non_camel_case_types)]
+                    struct ResolveInstrumentSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ResolveInstrumentParams>
+                    for ResolveInstrumentSvc<T> {
+                        type Response = super::ResolveInstrumentResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ResolveInstrumentParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::resolve_instrument(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ResolveInstrumentSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/meridian.plugin.v1.PluginOperations/LinkExternalAccount" => {
                     #[allow(non_camel_case_types)]
                     struct LinkExternalAccountSvc<T: PluginOperations>(pub Arc<T>);
@@ -2242,6 +4601,527 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ReadAccountsForLinkingSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RecordOpeningBalance" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordOpeningBalanceSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordOpeningBalanceParams>
+                    for RecordOpeningBalanceSvc<T> {
+                        type Response = super::RecordOpeningBalanceResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordOpeningBalanceParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_opening_balance(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordOpeningBalanceSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RecordBreak" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordBreakSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordBreakParams>
+                    for RecordBreakSvc<T> {
+                        type Response = super::RecordBreakResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordBreakParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_break(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordBreakSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RecordAccountFigures" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordAccountFiguresSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordAccountFiguresParams>
+                    for RecordAccountFiguresSvc<T> {
+                        type Response = super::RecordAccountFiguresResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordAccountFiguresParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_account_figures(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordAccountFiguresSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RecordEncumbrances" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordEncumbrancesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordEncumbrancesParams>
+                    for RecordEncumbrancesSvc<T> {
+                        type Response = super::RecordEncumbrancesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordEncumbrancesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_encumbrances(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordEncumbrancesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/HandleBreak" => {
+                    #[allow(non_camel_case_types)]
+                    struct HandleBreakSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::HandleBreakParams>
+                    for HandleBreakSvc<T> {
+                        type Response = super::HandleBreakResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::HandleBreakParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::handle_break(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = HandleBreakSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ResolveBreak" => {
+                    #[allow(non_camel_case_types)]
+                    struct ResolveBreakSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ResolveBreakParams>
+                    for ResolveBreakSvc<T> {
+                        type Response = super::ResolveBreakResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ResolveBreakParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::resolve_break(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ResolveBreakSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/CloseBreaksAsCleared" => {
+                    #[allow(non_camel_case_types)]
+                    struct CloseBreaksAsClearedSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::CloseBreaksAsClearedParams>
+                    for CloseBreaksAsClearedSvc<T> {
+                        type Response = super::CloseBreaksAsClearedResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CloseBreaksAsClearedParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::close_breaks_as_cleared(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CloseBreaksAsClearedSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListPositions" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListPositionsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListPositionsParams>
+                    for ListPositionsSvc<T> {
+                        type Response = super::ListPositionsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListPositionsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_positions(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListPositionsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListBreaks" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListBreaksSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListBreaksParams>
+                    for ListBreaksSvc<T> {
+                        type Response = super::ListBreaksResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListBreaksParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_breaks(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListBreaksSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListAccountFigures" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListAccountFiguresSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListAccountFiguresParams>
+                    for ListAccountFiguresSvc<T> {
+                        type Response = super::ListAccountFiguresResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListAccountFiguresParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_account_figures(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListAccountFiguresSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListAccountAttributes" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListAccountAttributesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListAccountAttributesParams>
+                    for ListAccountAttributesSvc<T> {
+                        type Response = super::ListAccountAttributesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListAccountAttributesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_account_attributes(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListAccountAttributesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

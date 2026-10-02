@@ -30,10 +30,34 @@ service PluginOperations {
   rpc ResolveIdentifier(ResolveIdentifierParams) returns (ResolveIdentifierResult);
   // W3.2: platform.reference.event.instrument-missing (event).
   rpc ReportMissingInstrument(ReportMissingInstrumentParams) returns (Published);
+  // W3.6: platform.reference.query.resolve-instrument (query).
+  rpc ResolveInstrument(ResolveInstrumentParams) returns (ResolveInstrumentResult);
   // W6.4: platform.config.command.link-external-account (command).
   rpc LinkExternalAccount(LinkExternalAccountParams) returns (LinkExternalAccountResult);
   // W6.4: platform.config.query.accounts (query).
   rpc ReadAccountsForLinking(ReadAccountsForLinkingParams) returns (ReadAccountsForLinkingResult);
+  // W9.1: platform.book.command.record-opening-balance (command).
+  rpc RecordOpeningBalance(RecordOpeningBalanceParams) returns (RecordOpeningBalanceResult);
+  // W9.4: platform.book.command.record-break (command).
+  rpc RecordBreak(RecordBreakParams) returns (RecordBreakResult);
+  // W9.5: platform.book.command.record-account-figures (command).
+  rpc RecordAccountFigures(RecordAccountFiguresParams) returns (RecordAccountFiguresResult);
+  // W9.15: platform.book.command.record-encumbrances (command).
+  rpc RecordEncumbrances(RecordEncumbrancesParams) returns (RecordEncumbrancesResult);
+  // W9.6: platform.book.command.handle-break (command).
+  rpc HandleBreak(HandleBreakParams) returns (HandleBreakResult);
+  // W9.7: platform.book.command.resolve-break (command).
+  rpc ResolveBreak(ResolveBreakParams) returns (ResolveBreakResult);
+  // W9.7: platform.book.command.close-breaks-as-cleared (command).
+  rpc CloseBreaksAsCleared(CloseBreaksAsClearedParams) returns (CloseBreaksAsClearedResult);
+  // W9.10: platform.book.query.list-positions (query).
+  rpc ListPositions(ListPositionsParams) returns (ListPositionsResult);
+  // W9.11: platform.book.query.list-breaks (query).
+  rpc ListBreaks(ListBreaksParams) returns (ListBreaksResult);
+  // W9.12: platform.book.query.list-account-figures (query).
+  rpc ListAccountFigures(ListAccountFiguresParams) returns (ListAccountFiguresResult);
+  // W9.14: platform.book.query.list-account-attributes (query).
+  rpc ListAccountAttributes(ListAccountAttributesParams) returns (ListAccountAttributesResult);
   // W4.3: every row this plugin's roles hear, within its read scope.
   rpc Receive(ReceiveRequest) returns (stream Delivery);
 }
@@ -173,6 +197,12 @@ message RecordHoldingsStatementParams {
   // direct connector. Empty where it does not say.
   string institution = 13;
 
+  // The account servicer holds a lien or a right of set-off over the
+  // account, as the statement reports it; unset where it does not say
+  // (contract v8; reference/encumbrance-survey). Not an encumbrance: it
+  // reduces no holding's available quantity.
+  optional bool security_interest = 14;
+
   // Set by the sidecar, never by a plugin (stamped.tsv).
   reserved 11;
   reserved "account_id";
@@ -281,6 +311,21 @@ message RecordHoldingParams {
   // from cost_basis, nor cost_basis from it: nothing multiplies it by the
   // quantity or a multiplier (Q-A, 2026-10-01).
   optional Money average_cost = 18;
+
+  // Available and not, each as the source reports it, never derived from
+  // the other or from the quantity, unset where the source gives none --
+  // never zero, never the holding's quantity (W2.3; contract v8;
+  // reference/encumbrance-survey): the statement's AVAI and NAVL, a venue's
+  // order-netted figure with its basis saying so.
+  optional Decimal available_quantity = 19;
+
+  optional Decimal not_available_quantity = 20;
+
+  AvailableBasis available_basis = 21;
+
+  // Each sub-balance the source reports as encumbered, one per kind,
+  // location and pledgee; empty means none reported, not none held.
+  repeated ReportedEncumbrance encumbrances = 22;
 
   // Set by the sidecar, never by a plugin (stamped.tsv).
   reserved 2;
@@ -445,6 +490,21 @@ message ReportMissingInstrumentParams {
   reserved 2;
 }
 
+// Forward resolution: an instrument identifier to its record.
+// The params of ResolveInstrument: meridian.v1.ResolveInstrumentRequest, less what the sidecar sets.
+message ResolveInstrumentParams {
+  string instrument_id = 1;
+
+  int64 as_of_ns = 2;
+}
+
+// The result of ResolveInstrument: meridian.v1.ResolveInstrumentReply.
+message ResolveInstrumentResult {
+  bool found = 1;
+
+  InstrumentRecord instrument = 2;
+}
+
 // Links an external account a plugin reported, or removes its link.
 // Names an existing account, or a new account's name for the conductor to
 // create and link in one step, or neither to remove the link; never both. Held
@@ -517,6 +577,476 @@ message ReadAccountsForLinkingResult {
   repeated AccountRecord accounts = 1;
 }
 
+// The params of RecordOpeningBalance: meridian.v1.RecordOpeningBalanceRequest, less what the sidecar sets.
+message RecordOpeningBalanceParams {
+  string account_id = 1;
+
+  // ISO 8601: the business date it stands for (D0).
+  string as_of_date = 2;
+
+  // One per custodian or system it was composed from.
+  repeated OpeningSource sources = 3;
+
+  // Empty: the account enters holding nothing.
+  repeated OpeningPosition positions = 4;
+
+  string reason = 5;
+
+  // The reversed opening balance this replaces (Q27); empty for the first.
+  string replaces_entry_id = 6;
+
+  // The plugin's key for this command, derived from its source (Q12 of the
+  // sample operations plugin, ruled 2026-10-01, as FIX's ClOrdID): unique per
+  // account; the same command again with the same key is answered with the
+  // first's reply and applies nothing, and a different command with it is
+  // refused (REFUSAL_REASON_IDEMPOTENCY_CONFLICT). Empty: none.
+  string idempotency_key = 7;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RecordOpeningBalance: meridian.v1.BookEntryReply.
+message RecordOpeningBalanceResult {
+  // A duplicate, by its message identifier or its idempotency key, is
+  // answered with the first's.
+  EntryMeta entry = 1;
+
+  // The entry's place in its partition: the number of the first change it
+  // made.
+  JournalRef journal = 2;
+
+  // Each record the entry changed, as it stands after it.
+  repeated BookPosition positions = 3;
+
+  repeated Break breaks = 4;
+
+  repeated AccountFigures figures = 5;
+
+  // The account's attributes, where the entry changed them: an opening
+  // balance and its reversal set and clear the standing one (Q21).
+  AccountAttributes attributes = 6;
+}
+
+// W9.4. A new break, or an open one brought up to date.
+// The params of RecordBreak: meridian.v1.RecordBreakRequest, less what the sidecar sets.
+message RecordBreakParams {
+  string account_id = 1;
+
+  // Empty: a new break, whose identifier the book mints.
+  string break_id = 2;
+
+  oneof subject {
+    PositionKey position = 3;
+    FigureKey figure = 4;
+  }
+
+  BreakCategory category = 5;
+
+  repeated BreakDifference differences = 6;
+
+  Watermark book_watermark = 7;
+
+  StreetRecordRef street = 8;
+
+  // The reconciliation's business date: first seen for a new break, last
+  // seen for one brought up to date.
+  string business_date = 9;
+
+  repeated BreakCause candidate_causes = 10;
+
+  // The plugin's key for this command, derived from its source (Q12):
+  // answered with the first's reply when it is sent again.
+  string idempotency_key = 11;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RecordBreak: meridian.v1.BookEntryReply.
+message RecordBreakResult {
+  // A duplicate, by its message identifier or its idempotency key, is
+  // answered with the first's.
+  EntryMeta entry = 1;
+
+  // The entry's place in its partition: the number of the first change it
+  // made.
+  JournalRef journal = 2;
+
+  // Each record the entry changed, as it stands after it.
+  repeated BookPosition positions = 3;
+
+  repeated Break breaks = 4;
+
+  repeated AccountFigures figures = 5;
+
+  // The account's attributes, where the entry changed them: an opening
+  // balance and its reversal set and clear the standing one (Q21).
+  AccountAttributes attributes = 6;
+}
+
+// The params of RecordAccountFigures: meridian.v1.RecordAccountFiguresRequest, less what the sidecar sets.
+message RecordAccountFiguresParams {
+  string account_id = 1;
+
+  string business_date = 2;
+
+  StreetRecordRef source = 3;
+
+  repeated AgreementFigures agreements = 4;
+
+  // The plugin's key for this command, derived from its source (Q12).
+  string idempotency_key = 5;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RecordAccountFigures: meridian.v1.BookEntryReply.
+message RecordAccountFiguresResult {
+  // A duplicate, by its message identifier or its idempotency key, is
+  // answered with the first's.
+  EntryMeta entry = 1;
+
+  // The entry's place in its partition: the number of the first change it
+  // made.
+  JournalRef journal = 2;
+
+  // Each record the entry changed, as it stands after it.
+  repeated BookPosition positions = 3;
+
+  repeated Break breaks = 4;
+
+  repeated AccountFigures figures = 5;
+
+  // The account's attributes, where the entry changed them: an opening
+  // balance and its reversal set and clear the standing one (Q21).
+  AccountAttributes attributes = 6;
+}
+
+// W9.15. A finding, so the plugin may send it as itself.
+// The params of RecordEncumbrances: meridian.v1.RecordEncumbrancesRequest, less what the sidecar sets.
+message RecordEncumbrancesParams {
+  string account_id = 1;
+
+  string business_date = 2;
+
+  // The statement they were read from.
+  StreetRecordRef source = 3;
+
+  repeated PositionEncumbrances positions = 4;
+
+  // The plugin's key for this command, derived from its source (Q12).
+  string idempotency_key = 5;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RecordEncumbrances: meridian.v1.BookEntryReply.
+message RecordEncumbrancesResult {
+  // A duplicate, by its message identifier or its idempotency key, is
+  // answered with the first's.
+  EntryMeta entry = 1;
+
+  // The entry's place in its partition: the number of the first change it
+  // made.
+  JournalRef journal = 2;
+
+  // Each record the entry changed, as it stands after it.
+  repeated BookPosition positions = 3;
+
+  repeated Break breaks = 4;
+
+  repeated AccountFigures figures = 5;
+
+  // The account's attributes, where the entry changed them: an opening
+  // balance and its reversal set and clear the standing one (Q21).
+  AccountAttributes attributes = 6;
+}
+
+// W9.6. For a person.
+// The params of HandleBreak: meridian.v1.HandleBreakRequest, less what the sidecar sets.
+message HandleBreakParams {
+  string account_id = 1;
+
+  string break_id = 2;
+
+  // Unset: unchanged.
+  BreakCause confirmed_cause = 3;
+
+  // Unset: unchanged; set: replaces the handling whole.
+  BreakHandling handling = 4;
+
+  string reason = 5;
+
+  // The plugin's key for this command (Q12).
+  string idempotency_key = 6;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of HandleBreak: meridian.v1.BookEntryReply.
+message HandleBreakResult {
+  // A duplicate, by its message identifier or its idempotency key, is
+  // answered with the first's.
+  EntryMeta entry = 1;
+
+  // The entry's place in its partition: the number of the first change it
+  // made.
+  JournalRef journal = 2;
+
+  // Each record the entry changed, as it stands after it.
+  repeated BookPosition positions = 3;
+
+  repeated Break breaks = 4;
+
+  repeated AccountFigures figures = 5;
+
+  // The account's attributes, where the entry changed them: an opening
+  // balance and its reversal set and clear the standing one (Q21).
+  AccountAttributes attributes = 6;
+}
+
+// W9.7. For a person.
+// The params of ResolveBreak: meridian.v1.ResolveBreakRequest, less what the sidecar sets.
+message ResolveBreakParams {
+  string account_id = 1;
+
+  repeated string break_ids = 2;
+
+  string reason = 3;
+
+  oneof resolution {
+    // The correcting entry, journalled in the same act.
+    Adjustment adjustment = 4;
+    Reversal reversal = 5;
+    // Entries already recorded.
+    ResolvedByEntries entries = 6;
+    // Closes the breaks, with no entry.
+    string explanation = 7;
+  }
+
+  // The plugin's key for this command (Q12).
+  string idempotency_key = 9;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of ResolveBreak: meridian.v1.BookEntryReply.
+message ResolveBreakResult {
+  // A duplicate, by its message identifier or its idempotency key, is
+  // answered with the first's.
+  EntryMeta entry = 1;
+
+  // The entry's place in its partition: the number of the first change it
+  // made.
+  JournalRef journal = 2;
+
+  // Each record the entry changed, as it stands after it.
+  repeated BookPosition positions = 3;
+
+  repeated Break breaks = 4;
+
+  repeated AccountFigures figures = 5;
+
+  // The account's attributes, where the entry changed them: an opening
+  // balance and its reversal set and clear the standing one (Q21).
+  AccountAttributes attributes = 6;
+}
+
+// W9.7. Close breaks as cleared, with no entry.
+// Citing the statement where the difference was gone (Q2 of the sample operations plugin, ruled
+// 2026-10-01: one typed operation a person takes; an opt-in automation runs
+// it as a service account once
+// sdk-contract/a-service-account-runs-a-plugins-autonomous-work lands, its
+// actor an arm of Actor of its own). For a person until then.
+// The params of CloseBreaksAsCleared: meridian.v1.CloseBreaksAsClearedRequest, less what the sidecar sets.
+message CloseBreaksAsClearedParams {
+  string account_id = 1;
+
+  repeated string break_ids = 2;
+
+  // The street record of the statement where the difference was gone, by
+  // value.
+  StreetRecordRef cleared_at = 3;
+
+  string reason = 4;
+
+  // The plugin's key for this command (Q12).
+  string idempotency_key = 5;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of CloseBreaksAsCleared: meridian.v1.BookEntryReply.
+message CloseBreaksAsClearedResult {
+  // A duplicate, by its message identifier or its idempotency key, is
+  // answered with the first's.
+  EntryMeta entry = 1;
+
+  // The entry's place in its partition: the number of the first change it
+  // made.
+  JournalRef journal = 2;
+
+  // Each record the entry changed, as it stands after it.
+  repeated BookPosition positions = 3;
+
+  repeated Break breaks = 4;
+
+  repeated AccountFigures figures = 5;
+
+  // The account's attributes, where the entry changed them: an opening
+  // balance and its reversal set and clear the standing one (Q21).
+  AccountAttributes attributes = 6;
+}
+
+// The params of ListPositions: meridian.v1.ListPositionsRequest, less what the sidecar sets.
+message ListPositionsParams {
+  // Empty: every account in the reader's scope.
+  string account_id = 1;
+
+  // Only positions whose last change is above it, tombstones included.
+  Watermark since = 2;
+
+  // The positions at the end of this business date (Q22), as known at
+  // `at`, or now; served by replay. Neither with `since`.
+  string business_date = 3;
+
+  Watermark at = 4;
+
+  int32 page_size = 5;
+
+  string cursor = 6;
+}
+
+// The result of ListPositions: meridian.v1.ListPositionsReply.
+message ListPositionsResult {
+  repeated BookPosition positions = 1;
+
+  string next_cursor = 2;
+
+  Watermark as_of = 3;
+}
+
+// The params of ListBreaks: meridian.v1.ListBreaksRequest, less what the sidecar sets.
+message ListBreaksParams {
+  string account_id = 1;
+
+  // Empty: every state.
+  repeated BreakState states = 2;
+
+  Watermark since = 3;
+
+  int32 page_size = 4;
+
+  string cursor = 5;
+}
+
+// The result of ListBreaks: meridian.v1.ListBreaksReply.
+message ListBreaksResult {
+  repeated Break breaks = 1;
+
+  string next_cursor = 2;
+
+  Watermark as_of = 3;
+}
+
+// The params of ListAccountFigures: meridian.v1.ListAccountFiguresRequest, less what the sidecar sets.
+message ListAccountFiguresParams {
+  string account_id = 1;
+
+  // Unset: every agreement.
+  MarginAgreementRef agreement = 2;
+
+  // ISO 8601 business dates, inclusive; empty for open-ended.
+  string from_date = 3;
+
+  string to_date = 4;
+
+  Watermark since = 5;
+
+  Watermark at = 6;
+
+  int32 page_size = 7;
+
+  string cursor = 8;
+}
+
+// The result of ListAccountFigures: meridian.v1.ListAccountFiguresReply.
+message ListAccountFiguresResult {
+  repeated AccountFigures figures = 1;
+
+  string next_cursor = 2;
+
+  Watermark as_of = 3;
+}
+
+// The params of ListAccountAttributes: meridian.v1.ListAccountAttributesRequest, less what the sidecar sets.
+message ListAccountAttributesParams {
+  string account_id = 1;
+
+  Watermark since = 2;
+
+  int32 page_size = 3;
+
+  string cursor = 4;
+}
+
+// The result of ListAccountAttributes: meridian.v1.ListAccountAttributesReply.
+message ListAccountAttributesResult {
+  repeated AccountAttributes attributes = 1;
+
+  string next_cursor = 2;
+
+  Watermark as_of = 3;
+}
+
 // What a plugin asks to hear. A row it names that no role it holds hears
 // is refused, PERMISSION_DENIED, naming it.
 message ReceiveRequest {
@@ -541,6 +1071,14 @@ message Delivery {
     StatementRecordedEvent statement_recorded = 16;
     // W2.6: platform.street.event.custodial-position-updated.
     CustodialPositionUpdatedEvent custodial_position_updated = 17;
+    // W9.8: platform.book.event.position-changed.
+    PositionChangedEvent position_changed = 18;
+    // W9.8: platform.book.event.break-changed.
+    BreakChangedEvent break_changed = 19;
+    // W9.8: platform.book.event.account-figures-recorded.
+    AccountFiguresRecordedEvent account_figures_recorded = 20;
+    // W9.8: platform.book.event.account-attribute-changed.
+    AccountAttributeChangedEvent account_attribute_changed = 21;
   }
 }
 
@@ -724,6 +1262,11 @@ message ReportedCollateral {
   // Where it is held, as the venue names it: the FCM, the dealer, a
   // third-party custodian. Empty where it does not say.
   string held_at = 8;
+
+  // Whether the receiver may reuse it, as the agreement states and the venue
+  // reports it; unset where it does not say (contract v8). Received
+  // collateral is never a position (Q13), reusable or not.
+  optional bool reusable = 9;
 }
 
 // Whether a collateral balance was posted by the account or received by it.
@@ -777,6 +1320,84 @@ message ReportedLot {
 
   // ISO 8601; empty where not reported.
   string acquired_date = 3;
+}
+
+// What a source's available figure is net of.
+// A mirror of meridian.v1.AvailableBasis.
+enum AvailableBasis {
+  // The source does not say.
+  AVAILABLE_BASIS_UNSPECIFIED = 0;
+  AVAILABLE_BASIS_SETTLED = 1;
+  AVAILABLE_BASIS_TRADED = 2;
+  AVAILABLE_BASIS_CONTRACTUAL = 3;
+  // A venue's figure net of its open orders (Alpaca's qty_available,
+  // Binance's free): the order reservation is the oms's, never an
+  // encumbrance.
+  AVAILABLE_BASIS_ORDER_NETTED = 4;
+}
+
+// One sub-balance of a holding, as the source reports it.
+// A mirror of meridian.v1.ReportedEncumbrance.
+message ReportedEncumbrance {
+  EncumbranceKind kind = 1;
+
+  // Signed as the holding's quantity. Larger than the holding is recorded
+  // as reported: the custodian's data, which the reconciliation flags.
+  Decimal quantity = 2;
+
+  // Whether the source reports it available; unset where it does not say,
+  // since the kind does not imply it.
+  optional bool available = 3;
+
+  // The source's own code or label, verbatim ("PLED"); required for OTHER.
+  string source_code = 4;
+
+  // To whom it is pledged, posted or lent, as reported (a name, a BIC or an
+  // LEI); empty where not stated.
+  string pledgee = 5;
+
+  // The safekeeping place or third party holding it, as reported; empty
+  // where not stated.
+  string held_at = 6;
+
+  // The margin segment it is under where the source names one, as the venue
+  // names it; with the holding's external account, a margin agreement's key.
+  // Empty otherwise: a custody statement never names one.
+  string segment = 7;
+
+  // The source's narrative; empty where none.
+  string detail = 8;
+}
+
+// Why some of a holding cannot move (reference/encumbrance-survey, 3.1).
+// Pending settlement stays in the settlement buckets: PENDING, like
+// REHYPOTHECATED and BORROWED, is the street's, for the statement's own
+// consistency, and the book holds none of the three.
+// A mirror of meridian.v1.EncumbranceKind.
+enum EncumbranceKind {
+  // Not said. Refused: a sub-balance says which it is.
+  ENCUMBRANCE_KIND_UNSPECIFIED = 0;
+  // Pledged in place to a pledgee (PLED).
+  ENCUMBRANCE_KIND_PLEDGED = 1;
+  // Delivered to a third party as collateral (COLO).
+  ENCUMBRANCE_KIND_POSTED = 2;
+  // Lent (LOAN).
+  ENCUMBRANCE_KIND_ON_LOAN = 3;
+  // Blocked for a stated purpose (BLOK, BLCA, BLOT, BLOV).
+  ENCUMBRANCE_KIND_BLOCKED = 4;
+  // Movable only under conditions or with documents (RSTR, WDOC).
+  ENCUMBRANCE_KIND_RESTRICTED = 5;
+  // Between depositories, agents or registers (TRAN, REGO, BTRA).
+  ENCUMBRANCE_KIND_IN_TRANSIT = 6;
+  // A sub-balance the plugin cannot map: its source_code required.
+  ENCUMBRANCE_KIND_OTHER = 7;
+  // The street's only: as reported, for the consistency check.
+  ENCUMBRANCE_KIND_PENDING = 8;
+  // The street's only: used by the broker under a right of use; it does not
+  // reduce the available quantity.
+  ENCUMBRANCE_KIND_REHYPOTHECATED = 9;
+  // The street's only: borrowed, title to us, with a return obligation.
+  ENCUMBRANCE_KIND_BORROWED = 10;
 }
 
 // A point in a store's record: a sequence per partition. What a read
@@ -854,6 +1475,15 @@ message CustodialPosition {
 
   // As on RecordHoldingRequest (Q-A).
   Money average_cost = 19;
+
+  // As on RecordHoldingRequest, from the row that last stated this.
+  Decimal available_quantity = 20;
+
+  Decimal not_available_quantity = 21;
+
+  AvailableBasis available_basis = 22;
+
+  repeated ReportedEncumbrance encumbrances = 23;
 
   // Retired in the domain message, and never reused.
   reserved 3, 4, 5;
@@ -950,6 +1580,9 @@ message StatementRecordedEvent {
   string external_account_id = 13;
 
   string institution = 14;
+
+  // As the statement reported it (contract v8).
+  optional bool security_interest = 15;
 }
 
 // Who caused a change, as the store recorded it when it committed (Q3).
@@ -1011,6 +1644,76 @@ enum AssetClass {
   ASSET_CLASS_CASH = 7;
 }
 
+// The canonical instrument record.
+//
+// Three time axes, and conflating any two of them produces a resolution bug
+// that only appears when an identifier is reused:
+//
+//   reference time  the as-of a resolution is FOR. A query parameter, never a
+//                   field here.
+//   effective time  valid_from_ns -- when this mapping became true in the world.
+//   record time     record_time_ns -- when the authority knew it.
+//
+// Identifiers get reused: a ticker freed by a delisting is later reassigned to
+// a different instrument. A consumer resolving a historical date must key on
+// effective time, not on when it happened to learn the mapping.
+// A mirror of meridian.v1.InstrumentRecord.
+message InstrumentRecord {
+  // Canonical identifier, "INS-..." and minted only by the central authority.
+  //
+  // A deployment's stores may also hold its own placeholder, "LCL-...", which
+  // its instrument store mints for an identifier set nothing matched (W3.7)
+  // and which the INS- ID replaces in everything live when it arrives (W3.8).
+  // A placeholder is never minted by the authority and never leaves the
+  // deployment except on its own escalation.
+  string instrument_id = 1;
+
+  // The full identifier set. An amend replaces this authoritatively.
+  repeated Identifier identifiers = 2;
+
+  AssetClass asset_class = 11;
+
+  // ISO 4217.
+  string currency = 4;
+
+  // ISO 10383 market identifier code. Empty where there is no listing venue.
+  string exchange_mic = 5;
+
+  string description = 6;
+
+  InstrumentLifecycleState lifecycle_state = 7;
+
+  // Monotonic, assigned by the store, starting at 1. An apply carrying a
+  // version at or below the one held is a no-op, which is what makes replica
+  // application idempotent and overlapping pulls harmless.
+  int64 version = 8;
+
+  // Effective time. When this version's mapping became true.
+  int64 valid_from_ns = 9;
+
+  // Record time. Stamped by the store, never accepted from a caller: knowledge
+  // cannot be back-dated.
+  int64 record_time_ns = 10;
+
+  // Retired in the domain message, and never reused.
+  reserved 3;
+}
+
+// Lifecycle. The transition verbs are the commands; nothing sets this directly.
+// A mirror of meridian.v1.InstrumentLifecycleState.
+enum InstrumentLifecycleState {
+  INSTRUMENT_LIFECYCLE_STATE_UNSPECIFIED = 0;
+  // Identity exists, attributes may be incomplete. A holding can reference it,
+  // which is the point: a position may arrive before anyone has decided what
+  // the instrument is.
+  INSTRUMENT_LIFECYCLE_STATE_DEFINE = 1;
+  // Fully defined.
+  INSTRUMENT_LIFECYCLE_STATE_ACTIVE = 2;
+  // Retired. Existing holdings stay resolvable, because history does not stop
+  // being true when an instrument stops trading.
+  INSTRUMENT_LIFECYCLE_STATE_DECOMMISSIONED = 3;
+}
+
 // The only thing holdings are recorded against. A plugin creates one only by
 // linking an external account to a new one, acting for a deployment admin in
 // a session opened by Manage (W6.4).
@@ -1046,6 +1749,689 @@ enum AccountState {
   ACCOUNT_STATE_CLOSED = 2;
 }
 
+// A mirror of meridian.v1.OpeningSource.
+message OpeningSource {
+  OpeningSourceKind kind = 1;
+
+  // The custodian or system as it is known in the deployment (the external
+  // account's institution, the prior system's name).
+  string name = 2;
+
+  // ISO 8601: the date the source's figures are as of.
+  string as_of_date = 3;
+
+  PositionBasis basis = 4;
+
+  // The street records it was composed from, by value (decisions/012).
+  repeated StreetRecordRef street_records = 5;
+}
+
+// A mirror of meridian.v1.OpeningSourceKind.
+enum OpeningSourceKind {
+  OPENING_SOURCE_KIND_UNSPECIFIED = 0;
+  OPENING_SOURCE_KIND_CUSTODIAN = 1;
+  OPENING_SOURCE_KIND_PRIOR_SYSTEM = 2;
+}
+
+// A mirror of meridian.v1.PositionBasis.
+enum PositionBasis {
+  POSITION_BASIS_UNSPECIFIED = 0;
+  POSITION_BASIS_TRADE_DATE = 1;
+  POSITION_BASIS_SETTLE_DATE = 2;
+}
+
+// A street record named by value: never a key the book follows.
+// A mirror of meridian.v1.StreetRecordRef.
+message StreetRecordRef {
+  string statement_id = 1;
+
+  // The custodial position's change, where one was compared or used.
+  JournalRef change = 2;
+
+  // ISO 8601: the custodian's as-of date.
+  string as_of_date = 3;
+}
+
+// A mirror of meridian.v1.OpeningPosition.
+message OpeningPosition {
+  string instrument_id = 1;
+
+  HoldingSide side = 2;
+
+  Decimal trade_date_quantity = 3;
+
+  // Unset where the source states none.
+  optional Decimal settled_quantity = 4;
+
+  repeated PendingSettlement pending = 5;
+
+  // As reported; a position whose source reports none sends one, its cost
+  // unknown; cash sends none.
+  repeated OpeningLot lots = 6;
+}
+
+// A mirror of meridian.v1.PendingSettlement.
+message PendingSettlement {
+  // ISO 8601; empty only for "date not stated" at an opening balance.
+  string value_date = 1;
+
+  Decimal quantity = 2;
+
+  PendingState state = 3;
+}
+
+// A mirror of meridian.v1.PendingState.
+message PendingState {
+  bool failing = 1;
+
+  // As reported.
+  string fail_reason = 2;
+
+  // ISO 8601; the date it is now expected; the bucket keeps its intended
+  // date ("Three more considerations", 2).
+  string expected_date = 3;
+}
+
+// A mirror of meridian.v1.OpeningLot.
+message OpeningLot {
+  Decimal quantity = 1;
+
+  LotTerms terms = 2;
+}
+
+// A mirror of meridian.v1.LotTerms.
+message LotTerms {
+  // Each unset where not known; never derived one from the other.
+  optional Money unit_cost = 1;
+
+  optional Money cost = 2;
+
+  string acquired_date = 3;
+
+  // Apart from acquisition, for wash-sale tacking; empty is the acquired
+  // date.
+  string holding_period_start = 4;
+
+  string settlement_date = 5;
+
+  LotSource source = 6;
+}
+
+// A mirror of meridian.v1.LotSource.
+enum LotSource {
+  LOT_SOURCE_UNSPECIFIED = 0;
+  // As the opening balance's source reported it (Q2).
+  LOT_SOURCE_OPENING_BALANCE = 1;
+  // Opened by an adjustment resolving a break (Q28). Step 5 adds the
+  // book's own trade, slice D a transfer in.
+  LOT_SOURCE_ADJUSTMENT = 2;
+}
+
+// What a journal entry records beside its JournalRef and ChangeCause.
+// A mirror of meridian.v1.EntryMeta.
+message EntryMeta {
+  // Minted by the book.
+  string entry_id = 1;
+
+  // An open list a reader takes as data (Q19): in v8 opening-balance,
+  // placeholder-moved, figures-recorded, break-recorded, break-handled,
+  // break-resolved, break-closed, adjustment, reversal, attribute-set.
+  string kind = 2;
+
+  Actor actor = 3;
+
+  // The time on the message that caused it, and when the book received it;
+  // when it committed is the cause's committed_at_ns.
+  int64 event_time_ns = 4;
+
+  int64 received_at_ns = 5;
+
+  // ISO 8601: the business date it stands for.
+  string effective_date = 6;
+
+  // The control partition's sequence in force (decisions/024's note).
+  uint64 control_sequence = 7;
+
+  // Each instrument it names, with the reference record's version in force
+  // when it was recorded; none where the store has no version (Q31).
+  repeated ReferenceVersion reference_versions = 8;
+
+  // Required on a justified act: an opening balance, an adjustment, a
+  // reversal, a resolution, handling, an attribute.
+  string reason = 9;
+
+  // The breaks it records, handles, resolves or closes.
+  repeated string break_ids = 10;
+
+  // The key the plugin sent the command with, where it sent one (Q12 of the
+  // sample operations plugin, ruled 2026-10-01).
+  string idempotency_key = 11;
+}
+
+// Who made a change (step 5's requirement 28, landed with v8). Set by the
+// book from the envelope the sidecar stamped (W4.9), never by a plugin.
+// A mirror of meridian.v1.Actor.
+message Actor {
+  oneof kind {
+    // A person the sidecar vouched for, by the deployment-local subject
+    // W6.1 records.
+    PersonActor person = 1;
+    // A finding reported with no user: the plugin instance that sent it;
+    // the book's own act (a placeholder followed) leaves it empty.
+    SystemActor system = 2;
+  }
+}
+
+// A mirror of meridian.v1.PersonActor.
+message PersonActor {
+  string subject = 1;
+}
+
+// A mirror of meridian.v1.SystemActor.
+message SystemActor {
+  string instance_id = 1;
+}
+
+// A mirror of meridian.v1.ReferenceVersion.
+message ReferenceVersion {
+  string instrument_id = 1;
+
+  // The InstrumentRecord's version (W3.6).
+  int64 version = 2;
+}
+
+// A mirror of meridian.v1.BookPosition.
+message BookPosition {
+  string account_id = 1;
+
+  string instrument_id = 2;
+
+  HoldingSide side = 3;
+
+  // Settled, plus pending, plus not stated: by construction.
+  Decimal trade_date_quantity = 4;
+
+  // Unset while any of the quantity is not stated: unknown, never zero.
+  optional Decimal settled_quantity = 5;
+
+  Decimal not_stated_quantity = 6;
+
+  repeated PendingSettlement pending = 7;
+
+  // Open lots; their open quantities sum to trade_date_quantity, cash
+  // excepted.
+  repeated Lot lots = 8;
+
+  // The opening balance's sources, with their as-of and basis.
+  repeated OpeningSource opened_from = 9;
+
+  // The business date of its last change.
+  string effective_date = 10;
+
+  JournalRef last_change = 11;
+
+  // A tombstone, after a placeholder's move (W9.9): returned only to a read
+  // since a watermark, and delivered once.
+  bool removed = 12;
+
+  // Held under a placeholder instrument (W3.7) while the street's holding is
+  // unresolved: in the opening balance and in reconciliation as any position,
+  // flagged, until the book follows its replacement (W9.9).
+  bool placeholder = 13;
+
+  // What of it cannot move, as the operations plugin last recorded it from
+  // a statement (W9.15): an attribute, never a movement.
+  repeated Encumbrance encumbrances = 14;
+
+  // Derived, never reported: the quantity on free_basis less its
+  // encumbrances. Unset while that quantity is unknown (some not stated).
+  optional Decimal free_quantity = 15;
+
+  FreeBasis free_basis = 16;
+}
+
+// A mirror of meridian.v1.Lot.
+message Lot {
+  // Minted by the book.
+  string lot_id = 1;
+
+  Decimal open_quantity = 2;
+
+  Decimal original_quantity = 3;
+
+  // As opened, with each basis adjustment applied.
+  LotTerms terms = 4;
+
+  JournalRef opened_by = 5;
+
+  repeated JournalRef relieved_by = 6;
+
+  repeated JournalRef adjusted_by = 7;
+}
+
+// One encumbrance of a position, as the book holds it.
+// A mirror of meridian.v1.Encumbrance.
+message Encumbrance {
+  // PLEDGED to OTHER only; the street's PENDING, REHYPOTHECATED and
+  // BORROWED are refused.
+  EncumbranceKind kind = 1;
+
+  // Signed as the position's quantity.
+  Decimal quantity = 2;
+
+  string pledgee = 3;
+
+  string held_at = 4;
+
+  // Unset where the source names none.
+  MarginAgreementRef agreement = 5;
+
+  // The source's code, verbatim; required for OTHER.
+  string source_code = 6;
+
+  string detail = 7;
+
+  // The statement it was recorded from.
+  StreetRecordRef source = 8;
+
+  // Set by the book: the business date it was first recorded under its
+  // kind, pledgee, location and agreement, and the change that last set it.
+  string since_date = 9;
+
+  JournalRef set_by = 10;
+}
+
+// A mirror of meridian.v1.MarginAgreementRef.
+message MarginAgreementRef {
+  oneof agreement {
+    // Step 4: the statement's external account and segment (Q12). An
+    // agreement the book records under a template arrives as another arm.
+    StatementSegmentRef statement_segment = 1;
+  }
+}
+
+// A mirror of meridian.v1.StatementSegmentRef.
+message StatementSegmentRef {
+  string external_account_id = 1;
+
+  // As the venue names it; empty for the account as a whole.
+  string segment = 2;
+
+  // As reported: the external account's institution.
+  string counterparty = 3;
+}
+
+// The basis a position's free quantity is computed on.
+// A mirror of meridian.v1.FreeBasis.
+enum FreeBasis {
+  FREE_BASIS_UNSPECIFIED = 0;
+  // Settled: a pledged or lent security that has not settled cannot be
+  // delivered either (the product owner, 2026-10-01, Q2). The book's
+  // default, and in v8 its only basis.
+  FREE_BASIS_SETTLED = 1;
+  FREE_BASIS_TRADE_DATE = 2;
+}
+
+// A mirror of meridian.v1.Break.
+message Break {
+  string break_id = 1;
+
+  string account_id = 2;
+
+  oneof subject {
+    PositionKey position = 3;
+    FigureKey figure = 4;
+  }
+
+  BreakCategory category = 5;
+
+  repeated BreakDifference differences = 6;
+
+  Watermark book_watermark = 7;
+
+  StreetRecordRef street = 8;
+
+  // ISO 8601 business dates; age is derived from them, never stored.
+  string first_seen_date = 9;
+
+  string last_seen_date = 10;
+
+  BreakState state = 11;
+
+  repeated BreakCause candidate_causes = 12;
+
+  BreakCause confirmed_cause = 13;
+
+  BreakHandling handling = 14;
+
+  BreakResolution resolution = 15;
+
+  Actor recorded_by = 16;
+
+  JournalRef last_change = 17;
+}
+
+// A mirror of meridian.v1.PositionKey.
+message PositionKey {
+  string instrument_id = 1;
+
+  HoldingSide side = 2;
+}
+
+// A mirror of meridian.v1.FigureKey.
+message FigureKey {
+  MarginAgreementRef agreement = 1;
+
+  // The figure, by its field's name in the data dictionary.
+  string figure = 2;
+
+  // For a collateral balance: its instrument.
+  string instrument_id = 3;
+}
+
+// A mirror of meridian.v1.BreakCategory.
+enum BreakCategory {
+  BREAK_CATEGORY_UNSPECIFIED = 0;
+  BREAK_CATEGORY_TRADE_DATE_QUANTITY = 1;
+  BREAK_CATEGORY_SETTLED_QUANTITY = 2;
+  BREAK_CATEGORY_COST_OR_LOTS = 3;
+  BREAK_CATEGORY_SETTLED_AGAINST_PENDING = 4;
+  BREAK_CATEGORY_BOOK_ONLY = 5;
+  BREAK_CATEGORY_STREET_ONLY = 6;
+  // A figure the book holds a value of its own for, such as the street's
+  // available and not available against the book's position, or an
+  // encumbrance against the book's of that kind, location and pledgee.
+  BREAK_CATEGORY_FIGURE = 7;
+}
+
+// A mirror of meridian.v1.BreakDifference.
+message BreakDifference {
+  // The field, by its name in the data dictionary ("settled_quantity",
+  // "lots[2].terms.cost").
+  string field = 1;
+
+  BreakValue book = 2;
+
+  BreakValue street = 3;
+}
+
+// One side of a difference; unset: absent on that side.
+// A mirror of meridian.v1.BreakValue.
+message BreakValue {
+  oneof value {
+    Decimal quantity = 1;
+    Money amount = 2;
+    string text = 3;
+  }
+}
+
+// A mirror of meridian.v1.BreakState.
+enum BreakState {
+  BREAK_STATE_UNSPECIFIED = 0;
+  BREAK_STATE_OPEN = 1;
+  BREAK_STATE_RESOLVED = 2;
+  BREAK_STATE_CLOSED = 3;
+}
+
+// The item found to cause a break, linked by value (Q23's target).
+// A mirror of meridian.v1.BreakCause.
+message BreakCause {
+  BreakCauseCategory category = 1;
+
+  oneof item {
+    StreetRecordRef street_record = 2;
+    JournalRef book_entry = 3;
+    PendingSettlementRef pending_settlement = 4;
+    // A corporate action's reference, as reported.
+    string event_reference = 5;
+    bool none_found = 6;
+  }
+
+  string note = 7;
+}
+
+// A mirror of meridian.v1.BreakCauseCategory.
+enum BreakCauseCategory {
+  BREAK_CAUSE_CATEGORY_UNSPECIFIED = 0;
+  BREAK_CAUSE_CATEGORY_UNBOOKED_TRADE = 1;
+  BREAK_CAUSE_CATEGORY_SETTLEMENT_TIMING = 2;
+  BREAK_CAUSE_CATEGORY_COST_OR_PRICE = 3;
+  BREAK_CAUSE_CATEGORY_CORPORATE_ACTION = 4;
+  BREAK_CAUSE_CATEGORY_FAIL = 5;
+  BREAK_CAUSE_CATEGORY_CUSTODIAN_ERROR = 6;
+  BREAK_CAUSE_CATEGORY_UNKNOWN = 7;
+}
+
+// A mirror of meridian.v1.PendingSettlementRef.
+message PendingSettlementRef {
+  string instrument_id = 1;
+
+  HoldingSide side = 2;
+
+  string value_date = 3;
+}
+
+// A mirror of meridian.v1.BreakHandling.
+message BreakHandling {
+  // A user the deployment knows (W6.1): one granted write on the account
+  // through the plugin, or the person taking it (Q11 of the sample
+  // operations plugin, ruled 2026-10-01).
+  string owner_subject = 1;
+
+  // The operations plugin's own levels; core gives them no meaning.
+  uint32 escalation_level = 2;
+
+  // ISO 8601.
+  string due_date = 3;
+}
+
+// A mirror of meridian.v1.BreakResolution.
+message BreakResolution {
+  // Resolved: the entries that corrected the book.
+  repeated JournalRef entries = 1;
+
+  // Closed: the explanation, no entry.
+  string explanation = 2;
+
+  Actor actor = 3;
+
+  string reason = 4;
+
+  // Closed as cleared: the street record where the difference was gone (Q2
+  // of the sample operations plugin, ruled 2026-10-01).
+  StreetRecordRef cleared_at = 5;
+}
+
+// The record: one per account, agreement and business date.
+// A mirror of meridian.v1.AccountFigures.
+message AccountFigures {
+  string account_id = 1;
+
+  string business_date = 2;
+
+  MarginAgreementRef agreement = 3;
+
+  StatementFigures figures = 4;
+
+  repeated ReportedPositionValue position_values = 5;
+
+  StreetRecordRef source = 6;
+
+  JournalRef last_change = 7;
+}
+
+// The custodian's, labelled as such (Q8, revised and ruled); never a
+// position's own.
+// A mirror of meridian.v1.ReportedPositionValue.
+message ReportedPositionValue {
+  string instrument_id = 1;
+
+  HoldingSide side = 2;
+
+  optional Money market_value = 3;
+
+  optional Money margin_requirement = 4;
+}
+
+// A mirror of meridian.v1.AccountAttributes.
+message AccountAttributes {
+  string account_id = 1;
+
+  // ISO 4217 until the money revision names an asset
+  // (sdk-contract/money-names-an-asset-not-only-an-iso-currency).
+  string base_currency_code = 2;
+
+  LotReliefMethod lot_relief_default = 3;
+
+  JournalRef last_change = 4;
+
+  // The standing opening balance, set by the book when it journals W9.1;
+  // unset while none stands (Q21 of the sample operations plugin, ruled
+  // 2026-10-01).
+  OpeningBalance opening_balance = 5;
+}
+
+// A mirror of meridian.v1.LotReliefMethod.
+enum LotReliefMethod {
+  LOT_RELIEF_METHOD_UNSPECIFIED = 0;
+  LOT_RELIEF_METHOD_FIRST_IN_FIRST_OUT = 1;
+  LOT_RELIEF_METHOD_LAST_IN_FIRST_OUT = 2;
+  LOT_RELIEF_METHOD_HIGHEST_COST = 3;
+  LOT_RELIEF_METHOD_LOWEST_COST = 4;
+  LOT_RELIEF_METHOD_AVERAGE_COST = 5;
+}
+
+// The account's standing opening balance, set by the book when it journals
+// W9.1 and cleared when it is reversed (Q21 of the sample operations plugin,
+// ruled 2026-10-01): its entry, D0 and sources, read on the account's
+// attributes (W9.14).
+// A mirror of meridian.v1.OpeningBalance.
+message OpeningBalance {
+  string entry_id = 1;
+
+  // ISO 8601: D0.
+  string as_of_date = 2;
+
+  // As recorded, the street records it was composed from among them.
+  repeated OpeningSource sources = 3;
+
+  Actor recorded_by = 4;
+
+  JournalRef journal = 5;
+
+  // The reason the person gave.
+  string reason = 6;
+}
+
+// A mirror of meridian.v1.AgreementFigures.
+message AgreementFigures {
+  MarginAgreementRef agreement = 1;
+
+  // As the street recorded them (W2.2), its segment equal to the
+  // agreement's.
+  StatementFigures figures = 2;
+
+  // On the set with no segment only.
+  repeated ReportedPositionValue position_values = 3;
+}
+
+// One position's encumbrances, as a statement states them: the whole set,
+// empty when the statement reports none.
+// A mirror of meridian.v1.PositionEncumbrances.
+message PositionEncumbrances {
+  string instrument_id = 1;
+
+  HoldingSide side = 2;
+
+  repeated Encumbrance encumbrances = 3;
+}
+
+// Step 5's non-order transaction's first kind (Q28). Slice D adds the
+// cash-flow class and the other kinds as fields of their own (Q20).
+// A mirror of meridian.v1.Adjustment.
+message Adjustment {
+  // After the opening balance's date.
+  string effective_date = 1;
+
+  repeated MovementLine lines = 2;
+
+  repeated BasisAdjustment basis_adjustments = 3;
+
+  // A corporate action's reference, as reported, where it records one.
+  string event_reference = 4;
+}
+
+// A mirror of meridian.v1.MovementLine.
+message MovementLine {
+  // An instrument, a placeholder, or a currency's cash instrument.
+  string instrument_id = 1;
+
+  HoldingSide side = 2;
+
+  SettlementBucket bucket = 3;
+
+  // ISO 8601; required on a pending line but at an opening balance; may be
+  // years out.
+  string value_date = 4;
+
+  // Signed as the position's quantity is, and added to it.
+  Decimal quantity = 5;
+
+  // The lot it adds to or relieves. Empty on a line that opens a lot, whose
+  // identifier the book mints, and on cash, which has no lots.
+  string lot_id = 6;
+
+  // Set on the line that opens a lot, and only there.
+  LotTerms opens_lot = 7;
+
+  // A pending line's fail, where its source reports one.
+  PendingState pending_state = 8;
+}
+
+// A mirror of meridian.v1.SettlementBucket.
+enum SettlementBucket {
+  // Refused.
+  SETTLEMENT_BUCKET_UNSPECIFIED = 0;
+  SETTLEMENT_BUCKET_SETTLED = 1;
+  // Pending settlement on the line's value date. With no value date only at
+  // an opening balance: the source's difference between trade-date and
+  // settled quantities, "date not stated".
+  SETTLEMENT_BUCKET_PENDING = 2;
+  // The source did not say whether it is settled or pending: only at an
+  // opening balance whose source gave no settled quantity.
+  SETTLEMENT_BUCKET_NOT_STATED = 3;
+}
+
+// A mirror of meridian.v1.BasisAdjustment.
+message BasisAdjustment {
+  string lot_id = 1;
+
+  oneof cost {
+    // Added to the lot's cost; signed. Only on a lot whose cost is known.
+    Money cost_change = 2;
+    // The lot's cost, stated where it was unknown: a lot opened with no
+    // cost -- a remainder lot, one of unknown cost because the source listed
+    // none, a future's -- given its cost once it is known. Only on a lot
+    // whose cost is unknown.
+    Money stated_cost = 4;
+  }
+
+  // Where it moves; empty is unchanged.
+  string holding_period_start = 3;
+}
+
+// Names the entry it reverses; the book negates its lines, at that entry's
+// effective date.
+// A mirror of meridian.v1.Reversal.
+message Reversal {
+  string entry_id = 1;
+}
+
+// A mirror of meridian.v1.ResolvedByEntries.
+message ResolvedByEntries {
+  repeated string entry_ids = 1;
+}
+
 // A custodial position that changed, and the statement that changed it.
 // A mirror of meridian.v1.CustodialPositionUpdatedEvent.
 message CustodialPositionUpdatedEvent {
@@ -1068,4 +2454,51 @@ message CustodialPositionUpdatedEvent {
   // Retired in the domain message, and never reused.
   reserved 3;
   reserved "previous_quantity_scaled_1e8";
+}
+
+// A mirror of meridian.v1.PositionChangedEvent.
+message PositionChangedEvent {
+  BookPosition position = 1;
+
+  Decimal previous_trade_date_quantity = 2;
+
+  EntryMeta entry = 3;
+
+  JournalRef journal = 4;
+
+  ChangeCause cause = 5;
+}
+
+// A mirror of meridian.v1.BreakChangedEvent.
+message BreakChangedEvent {
+  // Not `break`, a keyword in the SDKs' languages.
+  Break break_record = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  ChangeCause cause = 4;
+}
+
+// A mirror of meridian.v1.AccountFiguresRecordedEvent.
+message AccountFiguresRecordedEvent {
+  AccountFigures figures = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  ChangeCause cause = 4;
+}
+
+// A mirror of meridian.v1.AccountAttributeChangedEvent.
+message AccountAttributeChangedEvent {
+  AccountAttributes attributes = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  ChangeCause cause = 4;
 }

@@ -591,6 +591,33 @@ pub enum RefusalReason {
     /// records it. Told apart by this alone from not being registered, which
     /// is the same status.
     ExternalAccountNotLinked = 1,
+    /// A command other than a finding sent with no user (W9.1, W9.6, W9.7,
+    /// W9.13): an opening balance, handling, a resolution or an attribute is a
+    /// person's act.
+    ActorRequired = 2,
+    /// A justified act sent without its reason or explanation.
+    ReasonRequired = 3,
+    /// A second opening balance while one stands (W9.1).
+    OpeningBalanceRecorded = 4,
+    /// A break, figures or an entry for an account with no opening balance.
+    NoOpeningBalance = 5,
+    /// An entry moving a position effective on or before the opening
+    /// balance's date (Q27).
+    BeforeOpeningBalance = 6,
+    /// An opening position whose lots do not sum to its quantity, or an entry
+    /// leaving a position's open lots so.
+    LotsUnbalanced = 7,
+    /// A command the break's state does not allow: updating, handling,
+    /// resolving or closing one that is not open.
+    BreakState = 8,
+    /// A reversal of an opening balance while a later entry moving the
+    /// account's positions stands.
+    LaterEntriesStand = 9,
+    /// A command carrying an idempotency key the account's book holds for a
+    /// different command (Q12 of the sample operations plugin): the same key
+    /// and the same command is answered with the first's reply; a different
+    /// command under it is refused, nothing applied.
+    IdempotencyConflict = 10,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -603,6 +630,15 @@ impl RefusalReason {
             Self::ExternalAccountNotLinked => {
                 "REFUSAL_REASON_EXTERNAL_ACCOUNT_NOT_LINKED"
             }
+            Self::ActorRequired => "REFUSAL_REASON_ACTOR_REQUIRED",
+            Self::ReasonRequired => "REFUSAL_REASON_REASON_REQUIRED",
+            Self::OpeningBalanceRecorded => "REFUSAL_REASON_OPENING_BALANCE_RECORDED",
+            Self::NoOpeningBalance => "REFUSAL_REASON_NO_OPENING_BALANCE",
+            Self::BeforeOpeningBalance => "REFUSAL_REASON_BEFORE_OPENING_BALANCE",
+            Self::LotsUnbalanced => "REFUSAL_REASON_LOTS_UNBALANCED",
+            Self::BreakState => "REFUSAL_REASON_BREAK_STATE",
+            Self::LaterEntriesStand => "REFUSAL_REASON_LATER_ENTRIES_STAND",
+            Self::IdempotencyConflict => "REFUSAL_REASON_IDEMPOTENCY_CONFLICT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -612,6 +648,17 @@ impl RefusalReason {
             "REFUSAL_REASON_EXTERNAL_ACCOUNT_NOT_LINKED" => {
                 Some(Self::ExternalAccountNotLinked)
             }
+            "REFUSAL_REASON_ACTOR_REQUIRED" => Some(Self::ActorRequired),
+            "REFUSAL_REASON_REASON_REQUIRED" => Some(Self::ReasonRequired),
+            "REFUSAL_REASON_OPENING_BALANCE_RECORDED" => {
+                Some(Self::OpeningBalanceRecorded)
+            }
+            "REFUSAL_REASON_NO_OPENING_BALANCE" => Some(Self::NoOpeningBalance),
+            "REFUSAL_REASON_BEFORE_OPENING_BALANCE" => Some(Self::BeforeOpeningBalance),
+            "REFUSAL_REASON_LOTS_UNBALANCED" => Some(Self::LotsUnbalanced),
+            "REFUSAL_REASON_BREAK_STATE" => Some(Self::BreakState),
+            "REFUSAL_REASON_LATER_ENTRIES_STAND" => Some(Self::LaterEntriesStand),
+            "REFUSAL_REASON_IDEMPOTENCY_CONFLICT" => Some(Self::IdempotencyConflict),
             _ => None,
         }
     }
