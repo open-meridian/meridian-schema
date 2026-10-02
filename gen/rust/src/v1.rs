@@ -470,7 +470,7 @@ pub struct Refusal {
     #[prost(enumeration = "RefusalReason", tag = "1")]
     pub reason: i32,
     /// Each field the command left out, by its path in the params as the
-    /// sidecar names a field it refuses (positions\[0\].lots\[1\].cost,
+    /// sidecar names a field it refuses (positions\[0\].lots\[1\].terms.cost,
     /// adjustment.lines\[0\].opens_lot.acquired_date), so a plugin shows a person
     /// what to complete without reading the words (contract v9). Only
     /// REFUSAL_REASON_INCOMPLETE carries any.
