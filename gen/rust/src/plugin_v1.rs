@@ -113,9 +113,11 @@ pub struct RecordHoldingsStatementParams {
     pub margin_requirement: ::core::option::Option<Money>,
     #[prost(message, optional, tag = "8")]
     pub maintenance_excess: ::core::option::Option<Money>,
-    /// True when the venue stated no currency for the figures and the
-    /// connector's is its own stated assumption (E*TRADE's balances carry none),
-    /// rather than something the venue said. Of every set in `figures`.
+    /// Deprecated from contract v11, for `provenance` (a currency the venue did
+    /// not state is derived by the plugin's rule, and says so): read from a
+    /// plugin before v11 for the notice the stability list gives, then
+    /// reserved. True when the venue stated no currency for the figures and the
+    /// connector's was its own assumption. Of every set in `figures`.
     #[prost(bool, tag = "9")]
     pub currency_assumed: bool,
     /// The account as the rail knows it; the sidecar sets account_id from its
@@ -140,6 +142,16 @@ pub struct RecordHoldingsStatementParams {
     /// reduces no holding's available quantity.
     #[prost(bool, optional, tag = "14")]
     pub security_interest: ::core::option::Option<bool>,
+    /// The raw record the statement's figures were converted from (contract
+    /// v11). Required of a custody plugin by its suite.
+    #[prost(message, optional, tag = "15")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    /// Each value the plugin closed rather than read -- the institution taken
+    /// from the connection, an as-of date it derived, a figures' currency the
+    /// venue left out -- by its path here (contract v11). A value with none is
+    /// the venue's.
+    #[prost(message, repeated, tag = "16")]
+    pub provenance: ::prost::alloc::vec::Vec<Provenance>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -216,18 +228,18 @@ pub struct RecordHoldingParams {
     /// settled cash.
     #[prost(message, optional, tag = "12")]
     pub settle_date_quantity: ::core::option::Option<Decimal>,
-    /// True when the venue stated no currency and the one here is the
-    /// connector's stated assumption (E*TRADE, Schwab and Public state none),
-    /// rather than something the venue said: the market value's currency, and
-    /// for cash the currency whose cash instrument the row names. A
-    /// pseudo-currency such as Interactive Brokers' BASE is never one.
+    /// Deprecated from contract v11, for `provenance`: a currency the venue
+    /// did not state is derived by the plugin's named rule, and says so. Read
+    /// from a plugin before v11 for the notice the stability list gives, then
+    /// reserved. True when the venue stated no currency and the row's was the
+    /// connector's assumption.
     #[prost(bool, tag = "13")]
     pub currency_assumed: bool,
-    /// This position's value is also included in the account's cash holding as
-    /// the venue reports it: SnapTrade counts a money-market fund in cash and
-    /// lists it as a position too. The street store keeps both as reported; a
-    /// reader counting the account once counts the fund as a position and
-    /// deducts it from cash.
+    /// Deprecated from contract v11: each asset is counted once, the cash of a
+    /// currency net of any holding the custodian also counts as cash, netted
+    /// by the plugin at the edge (sdk-contract/the-street-counts-each-asset-once).
+    /// Accepted from a plugin before v11 for the notice the stability list
+    /// gives, then reserved; no reader acts on it.
     #[prost(bool, tag = "14")]
     pub also_counted_in_cash: bool,
     /// As the venue reports them, unset or empty where it reports none, never
@@ -262,6 +274,28 @@ pub struct RecordHoldingParams {
     /// location and pledgee; empty means none reported, not none held.
     #[prost(message, repeated, tag = "22")]
     pub encumbrances: ::prost::alloc::vec::Vec<ReportedEncumbrance>,
+    /// The raw record the row was converted from, in the plugin's own storage
+    /// (contract v11; decisions/028): carried, never followed, past the plugin.
+    /// Required of a custody plugin by its suite; a row the plugin derived
+    /// wholly, as cash net of a fund, names the record it derived it from.
+    #[prost(message, optional, tag = "23")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    /// Each value the plugin closed rather than read, by its path in the row:
+    /// `quantity` for cash net of a fund the custodian also counts as cash,
+    /// `settle_date_quantity`, `pending`, `market_value.currency_code` (contract
+    /// v11). A value with none is the venue's, from `raw_record`.
+    #[prost(message, repeated, tag = "24")]
+    pub provenance: ::prost::alloc::vec::Vec<Provenance>,
+    /// The quantities not yet settled, each with its value date (contract
+    /// v11). With `settle_date_quantity` they account for `quantity`. As the
+    /// source reports them, or closed by the plugin with their provenance.
+    #[prost(message, repeated, tag = "25")]
+    pub pending: ::prost::alloc::vec::Vec<ReportedPending>,
+    /// Set when the row is a backfill of a row already recorded (contract
+    /// v11): the street journals the named field as an amendment beside the row
+    /// as first recorded, never an overwrite (W2.4).
+    #[prost(message, optional, tag = "26")]
+    pub backfill: ::core::option::Option<Backfill>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -383,6 +417,10 @@ pub struct ResolveIdentifierParams {
     pub stated_currency: ::prost::alloc::string::String,
     #[prost(string, tag = "7")]
     pub stated_description: ::prost::alloc::string::String,
+    /// Its type within the stated class, where the source says it (contract
+    /// v11): a custodian's sweep fund is a money market fund.
+    #[prost(enumeration = "InstrumentType", tag = "8")]
+    pub stated_instrument_type: i32,
 }
 /// The result of ResolveIdentifier: meridian.v1.ResolveIdentifierReply.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -428,6 +466,12 @@ pub struct ReportMissingInstrumentParams {
     pub reason: i32,
     #[prost(int64, tag = "7")]
     pub observed_at_ns: i64,
+    /// The source's kind as reported, set only when it did not convert to an
+    /// asset class and `asset_class` is unspecified (contract v11;
+    /// spec/vendor-differences-have-a-place-in-the-contract, requirement 4).
+    /// For a person setting the class; never read.
+    #[prost(message, optional, tag = "10")]
+    pub asset_class_as_reported: ::core::option::Option<AsReported>,
 }
 /// Forward resolution: an instrument identifier to its record.
 /// The params of ResolveInstrument: meridian.v1.ResolveInstrumentRequest, less what the sidecar sets.
@@ -1123,12 +1167,45 @@ pub struct ExternalAccount {
     /// The custodian's own name for it, as a person there would recognise it.
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
-    /// The venue's own word for the kind of account, verbatim and for display
-    /// only. Nothing reads meaning into it: what an account may do is the
-    /// platform's restriction set, in the platform's words, which each plugin
-    /// maps its venue's types onto when that set is ruled.
+    /// Deprecated from contract v11, for `account_kind` (Q13, reversed on the
+    /// revision, 2026-10-01): the venue's own word, verbatim and for display
+    /// only. A plugin built for v11 leaves it empty; the sidecar accepts it
+    /// from an earlier one for the notice the stability list gives, and the
+    /// dashboard shows it only where no kind is sent; then it is reserved.
     #[prost(string, tag = "3")]
     pub venue_account_type: ::prost::alloc::string::String,
+    /// The account's kind, converted by the plugin from the venue's own type
+    /// (contract v11). For display and for grouping accounts across plugins;
+    /// nothing gates on it, and what an account may do is the platform's
+    /// restriction set when that is ruled.
+    #[prost(enumeration = "AccountKind", tag = "4")]
+    pub account_kind: i32,
+    /// The venue's type as reported, set only when the kind is not known
+    /// because the type did not convert (spec/vendor-differences-have-a-place-
+    /// in-the-contract, requirement 4). For a person to map; never read.
+    #[prost(message, optional, tag = "5")]
+    pub account_kind_as_reported: ::core::option::Option<AsReported>,
+}
+/// A vendor's value the plugin could not convert, beside the field's
+/// not-known value (requirements 4, 5 and 28): the one place a vendor's own
+/// code crosses the sidecar. Narrow, flagged and transitional: only the value
+/// that failed, never alone, and gone once a mapping exists. The sidecar
+/// checks that each part is present and within its length, and never reads
+/// its meaning; nothing past the plugin interprets it.
+/// A mirror of meridian.v1.AsReported.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AsReported {
+    /// Whose vocabulary: the plugin's registry name and, where the vendor has
+    /// several, its code set ("<plugin>:account-type").
+    #[prost(string, tag = "1")]
+    pub scheme: ::prost::alloc::string::String,
+    /// The vendor's code, as sent.
+    #[prost(string, tag = "2")]
+    pub code: ::prost::alloc::string::String,
+    /// The vendor's own words for it, as sent; the code again where it gives
+    /// none.
+    #[prost(string, tag = "3")]
+    pub text: ::prost::alloc::string::String,
 }
 /// An amount of currency: a Decimal and the currency it is in.
 ///
@@ -1257,6 +1334,50 @@ pub struct Identifier {
     #[prost(string, tag = "3")]
     pub source: ::prost::alloc::string::String,
 }
+/// A reference to the raw record a row was converted from, in the writing
+/// plugin's own storage (requirement 7, Q9; decisions/028). Opaque: core and
+/// every other plugin carry it and never follow it; a person follows it on
+/// the owning plugin's page. When the record has passed its retention,
+/// following it says so, and the row stands.
+/// A mirror of meridian.v1.RawRecordRef.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RawRecordRef {
+    /// The writing plugin's own instance, which its SDK sets from its
+    /// registration; the sidecar refuses a reference naming another.
+    #[prost(string, tag = "1")]
+    pub instance_id: ::prost::alloc::string::String,
+    /// The plugin's own key for the record.
+    #[prost(string, tag = "2")]
+    pub key: ::prost::alloc::string::String,
+}
+/// Where a value a plugin sent came from, where the plugin closed it rather
+/// than read it from its vendor (requirements 31 to 34; plans/an-order-reaches-
+/// a-venue-through-the-book, Q13). A value with none on its message is the
+/// vendor's, from the message's raw record.
+/// A mirror of meridian.v1.Provenance.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Provenance {
+    /// The value it is for, by its path in the message: `quantity`,
+    /// `settle_date_quantity`, `pending`, `market_value.currency_code`.
+    #[prost(string, tag = "1")]
+    pub field: ::prost::alloc::string::String,
+    #[prost(enumeration = "ProvenanceKind", tag = "2")]
+    pub kind: i32,
+    /// The raw record it was read from: on a value reported by the vendor
+    /// (from a record other than the message's own) or from a second source.
+    /// Never on a value supplied or derived.
+    #[prost(message, optional, tag = "3")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    /// The second source, by name.
+    #[prost(string, tag = "4")]
+    pub source: ::prost::alloc::string::String,
+    /// The person who supplied it, as the plugin's page knew them.
+    #[prost(string, tag = "5")]
+    pub person: ::prost::alloc::string::String,
+    /// The rule that derived it, by name, as the plugin documents it.
+    #[prost(string, tag = "6")]
+    pub rule: ::prost::alloc::string::String,
+}
 /// One lot of a holding, as the custodian lists it.
 /// A mirror of meridian.v1.ReportedLot.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1305,6 +1426,31 @@ pub struct ReportedEncumbrance {
     /// The source's narrative; empty where none.
     #[prost(string, tag = "8")]
     pub detail: ::prost::alloc::string::String,
+}
+/// A quantity not yet settled, and the date it is due to (W2.3, contract
+/// v11). Signed as its holding's quantity is: a short's pending is negative.
+/// A mirror of meridian.v1.ReportedPending.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportedPending {
+    /// ISO 8601.
+    #[prost(string, tag = "1")]
+    pub value_date: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub quantity: ::core::option::Option<Decimal>,
+}
+/// A write marked as a backfill (requirement 27): a field a contract revision
+/// added, re-converted from the plugin's raw records and sent for a row
+/// already recorded. The store journals it as an amendment beside the row as
+/// first recorded, never an overwrite, this its cause.
+/// A mirror of meridian.v1.Backfill.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Backfill {
+    /// The contract version that added the field, as `v<N>`.
+    #[prost(string, tag = "1")]
+    pub contract_version: ::prost::alloc::string::String,
+    /// The field, by its path in the message.
+    #[prost(string, tag = "2")]
+    pub field: ::prost::alloc::string::String,
 }
 /// A point in a store's record: a sequence per partition. What a read
 /// answers it was read at, and what a read of changes since takes.
@@ -1363,8 +1509,8 @@ pub struct CustodialPosition {
     /// The settle-date quantity, where the custodian reported one.
     #[prost(message, optional, tag = "12")]
     pub settle_date_quantity: ::core::option::Option<Decimal>,
-    /// This position's value is also included in the account's cash holding as
-    /// the custodian reports it; both are kept as reported.
+    /// Deprecated from contract v11, as on RecordHoldingRequest: the street
+    /// counts each asset once. Set only from a plugin before v11.
     #[prost(bool, tag = "13")]
     pub also_counted_in_cash: bool,
     /// As the custodian reported them on the row that last stated this, unset
@@ -1394,6 +1540,14 @@ pub struct CustodialPosition {
     pub available_basis: i32,
     #[prost(message, repeated, tag = "23")]
     pub encumbrances: ::prost::alloc::vec::Vec<ReportedEncumbrance>,
+    /// As on RecordHoldingRequest, from the row that last stated this, with
+    /// what a backfill added to it (contract v11).
+    #[prost(message, optional, tag = "24")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    #[prost(message, repeated, tag = "25")]
+    pub provenance: ::prost::alloc::vec::Vec<Provenance>,
+    #[prost(message, repeated, tag = "26")]
+    pub pending: ::prost::alloc::vec::Vec<ReportedPending>,
 }
 /// Where a change sits in its store's record (spec/plugins-hear-and-read, Q1
 /// as clarified 2026-10-01).
@@ -1439,6 +1593,9 @@ pub struct UnresolvedHolding {
     /// administrator".
     #[prost(bool, tag = "9")]
     pub escalated: bool,
+    /// The raw record the row was converted from (contract v11).
+    #[prost(message, optional, tag = "12")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
 }
 /// A statement is complete.
 ///
@@ -1468,6 +1625,7 @@ pub struct StatementRecordedEvent {
     /// The statement's figures as recorded, one set per segment (W2.2).
     #[prost(message, repeated, tag = "9")]
     pub figures: ::prost::alloc::vec::Vec<StatementFigures>,
+    /// Deprecated from contract v11, as on the statement: for `provenance`.
     #[prost(bool, tag = "10")]
     pub currency_assumed: bool,
     /// The completion's number in the street's partition, chained per account
@@ -1488,6 +1646,12 @@ pub struct StatementRecordedEvent {
     /// As the statement reported it (contract v8).
     #[prost(bool, optional, tag = "15")]
     pub security_interest: ::core::option::Option<bool>,
+    /// As the statement carried them (contract v11): its raw record, and the
+    /// provenance of each value its plugin closed.
+    #[prost(message, optional, tag = "16")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    #[prost(message, repeated, tag = "17")]
+    pub provenance: ::prost::alloc::vec::Vec<Provenance>,
 }
 /// Who caused a change, as the store recorded it when it committed (Q3).
 /// A mirror of meridian.v1.ChangeCause.
@@ -1571,6 +1735,14 @@ pub struct InstrumentRecord {
     /// (W3.10). A later offer never overwrites a value in force.
     #[prost(message, repeated, tag = "13")]
     pub offers: ::prost::alloc::vec::Vec<OfferedValue>,
+    /// Its type within its asset class (contract v11), in force once a person
+    /// set or accepted it, as the asset class is. Unspecified where none is.
+    #[prost(enumeration = "InstrumentType", tag = "14")]
+    pub instrument_type: i32,
+    /// A money market fund's attributes (contract v11); set only on a record
+    /// whose type is money market fund.
+    #[prost(message, optional, tag = "15")]
+    pub money_market_fund: ::core::option::Option<MoneyMarketFund>,
 }
 /// Where a value in force on a deployment's record came from (W3,
 /// requirements 1 and 3).
@@ -1627,7 +1799,7 @@ pub struct InstrumentValue {
     /// person sets.
     #[prost(string, tag = "5")]
     pub source: ::prost::alloc::string::String,
-    #[prost(oneof = "instrument_value::Value", tags = "1, 2, 3, 4")]
+    #[prost(oneof = "instrument_value::Value", tags = "1, 2, 3, 4, 6, 7")]
     pub value: ::core::option::Option<instrument_value::Value>,
 }
 /// Nested message and enum types in `InstrumentValue`.
@@ -1645,7 +1817,29 @@ pub mod instrument_value {
         Description(::prost::alloc::string::String),
         #[prost(message, tag = "4")]
         Identifier(super::Identifier),
+        /// Contract v11: one under the record's asset class; never unspecified.
+        #[prost(enumeration = "super::InstrumentType", tag = "6")]
+        InstrumentType(i32),
+        /// Contract v11: on a money market fund only, each attribute stated.
+        #[prost(message, tag = "7")]
+        MoneyMarketFund(super::MoneyMarketFund),
     }
+}
+/// A money market fund's attributes, from SEC rule 2a-7 as amended in 2023
+/// (the product owner, 2026-10-02, the custody audit's Q4). Its observations
+/// -- its NAV on a day, its seven-day yield, its liquid assets, a fee imposed
+/// -- are the lake's, not the record's.
+/// A mirror of meridian.v1.MoneyMarketFund.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct MoneyMarketFund {
+    #[prost(enumeration = "MoneyMarketFundCategory", tag = "1")]
+    pub category: i32,
+    #[prost(enumeration = "MoneyMarketFundInvestors", tag = "2")]
+    pub investors: i32,
+    #[prost(enumeration = "MoneyMarketFundNav", tag = "3")]
+    pub nav: i32,
+    #[prost(enumeration = "LiquidityFeeRegime", tag = "4")]
+    pub liquidity_fee: i32,
 }
 /// The only thing holdings are recorded against. A plugin creates one only by
 /// linking an external account to a new one, acting for a deployment admin in
@@ -2432,6 +2626,47 @@ pub struct AccountAttributeChangedEvent {
     #[prost(message, optional, tag = "4")]
     pub cause: ::core::option::Option<ChangeCause>,
 }
+/// An account's kind (contract v11): one coarse kind, the platform's own
+/// words, never a venue's.
+/// A mirror of meridian.v1.AccountKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AccountKind {
+    /// Not known: the venue's type says neither cash nor margin nor
+    /// retirement, and travels beside it as reported.
+    Unspecified = 0,
+    /// Trades settle in full from the account's own cash; no borrowing.
+    Cash = 1,
+    /// The account may borrow against its holdings under a margin agreement.
+    Margin = 2,
+    /// A tax-advantaged retirement account, whether or not it allows limited
+    /// margin.
+    Retirement = 3,
+}
+impl AccountKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ACCOUNT_KIND_UNSPECIFIED",
+            Self::Cash => "ACCOUNT_KIND_CASH",
+            Self::Margin => "ACCOUNT_KIND_MARGIN",
+            Self::Retirement => "ACCOUNT_KIND_RETIREMENT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ACCOUNT_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "ACCOUNT_KIND_CASH" => Some(Self::Cash),
+            "ACCOUNT_KIND_MARGIN" => Some(Self::Margin),
+            "ACCOUNT_KIND_RETIREMENT" => Some(Self::Retirement),
+            _ => None,
+        }
+    }
+}
 /// Why a connection's data is, or is not, current.
 ///
 /// The venues surveyed fail in exactly these ways (reference/broker-apis.md),
@@ -2523,6 +2758,49 @@ impl CollateralDirection {
             "COLLATERAL_DIRECTION_UNSPECIFIED" => Some(Self::Unspecified),
             "COLLATERAL_DIRECTION_POSTED" => Some(Self::Posted),
             "COLLATERAL_DIRECTION_RECEIVED" => Some(Self::Received),
+            _ => None,
+        }
+    }
+}
+/// The four kinds of provenance (requirement 32), the same meanings as an
+/// instrument value's source (v10's InstrumentValueSource).
+/// A mirror of meridian.v1.ProvenanceKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ProvenanceKind {
+    /// Not said; refused.
+    Unspecified = 0,
+    /// Reported by the vendor.
+    Reported = 1,
+    /// From a second source of the plugin's own.
+    SecondSource = 2,
+    /// Supplied by a named person, on the plugin's page.
+    Supplied = 3,
+    /// Derived by a named rule in the plugin's code.
+    Derived = 4,
+}
+impl ProvenanceKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PROVENANCE_KIND_UNSPECIFIED",
+            Self::Reported => "PROVENANCE_KIND_REPORTED",
+            Self::SecondSource => "PROVENANCE_KIND_SECOND_SOURCE",
+            Self::Supplied => "PROVENANCE_KIND_SUPPLIED",
+            Self::Derived => "PROVENANCE_KIND_DERIVED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PROVENANCE_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "PROVENANCE_KIND_REPORTED" => Some(Self::Reported),
+            "PROVENANCE_KIND_SECOND_SOURCE" => Some(Self::SecondSource),
+            "PROVENANCE_KIND_SUPPLIED" => Some(Self::Supplied),
+            "PROVENANCE_KIND_DERIVED" => Some(Self::Derived),
             _ => None,
         }
     }
@@ -2681,9 +2959,9 @@ impl EncumbranceKind {
 /// `equity`, `debt`, `fund`, `derivative`, `crypto_asset`, `event_contract`,
 /// `cash`.
 ///
-/// What kind of instrument within a class (an ETF is a fund, an option a
-/// derivative) is its instrument type, which this does not carry: the list of
-/// types is still open.
+/// What kind of instrument within a class is its instrument type
+/// (InstrumentType, contract v11), which grows one type at a time as a
+/// workflow needs it.
 /// A mirror of meridian.v1.AssetClass.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -2734,6 +3012,43 @@ impl AssetClass {
             "ASSET_CLASS_CRYPTO_ASSET" => Some(Self::CryptoAsset),
             "ASSET_CLASS_EVENT_CONTRACT" => Some(Self::EventContract),
             "ASSET_CLASS_CASH" => Some(Self::Cash),
+            _ => None,
+        }
+    }
+}
+/// What kind of instrument within its asset class (contract v11; the product
+/// owner, 2026-10-02: "Yes to put instrument type into v11 scope"). In the
+/// contract's own words, ISO 10962 (CFI) a reference and not the vocabulary;
+/// a type joins when a workflow needs it, each with its dictionary entry, and
+/// each is under one asset class. Spelled in text as the value's name without
+/// its prefix, lower case: `money_market_fund`.
+/// A mirror of meridian.v1.InstrumentType.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum InstrumentType {
+    /// No type stated: the asset class says all the record says.
+    Unspecified = 0,
+    /// Under fund: a fund that invests in short-term debt under SEC rule 2a-7
+    /// and aims to keep its value, with the attributes of MoneyMarketFund.
+    /// Held as a fund, never as cash, even where a custodian sweeps cash into it.
+    MoneyMarketFund = 1,
+}
+impl InstrumentType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "INSTRUMENT_TYPE_UNSPECIFIED",
+            Self::MoneyMarketFund => "INSTRUMENT_TYPE_MONEY_MARKET_FUND",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "INSTRUMENT_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "INSTRUMENT_TYPE_MONEY_MARKET_FUND" => Some(Self::MoneyMarketFund),
             _ => None,
         }
     }
@@ -2823,6 +3138,9 @@ pub enum InstrumentField {
     Description = 3,
     /// One of its identifiers, named beside the field.
     Identifier = 4,
+    /// Contract v11.
+    InstrumentType = 5,
+    MoneyMarketFund = 6,
 }
 impl InstrumentField {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2836,6 +3154,8 @@ impl InstrumentField {
             Self::Currency => "INSTRUMENT_FIELD_CURRENCY",
             Self::Description => "INSTRUMENT_FIELD_DESCRIPTION",
             Self::Identifier => "INSTRUMENT_FIELD_IDENTIFIER",
+            Self::InstrumentType => "INSTRUMENT_FIELD_INSTRUMENT_TYPE",
+            Self::MoneyMarketFund => "INSTRUMENT_FIELD_MONEY_MARKET_FUND",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2846,6 +3166,145 @@ impl InstrumentField {
             "INSTRUMENT_FIELD_CURRENCY" => Some(Self::Currency),
             "INSTRUMENT_FIELD_DESCRIPTION" => Some(Self::Description),
             "INSTRUMENT_FIELD_IDENTIFIER" => Some(Self::Identifier),
+            "INSTRUMENT_FIELD_INSTRUMENT_TYPE" => Some(Self::InstrumentType),
+            "INSTRUMENT_FIELD_MONEY_MARKET_FUND" => Some(Self::MoneyMarketFund),
+            _ => None,
+        }
+    }
+}
+/// What a money market fund invests in.
+/// A mirror of meridian.v1.MoneyMarketFundCategory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum MoneyMarketFundCategory {
+    Unspecified = 0,
+    /// Cash, government securities and repurchase agreements backed by them.
+    Government = 1,
+    /// Also corporate short-term debt.
+    Prime = 2,
+    /// Short-term municipal debt.
+    TaxExempt = 3,
+}
+impl MoneyMarketFundCategory {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "MONEY_MARKET_FUND_CATEGORY_UNSPECIFIED",
+            Self::Government => "MONEY_MARKET_FUND_CATEGORY_GOVERNMENT",
+            Self::Prime => "MONEY_MARKET_FUND_CATEGORY_PRIME",
+            Self::TaxExempt => "MONEY_MARKET_FUND_CATEGORY_TAX_EXEMPT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "MONEY_MARKET_FUND_CATEGORY_UNSPECIFIED" => Some(Self::Unspecified),
+            "MONEY_MARKET_FUND_CATEGORY_GOVERNMENT" => Some(Self::Government),
+            "MONEY_MARKET_FUND_CATEGORY_PRIME" => Some(Self::Prime),
+            "MONEY_MARKET_FUND_CATEGORY_TAX_EXEMPT" => Some(Self::TaxExempt),
+            _ => None,
+        }
+    }
+}
+/// Whom a money market fund is offered to.
+/// A mirror of meridian.v1.MoneyMarketFundInvestors.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum MoneyMarketFundInvestors {
+    Unspecified = 0,
+    /// Natural persons only.
+    Retail = 1,
+    Institutional = 2,
+}
+impl MoneyMarketFundInvestors {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "MONEY_MARKET_FUND_INVESTORS_UNSPECIFIED",
+            Self::Retail => "MONEY_MARKET_FUND_INVESTORS_RETAIL",
+            Self::Institutional => "MONEY_MARKET_FUND_INVESTORS_INSTITUTIONAL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "MONEY_MARKET_FUND_INVESTORS_UNSPECIFIED" => Some(Self::Unspecified),
+            "MONEY_MARKET_FUND_INVESTORS_RETAIL" => Some(Self::Retail),
+            "MONEY_MARKET_FUND_INVESTORS_INSTITUTIONAL" => Some(Self::Institutional),
+            _ => None,
+        }
+    }
+}
+/// How a money market fund prices its shares.
+/// A mirror of meridian.v1.MoneyMarketFundNav.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum MoneyMarketFundNav {
+    Unspecified = 0,
+    /// A stable share price of 1.00: the book takes its position as one lot at
+    /// stable value (W9.1).
+    Stable = 1,
+    /// A share price that floats with its holdings: lots like any fund.
+    Floating = 2,
+}
+impl MoneyMarketFundNav {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "MONEY_MARKET_FUND_NAV_UNSPECIFIED",
+            Self::Stable => "MONEY_MARKET_FUND_NAV_STABLE",
+            Self::Floating => "MONEY_MARKET_FUND_NAV_FLOATING",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "MONEY_MARKET_FUND_NAV_UNSPECIFIED" => Some(Self::Unspecified),
+            "MONEY_MARKET_FUND_NAV_STABLE" => Some(Self::Stable),
+            "MONEY_MARKET_FUND_NAV_FLOATING" => Some(Self::Floating),
+            _ => None,
+        }
+    }
+}
+/// When a money market fund charges a fee on redemptions.
+/// A mirror of meridian.v1.LiquidityFeeRegime.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LiquidityFeeRegime {
+    Unspecified = 0,
+    /// Charged when daily net redemptions pass 5% of net assets: an
+    /// institutional prime or tax-exempt fund.
+    Mandatory = 1,
+    /// At the board's discretion, where in the fund's interest.
+    Discretionary = 2,
+}
+impl LiquidityFeeRegime {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LIQUIDITY_FEE_REGIME_UNSPECIFIED",
+            Self::Mandatory => "LIQUIDITY_FEE_REGIME_MANDATORY",
+            Self::Discretionary => "LIQUIDITY_FEE_REGIME_DISCRETIONARY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LIQUIDITY_FEE_REGIME_UNSPECIFIED" => Some(Self::Unspecified),
+            "LIQUIDITY_FEE_REGIME_MANDATORY" => Some(Self::Mandatory),
+            "LIQUIDITY_FEE_REGIME_DISCRETIONARY" => Some(Self::Discretionary),
             _ => None,
         }
     }
@@ -3303,7 +3762,7 @@ pub mod plugin_operations_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
-        /// W2.8: platform.custody.{instance}.event.external-accounts (event).
+        /// W2.8: platform.custody.{instance}.event.external-accounts (event; stable).
         pub async fn report_external_accounts(
             &mut self,
             request: impl tonic::IntoRequest<super::ReportExternalAccountsParams>,
@@ -3330,7 +3789,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W2.1: platform.custody.{instance}.event.sync-status (event).
+        /// W2.1: platform.custody.{instance}.event.sync-status (event; stable).
         pub async fn report_sync_status(
             &mut self,
             request: impl tonic::IntoRequest<super::ReportSyncStatusParams>,
@@ -3357,7 +3816,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W2.2: platform.street.command.record-statement (command).
+        /// W2.2: platform.street.command.record-statement (command; stable).
         pub async fn record_holdings_statement(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordHoldingsStatementParams>,
@@ -3387,7 +3846,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W2.3: platform.street.command.record-holding (command).
+        /// W2.3: platform.street.command.record-holding (command; stable).
         pub async fn record_holding(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordHoldingParams>,
@@ -3417,7 +3876,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W2.7: platform.street.query.list-custodial-positions (query).
+        /// W2.7: platform.street.query.list-custodial-positions (query; stable).
         pub async fn list_custodial_positions(
             &mut self,
             request: impl tonic::IntoRequest<super::ListCustodialPositionsParams>,
@@ -3447,7 +3906,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W2.9: platform.street.query.list-statements (query).
+        /// W2.9: platform.street.query.list-statements (query; stable).
         pub async fn list_statements(
             &mut self,
             request: impl tonic::IntoRequest<super::ListStatementsParams>,
@@ -3477,7 +3936,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W3.1: platform.reference.query.resolve-identifier (query).
+        /// W3.1: platform.reference.query.resolve-identifier (query; stable).
         pub async fn resolve_identifier(
             &mut self,
             request: impl tonic::IntoRequest<super::ResolveIdentifierParams>,
@@ -3507,7 +3966,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W3.2: platform.reference.event.instrument-missing (event).
+        /// W3.2: platform.reference.event.instrument-missing (event; stable).
         pub async fn report_missing_instrument(
             &mut self,
             request: impl tonic::IntoRequest<super::ReportMissingInstrumentParams>,
@@ -3534,7 +3993,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W3.6: platform.reference.query.resolve-instrument (query).
+        /// W3.6: platform.reference.query.resolve-instrument (query; stable).
         pub async fn resolve_instrument(
             &mut self,
             request: impl tonic::IntoRequest<super::ResolveInstrumentParams>,
@@ -3564,7 +4023,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W6.4: platform.config.command.link-external-account (command).
+        /// W6.4: platform.config.command.link-external-account (command; stable).
         pub async fn link_external_account(
             &mut self,
             request: impl tonic::IntoRequest<super::LinkExternalAccountParams>,
@@ -3594,7 +4053,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W6.4: platform.config.query.accounts (query).
+        /// W6.4: platform.config.query.accounts (query; stable).
         pub async fn read_accounts_for_linking(
             &mut self,
             request: impl tonic::IntoRequest<super::ReadAccountsForLinkingParams>,
@@ -3624,7 +4083,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.1: platform.book.command.record-opening-balance (command).
+        /// W9.1: platform.book.command.record-opening-balance (command; stable).
         pub async fn record_opening_balance(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordOpeningBalanceParams>,
@@ -3654,7 +4113,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.4: platform.book.command.record-break (command).
+        /// W9.4: platform.book.command.record-break (command; stable).
         pub async fn record_break(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordBreakParams>,
@@ -3681,7 +4140,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.5: platform.book.command.record-account-figures (command).
+        /// W9.5: platform.book.command.record-account-figures (command; stable).
         pub async fn record_account_figures(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordAccountFiguresParams>,
@@ -3711,7 +4170,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.15: platform.book.command.record-encumbrances (command).
+        /// W9.15: platform.book.command.record-encumbrances (command; stable).
         pub async fn record_encumbrances(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordEncumbrancesParams>,
@@ -3741,7 +4200,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.6: platform.book.command.handle-break (command).
+        /// W9.6: platform.book.command.handle-break (command; stable).
         pub async fn handle_break(
             &mut self,
             request: impl tonic::IntoRequest<super::HandleBreakParams>,
@@ -3768,7 +4227,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.7: platform.book.command.resolve-break (command).
+        /// W9.7: platform.book.command.resolve-break (command; stable).
         pub async fn resolve_break(
             &mut self,
             request: impl tonic::IntoRequest<super::ResolveBreakParams>,
@@ -3798,7 +4257,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.7: platform.book.command.close-breaks-as-cleared (command).
+        /// W9.7: platform.book.command.close-breaks-as-cleared (command; stable).
         pub async fn close_breaks_as_cleared(
             &mut self,
             request: impl tonic::IntoRequest<super::CloseBreaksAsClearedParams>,
@@ -3828,7 +4287,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.10: platform.book.query.list-positions (query).
+        /// W9.10: platform.book.query.list-positions (query; stable).
         pub async fn list_positions(
             &mut self,
             request: impl tonic::IntoRequest<super::ListPositionsParams>,
@@ -3858,7 +4317,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.11: platform.book.query.list-breaks (query).
+        /// W9.11: platform.book.query.list-breaks (query; stable).
         pub async fn list_breaks(
             &mut self,
             request: impl tonic::IntoRequest<super::ListBreaksParams>,
@@ -3885,7 +4344,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.12: platform.book.query.list-account-figures (query).
+        /// W9.12: platform.book.query.list-account-figures (query; stable).
         pub async fn list_account_figures(
             &mut self,
             request: impl tonic::IntoRequest<super::ListAccountFiguresParams>,
@@ -3915,7 +4374,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W9.14: platform.book.query.list-account-attributes (query).
+        /// W9.14: platform.book.query.list-account-attributes (query; stable).
         pub async fn list_account_attributes(
             &mut self,
             request: impl tonic::IntoRequest<super::ListAccountAttributesParams>,
@@ -3987,17 +4446,17 @@ pub mod plugin_operations_server {
     /// Generated trait containing gRPC methods that should be implemented for use with PluginOperationsServer.
     #[async_trait]
     pub trait PluginOperations: std::marker::Send + std::marker::Sync + 'static {
-        /// W2.8: platform.custody.{instance}.event.external-accounts (event).
+        /// W2.8: platform.custody.{instance}.event.external-accounts (event; stable).
         async fn report_external_accounts(
             &self,
             request: tonic::Request<super::ReportExternalAccountsParams>,
         ) -> std::result::Result<tonic::Response<super::Published>, tonic::Status>;
-        /// W2.1: platform.custody.{instance}.event.sync-status (event).
+        /// W2.1: platform.custody.{instance}.event.sync-status (event; stable).
         async fn report_sync_status(
             &self,
             request: tonic::Request<super::ReportSyncStatusParams>,
         ) -> std::result::Result<tonic::Response<super::Published>, tonic::Status>;
-        /// W2.2: platform.street.command.record-statement (command).
+        /// W2.2: platform.street.command.record-statement (command; stable).
         async fn record_holdings_statement(
             &self,
             request: tonic::Request<super::RecordHoldingsStatementParams>,
@@ -4005,7 +4464,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordHoldingsStatementResult>,
             tonic::Status,
         >;
-        /// W2.3: platform.street.command.record-holding (command).
+        /// W2.3: platform.street.command.record-holding (command; stable).
         async fn record_holding(
             &self,
             request: tonic::Request<super::RecordHoldingParams>,
@@ -4013,7 +4472,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordHoldingResult>,
             tonic::Status,
         >;
-        /// W2.7: platform.street.query.list-custodial-positions (query).
+        /// W2.7: platform.street.query.list-custodial-positions (query; stable).
         async fn list_custodial_positions(
             &self,
             request: tonic::Request<super::ListCustodialPositionsParams>,
@@ -4021,7 +4480,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListCustodialPositionsResult>,
             tonic::Status,
         >;
-        /// W2.9: platform.street.query.list-statements (query).
+        /// W2.9: platform.street.query.list-statements (query; stable).
         async fn list_statements(
             &self,
             request: tonic::Request<super::ListStatementsParams>,
@@ -4029,7 +4488,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListStatementsResult>,
             tonic::Status,
         >;
-        /// W3.1: platform.reference.query.resolve-identifier (query).
+        /// W3.1: platform.reference.query.resolve-identifier (query; stable).
         async fn resolve_identifier(
             &self,
             request: tonic::Request<super::ResolveIdentifierParams>,
@@ -4037,12 +4496,12 @@ pub mod plugin_operations_server {
             tonic::Response<super::ResolveIdentifierResult>,
             tonic::Status,
         >;
-        /// W3.2: platform.reference.event.instrument-missing (event).
+        /// W3.2: platform.reference.event.instrument-missing (event; stable).
         async fn report_missing_instrument(
             &self,
             request: tonic::Request<super::ReportMissingInstrumentParams>,
         ) -> std::result::Result<tonic::Response<super::Published>, tonic::Status>;
-        /// W3.6: platform.reference.query.resolve-instrument (query).
+        /// W3.6: platform.reference.query.resolve-instrument (query; stable).
         async fn resolve_instrument(
             &self,
             request: tonic::Request<super::ResolveInstrumentParams>,
@@ -4050,7 +4509,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ResolveInstrumentResult>,
             tonic::Status,
         >;
-        /// W6.4: platform.config.command.link-external-account (command).
+        /// W6.4: platform.config.command.link-external-account (command; stable).
         async fn link_external_account(
             &self,
             request: tonic::Request<super::LinkExternalAccountParams>,
@@ -4058,7 +4517,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::LinkExternalAccountResult>,
             tonic::Status,
         >;
-        /// W6.4: platform.config.query.accounts (query).
+        /// W6.4: platform.config.query.accounts (query; stable).
         async fn read_accounts_for_linking(
             &self,
             request: tonic::Request<super::ReadAccountsForLinkingParams>,
@@ -4066,7 +4525,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ReadAccountsForLinkingResult>,
             tonic::Status,
         >;
-        /// W9.1: platform.book.command.record-opening-balance (command).
+        /// W9.1: platform.book.command.record-opening-balance (command; stable).
         async fn record_opening_balance(
             &self,
             request: tonic::Request<super::RecordOpeningBalanceParams>,
@@ -4074,7 +4533,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordOpeningBalanceResult>,
             tonic::Status,
         >;
-        /// W9.4: platform.book.command.record-break (command).
+        /// W9.4: platform.book.command.record-break (command; stable).
         async fn record_break(
             &self,
             request: tonic::Request<super::RecordBreakParams>,
@@ -4082,7 +4541,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordBreakResult>,
             tonic::Status,
         >;
-        /// W9.5: platform.book.command.record-account-figures (command).
+        /// W9.5: platform.book.command.record-account-figures (command; stable).
         async fn record_account_figures(
             &self,
             request: tonic::Request<super::RecordAccountFiguresParams>,
@@ -4090,7 +4549,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordAccountFiguresResult>,
             tonic::Status,
         >;
-        /// W9.15: platform.book.command.record-encumbrances (command).
+        /// W9.15: platform.book.command.record-encumbrances (command; stable).
         async fn record_encumbrances(
             &self,
             request: tonic::Request<super::RecordEncumbrancesParams>,
@@ -4098,7 +4557,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordEncumbrancesResult>,
             tonic::Status,
         >;
-        /// W9.6: platform.book.command.handle-break (command).
+        /// W9.6: platform.book.command.handle-break (command; stable).
         async fn handle_break(
             &self,
             request: tonic::Request<super::HandleBreakParams>,
@@ -4106,7 +4565,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::HandleBreakResult>,
             tonic::Status,
         >;
-        /// W9.7: platform.book.command.resolve-break (command).
+        /// W9.7: platform.book.command.resolve-break (command; stable).
         async fn resolve_break(
             &self,
             request: tonic::Request<super::ResolveBreakParams>,
@@ -4114,7 +4573,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ResolveBreakResult>,
             tonic::Status,
         >;
-        /// W9.7: platform.book.command.close-breaks-as-cleared (command).
+        /// W9.7: platform.book.command.close-breaks-as-cleared (command; stable).
         async fn close_breaks_as_cleared(
             &self,
             request: tonic::Request<super::CloseBreaksAsClearedParams>,
@@ -4122,7 +4581,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::CloseBreaksAsClearedResult>,
             tonic::Status,
         >;
-        /// W9.10: platform.book.query.list-positions (query).
+        /// W9.10: platform.book.query.list-positions (query; stable).
         async fn list_positions(
             &self,
             request: tonic::Request<super::ListPositionsParams>,
@@ -4130,7 +4589,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListPositionsResult>,
             tonic::Status,
         >;
-        /// W9.11: platform.book.query.list-breaks (query).
+        /// W9.11: platform.book.query.list-breaks (query; stable).
         async fn list_breaks(
             &self,
             request: tonic::Request<super::ListBreaksParams>,
@@ -4138,7 +4597,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListBreaksResult>,
             tonic::Status,
         >;
-        /// W9.12: platform.book.query.list-account-figures (query).
+        /// W9.12: platform.book.query.list-account-figures (query; stable).
         async fn list_account_figures(
             &self,
             request: tonic::Request<super::ListAccountFiguresParams>,
@@ -4146,7 +4605,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListAccountFiguresResult>,
             tonic::Status,
         >;
-        /// W9.14: platform.book.query.list-account-attributes (query).
+        /// W9.14: platform.book.query.list-account-attributes (query; stable).
         async fn list_account_attributes(
             &self,
             request: tonic::Request<super::ListAccountAttributesParams>,

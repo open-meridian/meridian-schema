@@ -98,9 +98,76 @@ pub const LINK_EXTERNAL_ACCOUNT_REQUEST_NEW_ACCOUNT_OWNER_LENGTH: Length = Lengt
 /// else worth knowing about a new account
 pub const LINK_EXTERNAL_ACCOUNT_REQUEST_NEW_ACCOUNT_NOTE_LENGTH: Length = Length { least: 0, most: 2000 };
 
+/// meridian.v1.AsReported.scheme: says whose vocabulary a value as reported
+/// is in
+pub const AS_REPORTED_SCHEME_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.AsReported.code: carries the source's code that did not
+/// convert
+pub const AS_REPORTED_CODE_LENGTH: Length = Length { least: 1, most: 128 };
+
+/// meridian.v1.AsReported.text: carries the source's own words for the code
+pub const AS_REPORTED_TEXT_LENGTH: Length = Length { least: 1, most: 256 };
+
+/// meridian.v1.RawRecordRef.key: names the raw record a row was converted
+/// from, in its plugin's own key
+pub const RAW_RECORD_REF_KEY_LENGTH: Length = Length { least: 1, most: 512 };
+
+/// meridian.v1.Provenance.field: names the value a provenance is for
+pub const PROVENANCE_FIELD_LENGTH: Length = Length { least: 1, most: 200 };
+
+/// meridian.v1.Provenance.source: names the second source a value came from
+pub const PROVENANCE_SOURCE_LENGTH: Length = Length { least: 0, most: 200 };
+
+/// meridian.v1.Provenance.person: names the person who supplied a value
+pub const PROVENANCE_PERSON_LENGTH: Length = Length { least: 0, most: 200 };
+
+/// meridian.v1.Provenance.rule: names the rule that derived a value
+pub const PROVENANCE_RULE_LENGTH: Length = Length { least: 0, most: 200 };
+
+/// meridian.v1.Backfill.contract_version: names the contract version that
+/// added the field a backfill fills
+pub const BACKFILL_CONTRACT_VERSION_LENGTH: Length = Length { least: 2, most: 8 };
+
+/// meridian.v1.Backfill.field: names the field a backfill fills
+pub const BACKFILL_FIELD_LENGTH: Length = Length { least: 1, most: 200 };
+
+/// meridian.v1.PluginDeclaration.secret_settings: names the secret settings
+/// the version will ask for, before it is launched (Q6)
+pub const PLUGIN_DECLARATION_SECRET_SETTINGS_COUNT: Count = Count { least: 0, most: 64 };
+
+/// meridian.v1.PluginDeclaration.not_carried: names what the version receives
+/// from its source and does not carry (Q15)
+pub const PLUGIN_DECLARATION_NOT_CARRIED_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.NotCarried.role: names the role the plugin receives the name
+/// in
+pub const NOT_CARRIED_ROLE_LENGTH: Length = Length { least: 1, most: 32 };
+
+/// meridian.v1.NotCarried.scheme: says whose vocabulary the name is in
+pub const NOT_CARRIED_SCHEME_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.NotCarried.name: names a source's field, or a code of its code
+/// set, the plugin receives and does not carry
+pub const NOT_CARRIED_NAME_LENGTH: Length = Length { least: 1, most: 128 };
+
+/// meridian.v1.StorageDeclaration.retention_days: says how long the plugin
+/// keeps a raw record
+pub const STORAGE_DECLARATION_RETENTION_DAYS_RANGE: Range = Range { least: 1, most: 36500, capped: false };
+
 /// meridian.v1.HeartbeatRequest.figures: reports the plugin's figures as they
 /// stand, in the order to draw them
 pub const HEARTBEAT_REQUEST_FIGURES_COUNT: Count = Count { least: 0, most: 8 };
+
+/// meridian.v1.HeartbeatRequest.not_carried_seen: reports how often the
+/// plugin saw each name it does not carry (W4.5, Q15)
+pub const HEARTBEAT_REQUEST_NOT_CARRIED_SEEN_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.NotCarriedSeen.scheme: says whose vocabulary the name is in
+pub const NOT_CARRIED_SEEN_SCHEME_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.NotCarriedSeen.name: names what was seen
+pub const NOT_CARRIED_SEEN_NAME_LENGTH: Length = Length { least: 1, most: 128 };
 
 /// meridian.v1.PluginFigure.label: names a figure on the plugin's Summary
 /// tile, under Manage
@@ -116,6 +183,30 @@ pub const PLUGIN_FIGURE_WHY_LENGTH: Length = Length { least: 0, most: 200 };
 /// SidecarReceive.limit: bounds what the sidecar holds for a plugin that
 /// reads slowly
 pub const SIDECAR_RECEIVE_LIMIT_RANGE: Range = Range { least: 0, most: 1024, capped: true };
+
+/// meridian.v1.RecordHoldingsStatementRequest.provenance: says where each
+/// value the plugin closed rather than read came from
+pub const RECORD_HOLDINGS_STATEMENT_REQUEST_PROVENANCE_COUNT: Count = Count { least: 0, most: 32 };
+
+/// meridian.v1.RecordHoldingRequest.provenance: says where each value the
+/// plugin closed rather than read came from
+pub const RECORD_HOLDING_REQUEST_PROVENANCE_COUNT: Count = Count { least: 0, most: 32 };
+
+/// meridian.v1.RecordHoldingRequest.pending: states the quantities not yet
+/// settled, each by its value date
+pub const RECORD_HOLDING_REQUEST_PENDING_COUNT: Count = Count { least: 0, most: 64 };
+
+/// meridian.v1.StatementRecordedEvent.provenance: says where each value the
+/// plugin closed rather than read came from
+pub const STATEMENT_RECORDED_EVENT_PROVENANCE_COUNT: Count = Count { least: 0, most: 32 };
+
+/// meridian.v1.CustodialPosition.provenance: says where each value the plugin
+/// closed rather than read came from
+pub const CUSTODIAL_POSITION_PROVENANCE_COUNT: Count = Count { least: 0, most: 32 };
+
+/// meridian.v1.CustodialPosition.pending: states the quantities not yet
+/// settled, each by its value date
+pub const CUSTODIAL_POSITION_PENDING_COUNT: Count = Count { least: 0, most: 64 };
 
 /// meridian.v1.ListCustodialPositionsRequest.page_size: bounds a page
 pub const LIST_CUSTODIAL_POSITIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };

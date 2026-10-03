@@ -10,7 +10,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v5, and a plugin built from it declares "v5".
+    /// schema is contract v11, and a plugin built from it declares "v11".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -34,6 +34,59 @@ pub struct RegisterRequest {
     /// accounts (W6.4). The sidecar then translates on the way in (W2).
     #[prost(bool, tag = "7")]
     pub reads_external_accounts: bool,
+    /// The version's declaration, as the plugin's SDK builds it from its code
+    /// (W4.1, W8.1, contract v11): the same one its upload carried. The sidecar
+    /// reports it (W4.8). Unset from a plugin before v11.
+    #[prost(message, optional, tag = "8")]
+    pub declaration: ::core::option::Option<PluginDeclaration>,
+}
+/// What a version declares beside its roles (W8.1, contract v11;
+/// spec/vendor-differences-have-a-place-in-the-contract, requirements 16, 19
+/// and 30, Q6 and Q15). Nothing about what it supports: its roles say that,
+/// and a plugin that falls short of one is not verified, never declared
+/// short. No value, account or identifier is ever in it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginDeclaration {
+    /// The names of the secret settings it will ask for (W4.7, Q6), each one a
+    /// setting it declares secret at registration, so an admin knows before
+    /// launch what credentials it needs. Never a value.
+    #[prost(string, repeated, tag = "1")]
+    pub secret_settings: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What it receives from its vendor and does not carry (Q15), by name
+    /// only: the evidence that the common model may need to grow.
+    #[prost(message, repeated, tag = "2")]
+    pub not_carried: ::prost::alloc::vec::Vec<NotCarried>,
+    /// The storage it asks for, for its raw records (decisions/028): only on a
+    /// version holding an edge role, refused otherwise. Unset asks for none.
+    #[prost(message, optional, tag = "3")]
+    pub storage: ::core::option::Option<StorageDeclaration>,
+}
+/// One vendor field, or one code of a vendor's code set, a plugin receives
+/// and does not carry (Q15).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NotCarried {
+    /// The role it receives it in, from matrix/roles.tsv.
+    #[prost(string, tag = "1")]
+    pub role: ::prost::alloc::string::String,
+    /// The plugin's scheme for the vendor's vocabulary, as on its as-reported
+    /// values: its registry name and, where the vendor has several, the code
+    /// set ("<plugin>:position").
+    #[prost(string, tag = "2")]
+    pub scheme: ::prost::alloc::string::String,
+    /// The vendor's own name for the field, or the code.
+    #[prost(string, tag = "3")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(enumeration = "NotCarriedReason", tag = "4")]
+    pub reason: i32,
+}
+/// The storage a plugin at the edge asks for (decisions/028; the plan's Q2).
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct StorageDeclaration {
+    /// How long it keeps a raw record, in days, from when it received it: the
+    /// reach of a backfill, and what the deployment keeps the storage for. At
+    /// least one.
+    #[prost(uint32, tag = "1")]
+    pub retention_days: u32,
 }
 /// A plugin's interface, served on loopback and reached only through the
 /// sidecar's front, which verifies the caller first (decisions/014).
@@ -188,6 +241,22 @@ pub struct HeartbeatRequest {
     /// heartbeat breaking a bound is refused whole, INVALID_ARGUMENT, never cut.
     #[prost(message, repeated, tag = "3")]
     pub figures: ::prost::alloc::vec::Vec<PluginFigure>,
+    /// W4.5, contract v11. How often the plugin has seen each name its
+    /// declaration lists as not carried, since it started; each heartbeat
+    /// replaces the last. A name and a count, never a value.
+    #[prost(message, repeated, tag = "4")]
+    pub not_carried_seen: ::prost::alloc::vec::Vec<NotCarriedSeen>,
+}
+/// How often a name a plugin does not carry was seen (W4.5, Q15).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NotCarriedSeen {
+    /// As the declaration names it.
+    #[prost(string, tag = "1")]
+    pub scheme: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "3")]
+    pub count: u64,
 }
 /// One figure a plugin reports about its own work, which core draws as a tile
 /// on the plugin's Summary under Manage (W4.5, W4.8, W6.9). About the
@@ -253,6 +322,81 @@ pub struct Decimal {
     /// How many decimal places the integer carries, 0 to 18.
     #[prost(uint32, tag = "3")]
     pub scale: u32,
+}
+/// A vendor's value the plugin could not convert, beside the field's
+/// not-known value (requirements 4, 5 and 28): the one place a vendor's own
+/// code crosses the sidecar. Narrow, flagged and transitional: only the value
+/// that failed, never alone, and gone once a mapping exists. The sidecar
+/// checks that each part is present and within its length, and never reads
+/// its meaning; nothing past the plugin interprets it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AsReported {
+    /// Whose vocabulary: the plugin's registry name and, where the vendor has
+    /// several, its code set ("<plugin>:account-type").
+    #[prost(string, tag = "1")]
+    pub scheme: ::prost::alloc::string::String,
+    /// The vendor's code, as sent.
+    #[prost(string, tag = "2")]
+    pub code: ::prost::alloc::string::String,
+    /// The vendor's own words for it, as sent; the code again where it gives
+    /// none.
+    #[prost(string, tag = "3")]
+    pub text: ::prost::alloc::string::String,
+}
+/// A reference to the raw record a row was converted from, in the writing
+/// plugin's own storage (requirement 7, Q9; decisions/028). Opaque: core and
+/// every other plugin carry it and never follow it; a person follows it on
+/// the owning plugin's page. When the record has passed its retention,
+/// following it says so, and the row stands.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RawRecordRef {
+    /// The writing plugin's own instance, which its SDK sets from its
+    /// registration; the sidecar refuses a reference naming another.
+    #[prost(string, tag = "1")]
+    pub instance_id: ::prost::alloc::string::String,
+    /// The plugin's own key for the record.
+    #[prost(string, tag = "2")]
+    pub key: ::prost::alloc::string::String,
+}
+/// Where a value a plugin sent came from, where the plugin closed it rather
+/// than read it from its vendor (requirements 31 to 34; plans/an-order-reaches-
+/// a-venue-through-the-book, Q13). A value with none on its message is the
+/// vendor's, from the message's raw record.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Provenance {
+    /// The value it is for, by its path in the message: `quantity`,
+    /// `settle_date_quantity`, `pending`, `market_value.currency_code`.
+    #[prost(string, tag = "1")]
+    pub field: ::prost::alloc::string::String,
+    #[prost(enumeration = "ProvenanceKind", tag = "2")]
+    pub kind: i32,
+    /// The raw record it was read from: on a value reported by the vendor
+    /// (from a record other than the message's own) or from a second source.
+    /// Never on a value supplied or derived.
+    #[prost(message, optional, tag = "3")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    /// The second source, by name.
+    #[prost(string, tag = "4")]
+    pub source: ::prost::alloc::string::String,
+    /// The person who supplied it, as the plugin's page knew them.
+    #[prost(string, tag = "5")]
+    pub person: ::prost::alloc::string::String,
+    /// The rule that derived it, by name, as the plugin documents it.
+    #[prost(string, tag = "6")]
+    pub rule: ::prost::alloc::string::String,
+}
+/// A write marked as a backfill (requirement 27): a field a contract revision
+/// added, re-converted from the plugin's raw records and sent for a row
+/// already recorded. The store journals it as an amendment beside the row as
+/// first recorded, never an overwrite, this its cause.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Backfill {
+    /// The contract version that added the field, as `v<N>`.
+    #[prost(string, tag = "1")]
+    pub contract_version: ::prost::alloc::string::String,
+    /// The field, by its path in the message.
+    #[prost(string, tag = "2")]
+    pub field: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct HeartbeatReply {}
@@ -480,6 +624,39 @@ pub struct Refusal {
     #[prost(string, repeated, tag = "2")]
     pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+/// Why a name is not carried.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum NotCarriedReason {
+    /// Not said; refused.
+    Unspecified = 0,
+    /// The contract has no meaning for it: a place it may grow.
+    NoContractMeaning = 1,
+    /// The contract has a meaning the plugin does not yet convert it to.
+    NotConverted = 2,
+}
+impl NotCarriedReason {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "NOT_CARRIED_REASON_UNSPECIFIED",
+            Self::NoContractMeaning => "NOT_CARRIED_REASON_NO_CONTRACT_MEANING",
+            Self::NotConverted => "NOT_CARRIED_REASON_NOT_CONVERTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "NOT_CARRIED_REASON_UNSPECIFIED" => Some(Self::Unspecified),
+            "NOT_CARRIED_REASON_NO_CONTRACT_MEANING" => Some(Self::NoContractMeaning),
+            "NOT_CARRIED_REASON_NOT_CONVERTED" => Some(Self::NotConverted),
+            _ => None,
+        }
+    }
+}
 /// A person's level on a plugin, the same three for every plugin: a plugin
 /// names no parts of itself for access (W6.7; decisions/026, 027). An access
 /// group's entry names a plugin at one of them; a session is opened at one
@@ -598,6 +775,48 @@ impl FigureState {
             "FIGURE_STATE_OK" => Some(Self::Ok),
             "FIGURE_STATE_WARN" => Some(Self::Warn),
             "FIGURE_STATE_ERROR" => Some(Self::Error),
+            _ => None,
+        }
+    }
+}
+/// The four kinds of provenance (requirement 32), the same meanings as an
+/// instrument value's source (v10's InstrumentValueSource).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ProvenanceKind {
+    /// Not said; refused.
+    Unspecified = 0,
+    /// Reported by the vendor.
+    Reported = 1,
+    /// From a second source of the plugin's own.
+    SecondSource = 2,
+    /// Supplied by a named person, on the plugin's page.
+    Supplied = 3,
+    /// Derived by a named rule in the plugin's code.
+    Derived = 4,
+}
+impl ProvenanceKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PROVENANCE_KIND_UNSPECIFIED",
+            Self::Reported => "PROVENANCE_KIND_REPORTED",
+            Self::SecondSource => "PROVENANCE_KIND_SECOND_SOURCE",
+            Self::Supplied => "PROVENANCE_KIND_SUPPLIED",
+            Self::Derived => "PROVENANCE_KIND_DERIVED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PROVENANCE_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "PROVENANCE_KIND_REPORTED" => Some(Self::Reported),
+            "PROVENANCE_KIND_SECOND_SOURCE" => Some(Self::SecondSource),
+            "PROVENANCE_KIND_SUPPLIED" => Some(Self::Supplied),
+            "PROVENANCE_KIND_DERIVED" => Some(Self::Derived),
             _ => None,
         }
     }

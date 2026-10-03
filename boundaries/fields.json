@@ -119,7 +119,11 @@
     "meridian/v1/first_run.proto": "the deployment's own first run (W7), which no plugin takes part in"
   },
   "messages_filed_apart": {
-    "meridian.v1.Decimal": "shared"
+    "meridian.v1.Decimal": "shared",
+    "meridian.v1.AsReported": "shared",
+    "meridian.v1.RawRecordRef": "shared",
+    "meridian.v1.Provenance": "shared",
+    "meridian.v1.Backfill": "shared"
   },
   "identifiers": {
     "instrument": "meridian.v1.InstrumentRecord",
@@ -5567,6 +5571,154 @@
       "store": "instrument"
     },
     {
+      "name": "meridian.v1.InstrumentRecord.instrument_type",
+      "type": "enum InstrumentType",
+      "allowed": [
+        {
+          "value": "INSTRUMENT_TYPE_UNSPECIFIED",
+          "meaning": "no type stated: the asset class says all the record says"
+        },
+        {
+          "value": "INSTRUMENT_TYPE_MONEY_MARKET_FUND",
+          "meaning": "under fund: a fund investing in short-term debt under SEC rule 2a-7 and aiming to keep its value; held as a fund, never as cash, even where a custodian sweeps cash into it"
+        }
+      ],
+      "empty": "unspecified where no type is in force",
+      "intent": "says what kind of instrument the record is within its asset class",
+      "meaning": "in force once a person set or accepted it, as the asset class is; each type under one asset class, and the list grows as a workflow needs a type",
+      "not_meaning": "a code of ISO 10962, which is a reference, not the vocabulary; or a custodian's mark",
+      "filled": "decided",
+      "filled_by": "instrument",
+      "since": "v11",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
+      "name": "meridian.v1.InstrumentRecord.money_market_fund",
+      "type": "message MoneyMarketFund",
+      "empty": "unset unless the record's type is money market fund, and until a person states its attributes",
+      "intent": "carries a money market fund's attributes",
+      "meaning": "its category, investors, net asset value and liquidity-fee regime, from SEC rule 2a-7",
+      "not_meaning": "its observations -- its NAV on a day, its yield, its liquid assets, a fee imposed -- which are the lake's",
+      "filled": "decided",
+      "filled_by": "instrument",
+      "since": "v11",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
+      "name": "meridian.v1.MoneyMarketFund.category",
+      "type": "enum MoneyMarketFundCategory",
+      "allowed": [
+        {
+          "value": "MONEY_MARKET_FUND_CATEGORY_UNSPECIFIED",
+          "meaning": "not stated"
+        },
+        {
+          "value": "MONEY_MARKET_FUND_CATEGORY_GOVERNMENT",
+          "meaning": "invests in cash, government securities and repurchase agreements backed by them"
+        },
+        {
+          "value": "MONEY_MARKET_FUND_CATEGORY_PRIME",
+          "meaning": "invests in corporate short-term debt as well"
+        },
+        {
+          "value": "MONEY_MARKET_FUND_CATEGORY_TAX_EXEMPT",
+          "meaning": "invests in short-term municipal debt"
+        }
+      ],
+      "empty": "unspecified is not stated",
+      "intent": "says what a money market fund invests in",
+      "meaning": "its category under SEC rule 2a-7",
+      "not_meaning": "its holdings on a day, which are the lake's",
+      "filled": "entered",
+      "filled_by": "dashboard",
+      "since": "v11",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
+      "name": "meridian.v1.MoneyMarketFund.investors",
+      "type": "enum MoneyMarketFundInvestors",
+      "allowed": [
+        {
+          "value": "MONEY_MARKET_FUND_INVESTORS_UNSPECIFIED",
+          "meaning": "not stated"
+        },
+        {
+          "value": "MONEY_MARKET_FUND_INVESTORS_RETAIL",
+          "meaning": "offered to natural persons only"
+        },
+        {
+          "value": "MONEY_MARKET_FUND_INVESTORS_INSTITUTIONAL",
+          "meaning": "offered to institutions as well"
+        }
+      ],
+      "empty": "unspecified is not stated",
+      "intent": "says whom a money market fund is offered to",
+      "meaning": "retail or institutional, as SEC rule 2a-7 distinguishes them",
+      "not_meaning": "who holds it in the deployment",
+      "filled": "entered",
+      "filled_by": "dashboard",
+      "since": "v11",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
+      "name": "meridian.v1.MoneyMarketFund.nav",
+      "type": "enum MoneyMarketFundNav",
+      "allowed": [
+        {
+          "value": "MONEY_MARKET_FUND_NAV_UNSPECIFIED",
+          "meaning": "not stated: the book's one lot at stable value waits on it"
+        },
+        {
+          "value": "MONEY_MARKET_FUND_NAV_STABLE",
+          "meaning": "a stable share price of 1.00: the position is one lot at stable value, cost = quantity x 1 (W9.1)"
+        },
+        {
+          "value": "MONEY_MARKET_FUND_NAV_FLOATING",
+          "meaning": "a share price that floats with its holdings: lots like any fund"
+        }
+      ],
+      "empty": "unspecified is not stated",
+      "intent": "says how a money market fund prices its shares",
+      "meaning": "stable or floating net asset value",
+      "not_meaning": "its net asset value on a day, which is the lake's",
+      "filled": "entered",
+      "filled_by": "dashboard",
+      "since": "v11",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
+      "name": "meridian.v1.MoneyMarketFund.liquidity_fee",
+      "type": "enum LiquidityFeeRegime",
+      "allowed": [
+        {
+          "value": "LIQUIDITY_FEE_REGIME_UNSPECIFIED",
+          "meaning": "not stated"
+        },
+        {
+          "value": "LIQUIDITY_FEE_REGIME_MANDATORY",
+          "meaning": "a fee charged when daily net redemptions pass 5% of net assets, as for an institutional prime or tax-exempt fund"
+        },
+        {
+          "value": "LIQUIDITY_FEE_REGIME_DISCRETIONARY",
+          "meaning": "a fee charged at the board's discretion, where in the fund's interest"
+        }
+      ],
+      "empty": "unspecified is not stated",
+      "intent": "says when a money market fund may charge a fee on redemptions",
+      "meaning": "its liquidity-fee regime under SEC rule 2a-7 as amended in 2023, redemption gates removed",
+      "not_meaning": "a fee imposed on a day, which is the lake's",
+      "filled": "entered",
+      "filled_by": "dashboard",
+      "since": "v11",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
       "name": "meridian.v1.InstrumentValue.asset_class",
       "type": "enum AssetClass",
       "allowed": [
@@ -5649,6 +5801,40 @@
       "store": "instrument"
     },
     {
+      "name": "meridian.v1.InstrumentValue.instrument_type",
+      "type": "enum InstrumentType",
+      "allowed": [
+        {
+          "value": "INSTRUMENT_TYPE_UNSPECIFIED",
+          "meaning": "not this value: the value is another of the arms"
+        },
+        {
+          "value": "INSTRUMENT_TYPE_MONEY_MARKET_FUND",
+          "meaning": "under fund: a fund investing in short-term debt under SEC rule 2a-7 and aiming to keep its value; held as a fund, never as cash, even where a custodian sweeps cash into it"
+        }
+      ],
+      "empty": "unspecified unless the value is an instrument type",
+      "intent": "carries an instrument type set or offered for a record",
+      "meaning": "one under the record's asset class, or refused naming the field",
+      "not_meaning": "a type in force, unless its source says so",
+      "filled": "as-reported",
+      "since": "v11",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
+      "name": "meridian.v1.InstrumentValue.money_market_fund",
+      "type": "message MoneyMarketFund",
+      "empty": "unset unless the value is a money market fund's attributes",
+      "intent": "carries a money market fund's attributes set for a record",
+      "meaning": "each attribute stated; refused on a record whose type is not money market fund",
+      "not_meaning": "the fund's observations",
+      "filled": "entered",
+      "since": "v11",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
       "name": "meridian.v1.InstrumentValue.source",
       "type": "text",
       "empty": "never empty on a value a person sets",
@@ -5683,6 +5869,16 @@
         {
           "value": "INSTRUMENT_FIELD_IDENTIFIER",
           "meaning": "one of its identifiers, named beside the field"
+        },
+        {
+          "value": "INSTRUMENT_FIELD_INSTRUMENT_TYPE",
+          "meaning": "its instrument type",
+          "since": "v11"
+        },
+        {
+          "value": "INSTRUMENT_FIELD_MONEY_MARKET_FUND",
+          "meaning": "a money market fund's attributes",
+          "since": "v11"
         }
       ],
       "empty": "never unspecified on a read",
@@ -5934,6 +6130,29 @@
       "filled": "as-reported",
       "filled_by": "custody",
       "since": "v10",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
+      "name": "meridian.v1.ResolveIdentifierRequest.stated_instrument_type",
+      "type": "enum InstrumentType",
+      "allowed": [
+        {
+          "value": "INSTRUMENT_TYPE_UNSPECIFIED",
+          "meaning": "not stated"
+        },
+        {
+          "value": "INSTRUMENT_TYPE_MONEY_MARKET_FUND",
+          "meaning": "under fund: a fund investing in short-term debt under SEC rule 2a-7 and aiming to keep its value; held as a fund, never as cash, even where a custodian sweeps cash into it"
+        }
+      ],
+      "empty": "unspecified is not stated",
+      "intent": "offers the type the plugin's source states of the security within its class",
+      "meaning": "kept on the record as an offer with the instance as its source, in force only when a person accepts it (W3.1)",
+      "not_meaning": "a type in force, or one the plugin guessed from how a custodian treats the holding",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
       "stability": "stable",
       "store": "instrument"
     },
@@ -6196,6 +6415,19 @@
       "store": "instrument"
     },
     {
+      "name": "meridian.v1.MissingInstrumentDetectedEvent.asset_class_as_reported",
+      "type": "message AsReported",
+      "empty": "unset unless the source's kind did not convert, and then only beside an unspecified asset class",
+      "intent": "carries the source's kind that did not convert to an asset class",
+      "meaning": "for the person setting the class, and counted as evidence the classes may need to grow",
+      "not_meaning": "a class any reader may act on: nothing past the plugin interprets it",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
       "name": "meridian.v1.Decimal.high",
       "type": "integer",
       "unit": "none: the upper 64 bits of the value's integer",
@@ -6435,6 +6667,326 @@
       "store": "shared"
     },
     {
+      "name": "meridian.v1.AsReported.scheme",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          64
+        ]
+      },
+      "required": [
+        {
+          "row": "ReportExternalAccounts",
+          "since": "v11"
+        },
+        {
+          "row": "ReportMissingInstrument",
+          "since": "v11"
+        }
+      ],
+      "empty": "never empty on a value as reported that is sent",
+      "intent": "says whose vocabulary a value as reported is in",
+      "meaning": "the sending plugin's registry name and, where its source has several code sets, which: plugin:code-set",
+      "not_meaning": "an identifier scheme of the instrument store, or anything the platform defines",
+      "filled": "as-reported",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.AsReported.code",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          128
+        ]
+      },
+      "required": [
+        {
+          "row": "ReportExternalAccounts",
+          "since": "v11"
+        },
+        {
+          "row": "ReportMissingInstrument",
+          "since": "v11"
+        }
+      ],
+      "empty": "never empty on a value as reported that is sent",
+      "intent": "carries the source's code that did not convert",
+      "meaning": "the code exactly as the source sent it, for a person to map; sent only beside the field's not-known value",
+      "not_meaning": "a value of the contract, or one any reader may act on: nothing past the plugin interprets it",
+      "filled": "as-reported",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.AsReported.text",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          256
+        ]
+      },
+      "required": [
+        {
+          "row": "ReportExternalAccounts",
+          "since": "v11"
+        },
+        {
+          "row": "ReportMissingInstrument",
+          "since": "v11"
+        }
+      ],
+      "empty": "never empty on a value as reported that is sent: the code again where the source gives no words",
+      "intent": "carries the source's own words for the code",
+      "meaning": "the source's description of the code, as sent",
+      "not_meaning": "a translation, or the plugin's own words",
+      "filled": "as-reported",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.RawRecordRef.instance_id",
+      "type": "identifier instance",
+      "empty": "empty only where no reference is sent; the plugin's SDK sets it, and the sidecar refuses one naming another instance",
+      "intent": "names the plugin whose storage holds the raw record",
+      "meaning": "the instance that wrote the row and keeps the record it was converted from",
+      "not_meaning": "a plugin any reader may ask for the record: only the owning plugin's page shows it",
+      "filled": "derived",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.RawRecordRef.key",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          512
+        ]
+      },
+      "required": [
+        {
+          "row": "RecordHolding",
+          "since": "v11"
+        },
+        {
+          "row": "RecordHoldingsStatement",
+          "since": "v11"
+        }
+      ],
+      "empty": "never empty on a reference that is sent",
+      "intent": "names the raw record a row was converted from, in its plugin's own key",
+      "meaning": "opaque: the owning plugin's key for a record it keeps as received, which a person follows on that plugin's page; past its retention, following it says the record is gone, and the row stands",
+      "not_meaning": "a location any other plugin or core may read: no plugin's storage is a channel to another",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.Provenance.field",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          200
+        ]
+      },
+      "required": [
+        {
+          "row": "RecordHolding",
+          "since": "v11"
+        },
+        {
+          "row": "RecordHoldingsStatement",
+          "since": "v11"
+        }
+      ],
+      "empty": "never empty on a provenance that is sent",
+      "intent": "names the value a provenance is for",
+      "meaning": "the value's path in its message, as a refusal names a field: quantity, settle_date_quantity, pending, market_value.currency_code, institution",
+      "not_meaning": "a field of another message, or of the source's record",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.Provenance.kind",
+      "type": "enum ProvenanceKind",
+      "allowed": [
+        {
+          "value": "PROVENANCE_KIND_UNSPECIFIED",
+          "meaning": "not said; refused"
+        },
+        {
+          "value": "PROVENANCE_KIND_REPORTED",
+          "meaning": "reported by the vendor, from a raw record other than the message's own"
+        },
+        {
+          "value": "PROVENANCE_KIND_SECOND_SOURCE",
+          "meaning": "from a second source of the plugin's own, never another plugin's storage"
+        },
+        {
+          "value": "PROVENANCE_KIND_SUPPLIED",
+          "meaning": "supplied by a named person on the plugin's page"
+        },
+        {
+          "value": "PROVENANCE_KIND_DERIVED",
+          "meaning": "derived by a named rule in the plugin's code from what the source did send"
+        }
+      ],
+      "required": [
+        {
+          "row": "RecordHolding",
+          "since": "v11"
+        },
+        {
+          "row": "RecordHoldingsStatement",
+          "since": "v11"
+        }
+      ],
+      "empty": "unspecified is refused",
+      "intent": "says how a value the plugin closed came to be",
+      "meaning": "one of four kinds, the same meanings as an instrument value's source; a closed value is never presented as the vendor's",
+      "not_meaning": "how reliable the value is: a derived value may be exact, and a reported one wrong",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.Provenance.raw_record",
+      "type": "message RawRecordRef",
+      "empty": "unset on a value supplied or derived: it never carries a raw record as though the vendor had sent it",
+      "intent": "references the raw record a reported or second-source value came from",
+      "meaning": "the record in the plugin's own storage, where it is not the message's own",
+      "not_meaning": "the record a derived value was derived from: the message's own reference says that",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.Provenance.source",
+      "type": "text",
+      "bounds": {
+        "length": [
+          0,
+          200
+        ]
+      },
+      "empty": "empty unless the kind is a second source",
+      "intent": "names the second source a value came from",
+      "meaning": "the source as the plugin names it to a person",
+      "not_meaning": "another plugin: a second source is the plugin's own connection",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.Provenance.person",
+      "type": "text",
+      "bounds": {
+        "length": [
+          0,
+          200
+        ]
+      },
+      "empty": "empty unless the kind is supplied",
+      "intent": "names the person who supplied a value",
+      "meaning": "the person as the plugin's page knew them when they supplied it",
+      "not_meaning": "the person a command was sent for, which the envelope says",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.Provenance.rule",
+      "type": "text",
+      "bounds": {
+        "length": [
+          0,
+          200
+        ]
+      },
+      "empty": "empty unless the kind is derived",
+      "intent": "names the rule that derived a value",
+      "meaning": "the rule as the plugin documents it, so a person can say what was done: cash net of money market funds the custodian counts in cash",
+      "not_meaning": "a rule of the platform's, or one any reader applies",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.Backfill.contract_version",
+      "type": "text",
+      "bounds": {
+        "length": [
+          2,
+          8
+        ]
+      },
+      "required": [
+        {
+          "row": "RecordHolding",
+          "since": "v11"
+        }
+      ],
+      "empty": "never empty on a backfill that is sent",
+      "intent": "names the contract version that added the field a backfill fills",
+      "meaning": "v and the version's number, as the version's register names it; the amendment's cause",
+      "not_meaning": "the version the plugin was built against",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
+      "name": "meridian.v1.Backfill.field",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          200
+        ]
+      },
+      "required": [
+        {
+          "row": "RecordHolding",
+          "since": "v11"
+        }
+      ],
+      "empty": "never empty on a backfill that is sent",
+      "intent": "names the field a backfill fills",
+      "meaning": "its path in the message, as a provenance names one; the amendment carries that field and nothing else",
+      "not_meaning": "a correction of a value already recorded: a backfill fills only what the row did not carry",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "shared"
+    },
+    {
       "name": "meridian.v1.RegisterRequest.schema_version",
       "type": "text",
       "required": [
@@ -6489,6 +7041,174 @@
       "filled": "as-reported",
       "filled_by": "plugin",
       "since": "v2",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.RegisterRequest.declaration",
+      "type": "message PluginDeclaration",
+      "empty": "unset from a plugin before v11",
+      "intent": "carries the version's declaration as the plugin's SDK built it from its code (W4.1, W8.1)",
+      "meaning": "the same declaration its upload carried: its secret settings' names, what it does not carry, the storage it asks for; the sidecar reports it (W4.8)",
+      "not_meaning": "what the plugin supports, which its roles say; or anything that widens its access",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.PluginDeclaration.secret_settings",
+      "type": "repeated text",
+      "bounds": {
+        "count": [
+          0,
+          64
+        ]
+      },
+      "empty": "empty when the plugin asks for no secret",
+      "intent": "names the secret settings the version will ask for, before it is launched (Q6)",
+      "meaning": "each the name of a setting it declares secret at registration, so an admin knows what credentials it needs",
+      "not_meaning": "a value: never one, anywhere in the declaration",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.PluginDeclaration.not_carried",
+      "type": "repeated message NotCarried",
+      "bounds": {
+        "count": [
+          0,
+          500
+        ]
+      },
+      "empty": "empty when the plugin carries everything it receives, or declares nothing",
+      "intent": "names what the version receives from its source and does not carry (Q15)",
+      "meaning": "the evidence that the common model may need to grow, by name only, reviewed with the version",
+      "not_meaning": "what the plugin fails to support: a part of its role it does not meet is a reason it is not verified, never declared",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.PluginDeclaration.storage",
+      "type": "message StorageDeclaration",
+      "empty": "unset asks for no storage",
+      "intent": "asks for storage of the plugin's own for its raw records (decisions/028)",
+      "meaning": "approved at launch with the roles; only on a version holding an edge role, refused otherwise",
+      "not_meaning": "storage another plugin may read: no plugin's storage is a channel to another",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.NotCarried.role",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          32
+        ]
+      },
+      "empty": "never empty",
+      "intent": "names the role the plugin receives the name in",
+      "meaning": "a role from the fixed list the version holds",
+      "not_meaning": "a component's name",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.NotCarried.scheme",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          64
+        ]
+      },
+      "empty": "never empty",
+      "intent": "says whose vocabulary the name is in",
+      "meaning": "the plugin's scheme for its source's fields or code set, as on its values as reported",
+      "not_meaning": "an identifier scheme of the instrument store",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.NotCarried.name",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          128
+        ]
+      },
+      "empty": "never empty",
+      "intent": "names a source's field, or a code of its code set, the plugin receives and does not carry",
+      "meaning": "the source's own name for it, as its documentation gives it",
+      "not_meaning": "a value, an account or an identifier: never one",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.NotCarried.reason",
+      "type": "enum NotCarriedReason",
+      "allowed": [
+        {
+          "value": "NOT_CARRIED_REASON_UNSPECIFIED",
+          "meaning": "not said; refused"
+        },
+        {
+          "value": "NOT_CARRIED_REASON_NO_CONTRACT_MEANING",
+          "meaning": "the contract has no meaning for it: a place the model may grow"
+        },
+        {
+          "value": "NOT_CARRIED_REASON_NOT_CONVERTED",
+          "meaning": "the contract has a meaning the plugin does not yet convert it to"
+        }
+      ],
+      "empty": "unspecified is refused",
+      "intent": "says why a name is not carried",
+      "meaning": "which of the two kinds of evidence it is",
+      "not_meaning": "a failure the plugin hides: a value it receives and cannot convert crosses as reported",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.StorageDeclaration.retention_days",
+      "type": "integer",
+      "bounds": {
+        "range": {
+          "least": "1",
+          "most": "36500"
+        }
+      },
+      "unit": "days",
+      "empty": "never 0 on storage asked for",
+      "intent": "says how long the plugin keeps a raw record",
+      "meaning": "days from when the plugin received the record; the reach of a backfill, and what the deployment keeps the storage for",
+      "not_meaning": "a regulator's period, which the firm sets; or a promise the deployment deletes anything",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
       "stability": "stable",
       "store": "sidecar"
     },
@@ -6952,6 +7672,77 @@
       "filled": "as-reported",
       "filled_by": "plugin",
       "since": "v6",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.HeartbeatRequest.not_carried_seen",
+      "type": "repeated message NotCarriedSeen",
+      "bounds": {
+        "count": [
+          0,
+          500
+        ]
+      },
+      "empty": "empty for none seen, or from a plugin before v11; each heartbeat replaces the last",
+      "intent": "reports how often the plugin saw each name it does not carry (W4.5, Q15)",
+      "meaning": "per name its declaration lists, the count since the plugin started; the sidecar reports it, and it stays in the deployment",
+      "not_meaning": "a value, an account or an identifier: a name and a count only",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.NotCarriedSeen.scheme",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          64
+        ]
+      },
+      "empty": "never empty",
+      "intent": "says whose vocabulary the name is in",
+      "meaning": "as the declaration names it",
+      "not_meaning": "an identifier scheme",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.NotCarriedSeen.name",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          128
+        ]
+      },
+      "empty": "never empty",
+      "intent": "names what was seen",
+      "meaning": "a name the declaration lists as not carried",
+      "not_meaning": "a value",
+      "filled": "as-reported",
+      "filled_by": "plugin",
+      "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.NotCarriedSeen.count",
+      "type": "integer",
+      "unit": "times seen since the plugin started",
+      "empty": "0 for a name not seen yet",
+      "intent": "says how often a name not carried was seen",
+      "meaning": "a count the plugin kept since it started",
+      "not_meaning": "a count across restarts, or across deployments: it never leaves the deployment",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v11",
       "stability": "stable",
       "store": "sidecar"
     },
@@ -8480,6 +9271,11 @@
       "filled_by": "custody",
       "since": "v2",
       "stability": "stable",
+      "deprecated": {
+        "version": "v11",
+        "use": "meridian.v1.RecordHoldingsStatementRequest.provenance",
+        "why": "a currency the source did not state is derived by the plugin's rule, and its provenance says so"
+      },
       "store": "street"
     },
     {
@@ -8544,6 +9340,38 @@
       "filled": "as-reported",
       "filled_by": "custody",
       "since": "v8",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.RecordHoldingsStatementRequest.raw_record",
+      "type": "message RawRecordRef",
+      "empty": "unset from a plugin before v11; the custody suite requires it",
+      "intent": "references the raw record the statement's figures was converted from",
+      "meaning": "the record in the plugin's own storage, which a person follows on that plugin's page; a value derived wholly by the plugin names the record it was derived from",
+      "not_meaning": "a record core or another plugin reads: carried, never followed, past the plugin that owns it",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.RecordHoldingsStatementRequest.provenance",
+      "type": "repeated message Provenance",
+      "bounds": {
+        "count": [
+          0,
+          32
+        ]
+      },
+      "empty": "empty where every value is the source's, from the raw record",
+      "intent": "says where each value the plugin closed rather than read came from",
+      "meaning": "one per closed value, by its path: derived by a named rule, supplied by a named person, from a second source, or reported from another of the source's records",
+      "not_meaning": "a value presented as the source's: a closed value never is",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
       "stability": "stable",
       "store": "street"
     },
@@ -9010,19 +9838,28 @@
       "filled_by": "custody",
       "since": "v2",
       "stability": "stable",
+      "deprecated": {
+        "version": "v11",
+        "use": "meridian.v1.RecordHoldingRequest.provenance",
+        "why": "a currency the source did not state is derived by the plugin's rule, and its provenance says so"
+      },
       "store": "street"
     },
     {
       "name": "meridian.v1.RecordHoldingRequest.also_counted_in_cash",
       "type": "boolean",
       "empty": "false when the source counts the holding once",
-      "intent": "says the holding's value is also in the account's cash as the source reports it",
-      "meaning": "the street keeps both as reported; a reader counting the account once counts the holding as a position and deducts it from cash",
+      "intent": "said, until v11, that the holding's value is also in the account's cash as the source reports it",
+      "meaning": "from a plugin before v11 only; from v11 the street counts each asset once, the cash net of the holding at the edge, and no reader acts on it",
       "not_meaning": "that the holding is cash",
       "filled": "as-reported",
       "filled_by": "custody",
       "since": "v2",
       "stability": "stable",
+      "deprecated": {
+        "version": "v11",
+        "why": "each asset is counted once: the plugin nets the cash at the edge, and the source's gross figure stays in its raw record"
+      },
       "store": "street"
     },
     {
@@ -9164,6 +10001,116 @@
       "filled": "as-reported",
       "filled_by": "custody",
       "since": "v8",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.RecordHoldingRequest.raw_record",
+      "type": "message RawRecordRef",
+      "empty": "unset from a plugin before v11; the custody suite requires it",
+      "intent": "references the raw record the row was converted from",
+      "meaning": "the record in the plugin's own storage, which a person follows on that plugin's page; a value derived wholly by the plugin names the record it was derived from",
+      "not_meaning": "a record core or another plugin reads: carried, never followed, past the plugin that owns it",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.RecordHoldingRequest.provenance",
+      "type": "repeated message Provenance",
+      "bounds": {
+        "count": [
+          0,
+          32
+        ]
+      },
+      "empty": "empty where every value is the source's, from the raw record",
+      "intent": "says where each value the plugin closed rather than read came from",
+      "meaning": "one per closed value, by its path: derived by a named rule, supplied by a named person, from a second source, or reported from another of the source's records",
+      "not_meaning": "a value presented as the source's: a closed value never is",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.RecordHoldingRequest.pending",
+      "type": "repeated message ReportedPending",
+      "bounds": {
+        "count": [
+          0,
+          64
+        ]
+      },
+      "empty": "empty where nothing is pending, or from a plugin before v11",
+      "intent": "states the quantities not yet settled, each by its value date",
+      "meaning": "with the settle-date quantity they account for the trade-date quantity; as the source reports them, or closed by the plugin with their provenance",
+      "not_meaning": "an encumbrance, or the book's pending lines, which the book records itself",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.RecordHoldingRequest.backfill",
+      "type": "message Backfill",
+      "empty": "unset on a row sent as first read",
+      "intent": "marks the row as a backfill of a row already recorded",
+      "meaning": "the street journals the field it names as an amendment beside the row as first recorded (W2.4), its cause the contract version and field; sent again for the same row, version and field, it adds nothing",
+      "not_meaning": "a new row, or a correction of a value already recorded",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.ReportedPending.value_date",
+      "type": "date",
+      "required": [
+        {
+          "row": "RecordHolding",
+          "since": "v11"
+        }
+      ],
+      "empty": "never empty: a pending quantity names its date",
+      "intent": "says when a pending quantity is due to settle",
+      "meaning": "an ISO 8601 date, as the source reports it or as the plugin derived it",
+      "not_meaning": "the trade date",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.ReportedPending.quantity",
+      "type": "Decimal",
+      "bounds": {
+        "digits": 38,
+        "scale": [
+          0,
+          18
+        ]
+      },
+      "unit": "units of the instrument; for cash, the currency's major unit",
+      "required": [
+        {
+          "row": "RecordHolding",
+          "since": "v11"
+        }
+      ],
+      "empty": "never unset",
+      "intent": "states how much settles on the value date",
+      "meaning": "signed as the holding's quantity, negative short",
+      "not_meaning": "an amount to be paid",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
       "stability": "stable",
       "store": "street"
     },
@@ -9548,6 +10495,11 @@
       "filled_by": "custody",
       "since": "v7",
       "stability": "stable",
+      "deprecated": {
+        "version": "v11",
+        "use": "meridian.v1.StatementRecordedEvent.provenance",
+        "why": "as on the statement"
+      },
       "store": "street"
     },
     {
@@ -9612,6 +10564,38 @@
       "filled": "as-reported",
       "filled_by": "custody",
       "since": "v8",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.StatementRecordedEvent.raw_record",
+      "type": "message RawRecordRef",
+      "empty": "unset from a plugin before v11; the custody suite requires it",
+      "intent": "references the raw record the statement's figures was converted from",
+      "meaning": "the record in the plugin's own storage, which a person follows on that plugin's page; a value derived wholly by the plugin names the record it was derived from",
+      "not_meaning": "a record core or another plugin reads: carried, never followed, past the plugin that owns it",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.StatementRecordedEvent.provenance",
+      "type": "repeated message Provenance",
+      "bounds": {
+        "count": [
+          0,
+          32
+        ]
+      },
+      "empty": "empty where every value is the source's, from the raw record",
+      "intent": "says where each value the plugin closed rather than read came from",
+      "meaning": "one per closed value, by its path: derived by a named rule, supplied by a named person, from a second source, or reported from another of the source's records",
+      "not_meaning": "a value presented as the source's: a closed value never is",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
       "stability": "stable",
       "store": "street"
     },
@@ -9839,14 +10823,18 @@
     {
       "name": "meridian.v1.CustodialPosition.also_counted_in_cash",
       "type": "boolean",
-      "empty": "false when the custodian counts the holding once",
-      "intent": "says the position's value is also in the account's cash as the custodian reports it",
+      "empty": "false when the custodian counts the holding once, and on every position a plugin on v11 stated",
+      "intent": "said, until v11, that the position's value is also in the account's cash as the custodian reports it",
       "meaning": "both are kept as reported",
       "not_meaning": "that the position is cash",
       "filled": "as-reported",
       "filled_by": "custody",
       "since": "v2",
       "stability": "stable",
+      "deprecated": {
+        "version": "v11",
+        "why": "each asset is counted once at the edge; no reader acts on it"
+      },
       "store": "street"
     },
     {
@@ -10014,6 +11002,57 @@
       "filled": "as-reported",
       "filled_by": "custody",
       "since": "v8",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.CustodialPosition.raw_record",
+      "type": "message RawRecordRef",
+      "empty": "unset where the row that last stated it carried none",
+      "intent": "references the raw record the row that last stated it was converted from",
+      "meaning": "the record in the plugin's own storage, which a person follows on that plugin's page; a value derived wholly by the plugin names the record it was derived from",
+      "not_meaning": "a record core or another plugin reads: carried, never followed, past the plugin that owns it",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.CustodialPosition.provenance",
+      "type": "repeated message Provenance",
+      "bounds": {
+        "count": [
+          0,
+          32
+        ]
+      },
+      "empty": "empty where every value is the source's, from the raw record",
+      "intent": "says where each value the plugin closed rather than read came from",
+      "meaning": "one per closed value, by its path: derived by a named rule, supplied by a named person, from a second source, or reported from another of the source's records",
+      "not_meaning": "a value presented as the source's: a closed value never is",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.CustodialPosition.pending",
+      "type": "repeated message ReportedPending",
+      "bounds": {
+        "count": [
+          0,
+          64
+        ]
+      },
+      "empty": "empty where nothing is pending",
+      "intent": "states the quantities not yet settled, each by its value date",
+      "meaning": "as the row that last stated the position carried them, with what a backfill added",
+      "not_meaning": "the book's pending lines",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
       "stability": "stable",
       "store": "street"
     },
@@ -10250,6 +11289,19 @@
       "store": "street"
     },
     {
+      "name": "meridian.v1.UnresolvedHolding.raw_record",
+      "type": "message RawRecordRef",
+      "empty": "unset where the row carried none",
+      "intent": "references the raw record the row was converted from",
+      "meaning": "as the row carried it",
+      "not_meaning": "a record anyone but its plugin reads",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
       "name": "meridian.v1.ListStatementsRequest.account_id",
       "type": "identifier account",
       "empty": "empty for every account in the reader's scope",
@@ -10398,13 +11450,62 @@
     {
       "name": "meridian.v1.ExternalAccount.venue_account_type",
       "type": "text",
-      "empty": "empty where the custodian gives none",
-      "intent": "shows the custodian's own word for the kind of account",
-      "meaning": "verbatim and for display only",
+      "empty": "empty where the custodian gives none, and from a plugin on v11",
+      "intent": "showed, until v11, the custodian's own word for the kind of account",
+      "meaning": "verbatim and for display only; accepted from a plugin before v11 for its notice, and shown only where no kind is sent",
       "not_meaning": "what the account may do: nothing reads meaning into it",
       "filled": "as-reported",
       "filled_by": "custody",
       "since": "v2",
+      "stability": "stable",
+      "deprecated": {
+        "version": "v11",
+        "use": "meridian.v1.ExternalAccount.account_kind",
+        "why": "the plugin converts the venue's type to the account kind, and sends it as reported only when it does not convert"
+      },
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.ExternalAccount.account_kind",
+      "type": "enum AccountKind",
+      "allowed": [
+        {
+          "value": "ACCOUNT_KIND_UNSPECIFIED",
+          "meaning": "not known: the custodian's type says neither cash nor margin nor retirement; what a plugin sends when the type does not convert, with the type as reported beside it"
+        },
+        {
+          "value": "ACCOUNT_KIND_CASH",
+          "meaning": "trades settle in full from the account's own cash, with no borrowing"
+        },
+        {
+          "value": "ACCOUNT_KIND_MARGIN",
+          "meaning": "the account may borrow against its holdings under a margin agreement"
+        },
+        {
+          "value": "ACCOUNT_KIND_RETIREMENT",
+          "meaning": "a tax-advantaged retirement account, whether or not it allows limited margin"
+        }
+      ],
+      "empty": "unspecified is not known, and then the custodian's type travels as reported",
+      "intent": "says the account's kind, in the platform's own words",
+      "meaning": "converted by the plugin from the custodian's own type; for display and for grouping accounts across plugins",
+      "not_meaning": "what the account may do, which is the platform's restriction set when it is ruled; nothing gates on the kind",
+      "filled": "derived",
+      "filled_by": "custody",
+      "since": "v11",
+      "stability": "stable",
+      "store": "street"
+    },
+    {
+      "name": "meridian.v1.ExternalAccount.account_kind_as_reported",
+      "type": "message AsReported",
+      "empty": "unset whenever the kind is known: set only beside a kind not known",
+      "intent": "carries the custodian's type that did not convert to a kind",
+      "meaning": "for a person to map, and counted as evidence the kinds may need to grow",
+      "not_meaning": "a kind any reader may act on: nothing past the plugin interprets it",
+      "filled": "as-reported",
+      "filled_by": "custody",
+      "since": "v11",
       "stability": "stable",
       "store": "street"
     }
