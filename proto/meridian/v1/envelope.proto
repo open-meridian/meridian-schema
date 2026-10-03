@@ -60,6 +60,12 @@ message MessageMeta {
   // dashboard, and for a plugin acting as itself.
   string acting_through_delegation = 11;
 
+  // Set beside acting_through_delegation: the client's registered name, as
+  // the assertion named it (W4.9, contract v10), so a store records "the
+  // person, through that client" without a second read
+  // (sdk-contract/the-book-records-the-delegation).
+  string acting_through_client = 12;
+
   // Set on a read: the accounts the publishing plugin may read. A core store
   // answers only for these.
   repeated string account_scope = 9;

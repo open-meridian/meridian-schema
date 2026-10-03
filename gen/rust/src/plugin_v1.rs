@@ -163,8 +163,8 @@ pub struct RecordHoldingsStatementResult {
 }
 /// One holding, for one account, at one instrument, on one side.
 ///
-/// Either `instrument_id` is set, meaning the connector resolved it (to an
-/// instrument, or to the deployment's LCL- placeholder when nothing matched),
+/// Either `instrument_id` is set, meaning the connector resolved it (to the
+/// deployment's record, held or minted when nothing matched, W3.7),
 /// or `unresolved_identifiers` is set, meaning the resolve was ambiguous. Never
 /// both, and never neither. A row that could not be resolved is still recorded, because a
 /// dropped holding is invisible and an operator comparing against their
@@ -372,6 +372,17 @@ pub struct ResolveIdentifierParams {
     pub exchange_mic: ::prost::alloc::string::String,
     #[prost(string, tag = "4")]
     pub currency: ::prost::alloc::string::String,
+    /// What the plugin's source states of the security, where it states it,
+    /// and nothing it would have to guess (principle 14). Kept on the record as
+    /// offers with the instance as their source, in force only when a person
+    /// accepts them (W3.1, contract v10). Unspecified, or empty, is not stated.
+    #[prost(enumeration = "AssetClass", tag = "5")]
+    pub stated_asset_class: i32,
+    /// An ISO 4217 code.
+    #[prost(string, tag = "6")]
+    pub stated_currency: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub stated_description: ::prost::alloc::string::String,
 }
 /// The result of ResolveIdentifier: meridian.v1.ResolveIdentifierReply.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -383,12 +394,12 @@ pub struct ResolveIdentifierResult {
     /// Set only when found is false.
     #[prost(enumeration = "MissReason", tag = "3")]
     pub miss_reason: i32,
-    /// True when nothing matched and instrument_id is the deployment's LCL-
-    /// placeholder for the set (W3.7), which a holding may be recorded against
-    /// until its INS- ID replaces it. found is true alongside it. An ambiguous
-    /// resolve never answers a placeholder.
+    /// True when nothing matched and this resolve minted instrument_id, the
+    /// deployment's record for the set (W3.7, contract v10); found is true
+    /// alongside it. A later resolve of the same identifiers matches the
+    /// record, and is not minted. Until v10, true meant a placeholder.
     #[prost(bool, tag = "4")]
-    pub placeholder: bool,
+    pub minted: bool,
 }
 /// A resolution missed. A fact, not a request.
 ///
@@ -1200,8 +1211,8 @@ pub struct ReportedCollateral {
     /// Posted by the account, or received by it. Unspecified is refused.
     #[prost(enumeration = "CollateralDirection", tag = "1")]
     pub direction: i32,
-    /// Resolved as a holding's instrument is (W3.1): an instrument or the
-    /// deployment's placeholder, the currency's cash instrument for cash; or,
+    /// Resolved as a holding's instrument is (W3.1): the deployment's record,
+    /// minted for it or held, the currency's cash instrument for cash; or,
     /// when the resolve was ambiguous, the identifiers the connector held.
     /// Exactly one of the two, as on RecordHoldingRequest.
     #[prost(string, tag = "2")]
@@ -1329,8 +1340,8 @@ pub struct PartitionSequence {
 pub struct CustodialPosition {
     #[prost(string, tag = "1")]
     pub account_id: ::prost::alloc::string::String,
-    /// An instrument, or the deployment's LCL- placeholder awaiting identity,
-    /// which the INS- ID replaces when it arrives (W3.9).
+    /// The deployment's record for the instrument, whatever its ID; a record a
+    /// person merged into another moves onto the one that stays (W3.9).
     #[prost(string, tag = "2")]
     pub instrument_id: ::prost::alloc::string::String,
     /// The trade-date quantity, signed to match `side`.
@@ -1512,13 +1523,13 @@ pub struct ChangeCause {
 /// A mirror of meridian.v1.InstrumentRecord.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InstrumentRecord {
-    /// Canonical identifier, "INS-..." and minted only by the central authority.
-    ///
-    /// A deployment's stores may also hold its own placeholder, "LCL-...", which
-    /// its instrument store mints for an identifier set nothing matched (W3.7)
-    /// and which the INS- ID replaces in everything live when it arrives (W3.8).
-    /// A placeholder is never minted by the authority and never leaves the
-    /// deployment except on its own escalation.
+    /// The record's key for life. On the platform's master, "INS-...", minted
+    /// by it (W1). In a deployment, the deployment's own (decisions/030): "LCL-"
+    /// for a record its instrument store minted (W3.7), which says who minted it
+    /// and nothing about whether it is resolved; or the "INS-" ID of a record
+    /// applied from the platform before contract v10, which it keeps. A global
+    /// ID the platform answers later joins `identifiers` (scheme
+    /// `open_meridian`), never replacing this.
     #[prost(string, tag = "1")]
     pub instrument_id: ::prost::alloc::string::String,
     /// The full identifier set. An amend replaces this authoritatively.
@@ -1548,6 +1559,93 @@ pub struct InstrumentRecord {
     /// cannot be back-dated.
     #[prost(int64, tag = "10")]
     pub record_time_ns: i64,
+    /// In a deployment (contract v10): where each value in force came from --
+    /// the asset class, the currency, the description and each identifier --
+    /// with the person who set or accepted it, or the plugin that reported it
+    /// (W3, requirement 1). Empty on the platform's master, whose changelog
+    /// says it (W1.7).
+    #[prost(message, repeated, tag = "12")]
+    pub sources: ::prost::alloc::vec::Vec<InstrumentValueSource>,
+    /// In a deployment (contract v10): values offered by a plugin's source
+    /// (W3.1) or the platform (W3.3), in force only when a person accepts one
+    /// (W3.10). A later offer never overwrites a value in force.
+    #[prost(message, repeated, tag = "13")]
+    pub offers: ::prost::alloc::vec::Vec<OfferedValue>,
+}
+/// Where a value in force on a deployment's record came from (W3,
+/// requirements 1 and 3).
+/// A mirror of meridian.v1.InstrumentValueSource.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstrumentValueSource {
+    #[prost(enumeration = "InstrumentField", tag = "1")]
+    pub field: i32,
+    /// For INSTRUMENT_FIELD_IDENTIFIER: which identifier.
+    #[prost(message, optional, tag = "2")]
+    pub identifier: ::core::option::Option<Identifier>,
+    /// In words, as the value was set with.
+    #[prost(string, tag = "3")]
+    pub source: ::prost::alloc::string::String,
+    /// The person who set or accepted it: the deployment-local subject core
+    /// stamped from the command's envelope (W4.9), never typed. Empty for an
+    /// identifier a plugin reported, the platform's global ID, and a value
+    /// applied from the platform before contract v10.
+    #[prost(string, tag = "4")]
+    pub person: ::prost::alloc::string::String,
+    /// The plugin instance whose resolve joined the identifier (W3.1). Empty
+    /// otherwise.
+    #[prost(string, tag = "5")]
+    pub instance_id: ::prost::alloc::string::String,
+    /// When the store recorded it.
+    #[prost(int64, tag = "6")]
+    pub recorded_at_ns: i64,
+    /// Why a value held was changed, where given.
+    #[prost(string, tag = "7")]
+    pub note: ::prost::alloc::string::String,
+}
+/// A value offered for a deployment's record (W3.1, W3.3), shown beside its
+/// field and in force only when a person accepts it (W3.10).
+/// A mirror of meridian.v1.OfferedValue.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OfferedValue {
+    #[prost(message, optional, tag = "1")]
+    pub value: ::core::option::Option<InstrumentValue>,
+    /// The plugin instance whose source stated it. Empty for the platform's
+    /// answer and for an offer the store derives itself (ISO 4217 for an
+    /// `iso4217` identifier).
+    #[prost(string, tag = "2")]
+    pub instance_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub offered_at_ns: i64,
+}
+/// One value for a deployment's record, set or offered, with where it came
+/// from (W3.10, W3.1, W3.3).
+/// A mirror of meridian.v1.InstrumentValue.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstrumentValue {
+    /// Where the value came from, in words: a statement, a prospectus, "ISO
+    /// 4217", "the platform, record INS-... version 3". Required on a value a
+    /// person sets.
+    #[prost(string, tag = "5")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(oneof = "instrument_value::Value", tags = "1, 2, 3, 4")]
+    pub value: ::core::option::Option<instrument_value::Value>,
+}
+/// Nested message and enum types in `InstrumentValue`.
+pub mod instrument_value {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        /// One of the closed list; never unspecified.
+        #[prost(enumeration = "super::AssetClass", tag = "1")]
+        AssetClass(i32),
+        /// An ISO 4217 code, three capital letters; never a pseudo-currency such
+        /// as BASE.
+        #[prost(string, tag = "2")]
+        Currency(::prost::alloc::string::String),
+        #[prost(string, tag = "3")]
+        Description(::prost::alloc::string::String),
+        #[prost(message, tag = "4")]
+        Identifier(super::Identifier),
+    }
 }
 /// The only thing holdings are recorded against. A plugin creates one only by
 /// linking an external account to a new one, acting for a deployment admin in
@@ -1694,7 +1792,7 @@ pub struct EntryMeta {
     #[prost(string, tag = "1")]
     pub entry_id: ::prost::alloc::string::String,
     /// An open list a reader takes as data (Q19): in v8 opening-balance,
-    /// placeholder-moved, figures-recorded, break-recorded, break-handled,
+    /// placeholder-moved (instrument-merged from v10), figures-recorded, break-recorded, break-handled,
     /// break-resolved, break-closed, adjustment, reversal, attribute-set.
     #[prost(string, tag = "2")]
     pub kind: ::prost::alloc::string::String,
@@ -1745,7 +1843,7 @@ pub mod actor {
         #[prost(message, tag = "1")]
         Person(super::PersonActor),
         /// A finding reported with no user: the plugin instance that sent it;
-        /// the book's own act (a placeholder followed) leaves it empty.
+        /// the book's own act (a merged record followed) leaves it empty.
         #[prost(message, tag = "2")]
         System(super::SystemActor),
     }
@@ -1755,6 +1853,14 @@ pub mod actor {
 pub struct PersonActor {
     #[prost(string, tag = "1")]
     pub subject: ::prost::alloc::string::String,
+    /// The delegation the person acted through, and the client's registered
+    /// name, as the sidecar stamped them beside the person (W4.9, decisions/029;
+    /// contract v10). Empty for a person at the dashboard in a browser, and on
+    /// every act recorded before v10. The person stays the actor.
+    #[prost(string, tag = "2")]
+    pub delegation_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub client_name: ::prost::alloc::string::String,
 }
 /// A mirror of meridian.v1.SystemActor.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1805,15 +1911,10 @@ pub struct BookPosition {
     pub effective_date: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "11")]
     pub last_change: ::core::option::Option<JournalRef>,
-    /// A tombstone, after a placeholder's move (W9.9): returned only to a read
-    /// since a watermark, and delivered once.
+    /// A tombstone, after a merged record's move (W9.9): returned only to a
+    /// read since a watermark, and delivered once.
     #[prost(bool, tag = "12")]
     pub removed: bool,
-    /// Held under a placeholder instrument (W3.7) while the street's holding is
-    /// unresolved: in the opening balance and in reconciliation as any position,
-    /// flagged, until the book follows its replacement (W9.9).
-    #[prost(bool, tag = "13")]
-    pub placeholder: bool,
     /// What of it cannot move, as the operations plugin last recorded it from
     /// a statement (W9.15): an attribute, never a movement.
     #[prost(message, repeated, tag = "14")]
@@ -2194,7 +2295,8 @@ pub struct Adjustment {
 /// A mirror of meridian.v1.MovementLine.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MovementLine {
-    /// An instrument, a placeholder, or a currency's cash instrument.
+    /// The deployment's instrument record, a currency's cash instrument
+    /// included.
     #[prost(string, tag = "1")]
     pub instrument_id: ::prost::alloc::string::String,
     #[prost(enumeration = "HoldingSide", tag = "2")]
@@ -2572,40 +2674,6 @@ impl EncumbranceKind {
         }
     }
 }
-/// Why a resolution did not produce exactly one instrument.
-/// A mirror of meridian.v1.MissReason.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum MissReason {
-    Unspecified = 0,
-    /// No instrument matched.
-    NotFound = 1,
-    /// More than one matched. Reported as a miss rather than resolved by picking,
-    /// because picking would be wrong about half the time and would be silent.
-    Ambiguous = 2,
-}
-impl MissReason {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Unspecified => "MISS_REASON_UNSPECIFIED",
-            Self::NotFound => "MISS_REASON_NOT_FOUND",
-            Self::Ambiguous => "MISS_REASON_AMBIGUOUS",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "MISS_REASON_UNSPECIFIED" => Some(Self::Unspecified),
-            "MISS_REASON_NOT_FOUND" => Some(Self::NotFound),
-            "MISS_REASON_AMBIGUOUS" => Some(Self::Ambiguous),
-            _ => None,
-        }
-    }
-}
 /// The kind of claim holding an instrument gives. A closed list, ruled by the
 /// product owner (sdk-contract/asset-class-is-an-enum, 2026-09-28 and
 /// 2026-09-30); a class joins it by a ruling, never because a feed sent one.
@@ -2670,6 +2738,40 @@ impl AssetClass {
         }
     }
 }
+/// Why a resolution did not produce exactly one instrument.
+/// A mirror of meridian.v1.MissReason.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum MissReason {
+    Unspecified = 0,
+    /// No instrument matched.
+    NotFound = 1,
+    /// More than one matched. Reported as a miss rather than resolved by picking,
+    /// because picking would be wrong about half the time and would be silent.
+    Ambiguous = 2,
+}
+impl MissReason {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "MISS_REASON_UNSPECIFIED",
+            Self::NotFound => "MISS_REASON_NOT_FOUND",
+            Self::Ambiguous => "MISS_REASON_AMBIGUOUS",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "MISS_REASON_UNSPECIFIED" => Some(Self::Unspecified),
+            "MISS_REASON_NOT_FOUND" => Some(Self::NotFound),
+            "MISS_REASON_AMBIGUOUS" => Some(Self::Ambiguous),
+            _ => None,
+        }
+    }
+}
 /// Lifecycle. The transition verbs are the commands; nothing sets this directly.
 /// A mirror of meridian.v1.InstrumentLifecycleState.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -2706,6 +2808,44 @@ impl InstrumentLifecycleState {
             "INSTRUMENT_LIFECYCLE_STATE_DEFINE" => Some(Self::Define),
             "INSTRUMENT_LIFECYCLE_STATE_ACTIVE" => Some(Self::Active),
             "INSTRUMENT_LIFECYCLE_STATE_DECOMMISSIONED" => Some(Self::Decommissioned),
+            _ => None,
+        }
+    }
+}
+/// Which value of a deployment's instrument record (W3, contract v10).
+/// A mirror of meridian.v1.InstrumentField.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum InstrumentField {
+    Unspecified = 0,
+    AssetClass = 1,
+    Currency = 2,
+    Description = 3,
+    /// One of its identifiers, named beside the field.
+    Identifier = 4,
+}
+impl InstrumentField {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "INSTRUMENT_FIELD_UNSPECIFIED",
+            Self::AssetClass => "INSTRUMENT_FIELD_ASSET_CLASS",
+            Self::Currency => "INSTRUMENT_FIELD_CURRENCY",
+            Self::Description => "INSTRUMENT_FIELD_DESCRIPTION",
+            Self::Identifier => "INSTRUMENT_FIELD_IDENTIFIER",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "INSTRUMENT_FIELD_UNSPECIFIED" => Some(Self::Unspecified),
+            "INSTRUMENT_FIELD_ASSET_CLASS" => Some(Self::AssetClass),
+            "INSTRUMENT_FIELD_CURRENCY" => Some(Self::Currency),
+            "INSTRUMENT_FIELD_DESCRIPTION" => Some(Self::Description),
+            "INSTRUMENT_FIELD_IDENTIFIER" => Some(Self::Identifier),
             _ => None,
         }
     }

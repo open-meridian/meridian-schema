@@ -472,8 +472,11 @@ pub struct Refusal {
     /// Each field the command left out, by its path in the params as the
     /// sidecar names a field it refuses (positions\[0\].lots\[1\].terms.cost,
     /// adjustment.lines\[0\].opens_lot.acquired_date), so a plugin shows a person
-    /// what to complete without reading the words (contract v9). Only
-    /// REFUSAL_REASON_INCOMPLETE carries any.
+    /// what to complete without reading the words (contract v9); from v10 an
+    /// instrument whose record lacks its asset class or currency
+    /// (positions\[0\].instrument.asset_class). REFUSAL_REASON_INCOMPLETE carries
+    /// them, and a per-record refusal of the deployment's instrument store
+    /// names the fields it refused.
     #[prost(string, repeated, tag = "2")]
     pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
@@ -644,8 +647,25 @@ pub enum RefusalReason {
     /// position, its settled quantity, each pending quantity's value date, and
     /// its lots but on cash, each with its quantity, cost and acquisition
     /// date; a named source; and of every lot an adjustment opens, its cost and
-    /// acquisition date.
+    /// acquisition date. From v10, of every instrument an entry names, its
+    /// record's asset class and currency (positions\[n\].instrument.asset_class,
+    /// adjustment.lines\[n\].instrument.currency), which the deployment admin
+    /// completes at the dashboard (W3.10).
     Incomplete = 11,
+    /// The deployment's instrument store refusing one record of a completion
+    /// at the dashboard: an identifier another record carries, listed as a
+    /// conflict for a person to merge (W3.10, contract v10). Per record, in
+    /// the completion's reply; never a plugin's.
+    IdentifierHeld = 12,
+    /// A record changed since the version a completion or a merge named
+    /// (W3.10, W3.13, contract v10): read it again. Per record, in the reply;
+    /// never a plugin's.
+    RecordChanged = 13,
+    /// UNAVAILABLE, to be tried again: the book could not check a command
+    /// because the instrument store did not answer in time (W9.1, W9.7,
+    /// contract v10). Nothing recorded, and the same command again is checked
+    /// again.
+    ReferenceUnavailable = 14,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -668,6 +688,9 @@ impl RefusalReason {
             Self::LaterEntriesStand => "REFUSAL_REASON_LATER_ENTRIES_STAND",
             Self::IdempotencyConflict => "REFUSAL_REASON_IDEMPOTENCY_CONFLICT",
             Self::Incomplete => "REFUSAL_REASON_INCOMPLETE",
+            Self::IdentifierHeld => "REFUSAL_REASON_IDENTIFIER_HELD",
+            Self::RecordChanged => "REFUSAL_REASON_RECORD_CHANGED",
+            Self::ReferenceUnavailable => "REFUSAL_REASON_REFERENCE_UNAVAILABLE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -689,6 +712,9 @@ impl RefusalReason {
             "REFUSAL_REASON_LATER_ENTRIES_STAND" => Some(Self::LaterEntriesStand),
             "REFUSAL_REASON_IDEMPOTENCY_CONFLICT" => Some(Self::IdempotencyConflict),
             "REFUSAL_REASON_INCOMPLETE" => Some(Self::Incomplete),
+            "REFUSAL_REASON_IDENTIFIER_HELD" => Some(Self::IdentifierHeld),
+            "REFUSAL_REASON_RECORD_CHANGED" => Some(Self::RecordChanged),
+            "REFUSAL_REASON_REFERENCE_UNAVAILABLE" => Some(Self::ReferenceUnavailable),
             _ => None,
         }
     }
@@ -1428,6 +1454,12 @@ pub struct MessageMeta {
     /// dashboard, and for a plugin acting as itself.
     #[prost(string, tag = "11")]
     pub acting_through_delegation: ::prost::alloc::string::String,
+    /// Set beside acting_through_delegation: the client's registered name, as
+    /// the assertion named it (W4.9, contract v10), so a store records "the
+    /// person, through that client" without a second read
+    /// (sdk-contract/the-book-records-the-delegation).
+    #[prost(string, tag = "12")]
+    pub acting_through_client: ::prost::alloc::string::String,
     /// Set on a read: the accounts the publishing plugin may read. A core store
     /// answers only for these.
     #[prost(string, repeated, tag = "9")]

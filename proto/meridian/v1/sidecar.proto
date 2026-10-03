@@ -591,8 +591,11 @@ message Refusal {
   // Each field the command left out, by its path in the params as the
   // sidecar names a field it refuses (positions[0].lots[1].terms.cost,
   // adjustment.lines[0].opens_lot.acquired_date), so a plugin shows a person
-  // what to complete without reading the words (contract v9). Only
-  // REFUSAL_REASON_INCOMPLETE carries any.
+  // what to complete without reading the words (contract v9); from v10 an
+  // instrument whose record lacks its asset class or currency
+  // (positions[0].instrument.asset_class). REFUSAL_REASON_INCOMPLETE carries
+  // them, and a per-record refusal of the deployment's instrument store
+  // names the fields it refused.
   repeated string fields = 2;
 }
 
@@ -655,6 +658,26 @@ enum RefusalReason {
   // position, its settled quantity, each pending quantity's value date, and
   // its lots but on cash, each with its quantity, cost and acquisition
   // date; a named source; and of every lot an adjustment opens, its cost and
-  // acquisition date.
+  // acquisition date. From v10, of every instrument an entry names, its
+  // record's asset class and currency (positions[n].instrument.asset_class,
+  // adjustment.lines[n].instrument.currency), which the deployment admin
+  // completes at the dashboard (W3.10).
   REFUSAL_REASON_INCOMPLETE = 11;
+
+  // The deployment's instrument store refusing one record of a completion
+  // at the dashboard: an identifier another record carries, listed as a
+  // conflict for a person to merge (W3.10, contract v10). Per record, in
+  // the completion's reply; never a plugin's.
+  REFUSAL_REASON_IDENTIFIER_HELD = 12;
+
+  // A record changed since the version a completion or a merge named
+  // (W3.10, W3.13, contract v10): read it again. Per record, in the reply;
+  // never a plugin's.
+  REFUSAL_REASON_RECORD_CHANGED = 13;
+
+  // UNAVAILABLE, to be tried again: the book could not check a command
+  // because the instrument store did not answer in time (W9.1, W9.7,
+  // contract v10). Nothing recorded, and the same command again is checked
+  // again.
+  REFUSAL_REASON_REFERENCE_UNAVAILABLE = 14;
 }
