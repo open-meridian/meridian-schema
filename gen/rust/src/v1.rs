@@ -10,7 +10,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v11, and a plugin built from it declares "v11".
+    /// schema is contract v12, and a plugin built from it declares "v12".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -39,6 +39,67 @@ pub struct RegisterRequest {
     /// reports it (W4.8). Unset from a plugin before v11.
     #[prost(message, optional, tag = "8")]
     pub declaration: ::core::option::Option<PluginDeclaration>,
+    /// The plugin's tools on the deployment's MCP surface (W4.1, W6.20,
+    /// contract v12): each derived by its SDK from a route the plugin declares
+    /// with one typed record of inputs, or declared to replace one. The
+    /// sidecar admits each it can check, reports them (W4.8), and refuses the
+    /// others by name without refusing the plugin. At most 200: those past it
+    /// are refused, the plugin admitted. Empty from a plugin before v12, and
+    /// from one declaring no typed route.
+    #[prost(message, repeated, tag = "9")]
+    pub tools: ::prost::alloc::vec::Vec<ToolDeclaration>,
+}
+/// One tool a plugin offers on the deployment's MCP surface (W6.20; contract
+/// v12; spec/a-deployment-serves-its-mcp, requirements 6 to 10). A tool is a
+/// route: a call reaches the plugin as the request its route would receive
+/// from a page, at one of its levels, and is never wider than that page. A
+/// plugin names no parts of itself for access by it (decisions/026): consent
+/// and access stay per plugin and level.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ToolDeclaration {
+    /// Unique among the plugin's tools: 1 to 61 characters, lower-case
+    /// letters, digits, `_` and `-`, beginning with a letter or digit. The
+    /// surface names it `{instance}__{name}`, which may be no longer than the
+    /// clients people use accept (64), so the sidecar refuses a name too long
+    /// for its instance.
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// For a person to read on the consent page, such as "Confirm an opening
+    /// balance": 1 to 120 characters.
+    #[prost(string, tag = "2")]
+    pub title: ::prost::alloc::string::String,
+    /// For an agent to read: what the tool does and what it answers. The
+    /// vendor's text, which the dashboard prefixes with the plugin's title and
+    /// instance: 1 to 1,024 characters.
+    #[prost(string, tag = "3")]
+    pub description: ::prost::alloc::string::String,
+    /// The route's method: GET, POST, PUT, PATCH or DELETE. A request whose
+    /// claims name this tool is admitted only at this method and path (W4.9).
+    #[prost(string, tag = "4")]
+    pub method: ::prost::alloc::string::String,
+    /// The route's path on the plugin's own host, 1 to 512 characters,
+    /// beginning with "/" and not under /.meridian.
+    #[prost(string, tag = "5")]
+    pub path: ::prost::alloc::string::String,
+    /// The levels the route serves, one or several of admin, write and read,
+    /// as a page's are (W4.8). A call opens at the highest the person holds and
+    /// the delegation covers, write before read before admin.
+    #[prost(enumeration = "AccessLevel", repeated, tag = "6")]
+    pub levels: ::prost::alloc::vec::Vec<i32>,
+    /// True for a read: a page, a GET route, or a route declaring that it
+    /// changes nothing, answering typed data. False for an act, which changes
+    /// something.
+    #[prost(bool, tag = "7")]
+    pub reads: bool,
+    /// The route's one typed record of inputs, as JSON Schema text: an object
+    /// schema, decimals as strings, dates and times as ISO 8601; 2 to 65,536
+    /// characters.
+    #[prost(string, tag = "8")]
+    pub input_schema: ::prost::alloc::string::String,
+    /// For a read, the typed answer it returns, as JSON Schema text, 0 to
+    /// 65,536 characters; empty for an act.
+    #[prost(string, tag = "9")]
+    pub output_schema: ::prost::alloc::string::String,
 }
 /// What a version declares beside its roles (W8.1, contract v11;
 /// spec/vendor-differences-have-a-place-in-the-contract, requirements 16, 19
@@ -521,6 +582,15 @@ pub struct CallerClaims {
     /// delegation_id.
     #[prost(string, tag = "13")]
     pub client_name: ::prost::alloc::string::String,
+    /// The tool a call through the deployment's MCP surface names, by the
+    /// plugin's own name for it (W6.20, contract v12). Set only by the
+    /// dashboard's `/mcp`, never for a page a browser asks for. The sidecar
+    /// admits the request only at that tool's declared method and path (W4.9);
+    /// the plugin's SDK serves it without the form token that guards a
+    /// browser's cookie, since the dashboard signed it and no cookie came with
+    /// it. Absent for every other request.
+    #[prost(string, tag = "14")]
+    pub tool_name: ::prost::alloc::string::String,
 }
 /// The sidecar knows which plugin is asking.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]

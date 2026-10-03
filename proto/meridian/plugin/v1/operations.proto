@@ -1980,6 +1980,17 @@ message InstrumentValueSource {
 
   // Why a value held was changed, where given.
   string note = 7;
+
+  // The delegation the person acted through, when they set or accepted the
+  // value through a client -- an agent on the deployment's MCP surface --
+  // rather than at the dashboard in a browser (W3.10, W6.20, contract v12):
+  // stamped from the command's envelope (W4.9), never typed. Empty beside a
+  // person at the dashboard, and wherever person is.
+  string acting_through_delegation = 8;
+
+  // The client's registered name, beside acting_through_delegation, as the
+  // envelope carried it; empty whenever it is.
+  string client_name = 9;
 }
 
 // Which value of a deployment's instrument record (W3, contract v10).

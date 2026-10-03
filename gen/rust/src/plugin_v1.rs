@@ -1773,6 +1773,17 @@ pub struct InstrumentValueSource {
     /// Why a value held was changed, where given.
     #[prost(string, tag = "7")]
     pub note: ::prost::alloc::string::String,
+    /// The delegation the person acted through, when they set or accepted the
+    /// value through a client -- an agent on the deployment's MCP surface --
+    /// rather than at the dashboard in a browser (W3.10, W6.20, contract v12):
+    /// stamped from the command's envelope (W4.9), never typed. Empty beside a
+    /// person at the dashboard, and wherever person is.
+    #[prost(string, tag = "8")]
+    pub acting_through_delegation: ::prost::alloc::string::String,
+    /// The client's registered name, beside acting_through_delegation, as the
+    /// envelope carried it; empty whenever it is.
+    #[prost(string, tag = "9")]
+    pub client_name: ::prost::alloc::string::String,
 }
 /// A value offered for a deployment's record (W3.1, W3.3), shown beside its
 /// field and in force only when a person accepts it (W3.10).

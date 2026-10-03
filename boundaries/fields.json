@@ -5969,6 +5969,32 @@
       "store": "instrument"
     },
     {
+      "name": "meridian.v1.InstrumentValueSource.acting_through_delegation",
+      "type": "text",
+      "empty": "empty for a person at the dashboard in a browser, and wherever person is",
+      "intent": "names the delegation the person set or accepted the value through",
+      "meaning": "deployment-local and opaque, stamped from the command's envelope (W4.9) when the person acted through a client on the deployment's MCP surface; the dashboard resolves it to its client",
+      "not_meaning": "an actor: the person stays the actor, and this says through what",
+      "filled": "stamped",
+      "filled_by": "instrument",
+      "since": "v12",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
+      "name": "meridian.v1.InstrumentValueSource.client_name",
+      "type": "text",
+      "empty": "empty whenever acting_through_delegation is",
+      "intent": "names the client the person acted through",
+      "meaning": "the client's registered name, its own choice, as the envelope carried it",
+      "not_meaning": "a person or a plugin instance",
+      "filled": "stamped",
+      "filled_by": "instrument",
+      "since": "v12",
+      "stability": "stable",
+      "store": "instrument"
+    },
+    {
       "name": "meridian.v1.OfferedValue.value",
       "type": "message InstrumentValue",
       "empty": "never unset",
@@ -7054,6 +7080,219 @@
       "filled": "derived",
       "filled_by": "plugin",
       "since": "v11",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.RegisterRequest.tools",
+      "type": "repeated message ToolDeclaration",
+      "bounds": {
+        "count": [
+          0,
+          200
+        ],
+        "past": "capped"
+      },
+      "empty": "empty from a plugin before v12, and from one declaring no typed route: none of its routes is on the deployment's MCP surface",
+      "intent": "declares the plugin's tools on the deployment's MCP surface (W4.1, W6.20)",
+      "meaning": "each derived by the plugin's SDK from a route it declares with one typed record of inputs, or declared to replace one; the sidecar admits each it can check and refuses the others by name, the plugin admitted",
+      "not_meaning": "a grant or a part of the plugin access is granted by: a call is never wider than its route's page at that level",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.ToolDeclaration.name",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          61
+        ]
+      },
+      "empty": "never empty",
+      "intent": "names the tool among the plugin's",
+      "meaning": "lower-case letters, digits, _ and -, unique among the plugin's tools; the surface names it {instance}__{name}, refused when that passes 64 characters",
+      "not_meaning": "the route's path, or a name an agent may call without its owner's prefix",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.ToolDeclaration.title",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          120
+        ]
+      },
+      "empty": "never empty",
+      "intent": "names the tool for a person on the consent page",
+      "meaning": "the words a person reads under the row of access that reaches it",
+      "not_meaning": "an identifier",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.ToolDeclaration.description",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          1024
+        ]
+      },
+      "empty": "never empty",
+      "intent": "tells an agent what the tool does and answers",
+      "meaning": "the vendor's text, which the dashboard prefixes with the plugin's title and instance before an agent reads it",
+      "not_meaning": "an instruction the deployment follows: an agent following it still cannot exceed the person",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.ToolDeclaration.method",
+      "type": "text",
+      "allowed": [
+        {
+          "value": "GET",
+          "meaning": "a route that reads"
+        },
+        {
+          "value": "POST",
+          "meaning": "a route that changes something, or declares that it changes nothing"
+        },
+        {
+          "value": "PUT",
+          "meaning": "a route that replaces something"
+        },
+        {
+          "value": "PATCH",
+          "meaning": "a route that changes part of something"
+        },
+        {
+          "value": "DELETE",
+          "meaning": "a route that removes something"
+        }
+      ],
+      "empty": "never empty",
+      "intent": "says which method the tool's route takes",
+      "meaning": "the method a call is sent with, and the only one at which the sidecar admits a request naming the tool (W4.9)",
+      "not_meaning": "whether it reads or acts, which `reads` says",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.ToolDeclaration.path",
+      "type": "text",
+      "bounds": {
+        "length": [
+          1,
+          512
+        ]
+      },
+      "empty": "never empty",
+      "intent": "says where the tool's route is served",
+      "meaning": "a path on the plugin's own host, beginning with / and not under /.meridian; the only one at which the sidecar admits a request naming the tool",
+      "not_meaning": "a URL on the dashboard's host",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.ToolDeclaration.levels",
+      "type": "repeated enum AccessLevel",
+      "allowed": [
+        {
+          "value": "ACCESS_LEVEL_UNSPECIFIED",
+          "meaning": "holds nothing; a tool naming it is refused at registration"
+        },
+        {
+          "value": "ACCESS_LEVEL_READ",
+          "meaning": "the route serves View: listed to a person holding read, through a delegation covering it"
+        },
+        {
+          "value": "ACCESS_LEVEL_WRITE",
+          "meaning": "the route serves Open: listed to a person holding write, through a delegation covering it"
+        },
+        {
+          "value": "ACCESS_LEVEL_ADMIN",
+          "meaning": "the route serves Manage: configuration only, no account's data"
+        }
+      ],
+      "empty": "never empty: a tool naming no level, or one outside the three, is refused at registration",
+      "intent": "says which levels the tool's route serves",
+      "meaning": "its route's levels; a call opens at the highest the person holds and the delegation covers, write before read before admin",
+      "not_meaning": "a role, or a grant",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.ToolDeclaration.reads",
+      "type": "boolean",
+      "empty": "false is an act",
+      "intent": "says whether the tool reads or acts",
+      "meaning": "true for a page, a GET route, or a route declaring that it changes nothing, answering typed data; false for a route that changes something",
+      "not_meaning": "what the sidecar admits, which the person's grants at the level decide",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.ToolDeclaration.input_schema",
+      "type": "text",
+      "bounds": {
+        "length": [
+          2,
+          65536
+        ]
+      },
+      "empty": "never empty: a route with no inputs declares an empty object",
+      "intent": "describes the route's one typed record of inputs",
+      "meaning": "JSON Schema text of an object, decimals as strings and dates as ISO 8601, whose properties are named by the data dictionary's path grammar, so a refusal's path names one argument and one cell of the page's form",
+      "not_meaning": "a schema the kernel validates: the plugin's SDK parses the arguments against the record it declared",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.ToolDeclaration.output_schema",
+      "type": "text",
+      "bounds": {
+        "length": [
+          0,
+          65536
+        ]
+      },
+      "empty": "empty for an act",
+      "intent": "describes the typed answer a read returns",
+      "meaning": "JSON Schema text of the record the route's page renders",
+      "not_meaning": "HTML, or an answer's value",
+      "filled": "derived",
+      "filled_by": "plugin",
+      "since": "v12",
       "stability": "stable",
       "store": "sidecar"
     },
@@ -8174,6 +8413,19 @@
       "filled": "decided",
       "filled_by": "dashboard",
       "since": "v10",
+      "stability": "stable",
+      "store": "sidecar"
+    },
+    {
+      "name": "meridian.v1.CallerClaims.tool_name",
+      "type": "text",
+      "empty": "empty for every request but a call through the deployment's MCP surface",
+      "intent": "names the tool a call through the deployment's MCP surface is for",
+      "meaning": "the plugin's own name for the tool, set only by the dashboard's /mcp: the sidecar admits the request only at that tool's method and path, and the SDK serves it without a browser's form token",
+      "not_meaning": "a sign of a delegation, which delegation_id is; a terminal's page fetch names a delegation and no tool",
+      "filled": "decided",
+      "filled_by": "dashboard",
+      "since": "v12",
       "stability": "stable",
       "store": "sidecar"
     },
