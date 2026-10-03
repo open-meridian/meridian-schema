@@ -299,16 +299,15 @@
         },
         {
           "name": "currency-not-stated",
-          "given": "the venue states no currency for a holding",
+          "given": "the venue states no currency for a holding, and states its average cost",
           "expect": [
             {
               "row": "RecordHolding",
               "fields": {
-                "market_value": "<unset>",
                 "currency_assumed": "<unset>",
                 "provenance": [
                   {
-                    "field": "market_value.currency_code",
+                    "field": "average_cost.currency_code",
                     "kind": "PROVENANCE_KIND_DERIVED",
                     "rule": "<set>"
                   }
