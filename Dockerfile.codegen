@@ -83,6 +83,15 @@ RUN printf '%s\n' \
   'include = ["meridian*"]' \
   > /out/python/pyproject.toml
 
+# The data dictionary's bounds, as code for both languages: gen/python's
+# meridian/bounds.py here, gen/rust's bounds.rs copied into the export below.
+# From boundaries/fields.json, which meridian-design generates; check-codegen
+# holds both to it as it holds the bindings to proto/.
+COPY boundaries/fields.json boundaries/fields.json
+COPY codegen/bounds.py codegen/bounds.py
+RUN python codegen/bounds.py --fields boundaries/fields.json \
+      --rust /out/rust-bounds/bounds.rs --python /out/python/meridian/bounds.py
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Rust bindings, via prost
 # ─────────────────────────────────────────────────────────────────────────────
@@ -135,3 +144,4 @@ RUN python3 tools/check_pb_imports.py --gen gen/python
 FROM scratch AS export
 COPY --from=python-gen /out/python /python
 COPY --from=rust-gen /out/rust /rust
+COPY --from=python-gen /out/rust-bounds/bounds.rs /rust/src/bounds.rs

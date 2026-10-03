@@ -9,3 +9,7 @@ pub mod plugin {
         include!("plugin_v1.rs");
     }
 }
+/// The data dictionary's bounds, from boundaries/fields.json (codegen/bounds.py).
+pub mod bounds {
+    include!("bounds.rs");
+}
