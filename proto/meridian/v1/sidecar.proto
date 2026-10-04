@@ -8,8 +8,9 @@
 // discovers another plugin. See decisions/007.
 //
 // This service is a plugin's lifecycle and what it learns from the deployment:
-// registering, liveness, leaving, its settings, who may use it and its account
-// scope. Its access to the bus is not here. Since contract v2 that is the typed
+// registering, liveness, leaving, its settings, who may use it, its account
+// scope, and the tickets it files for a person (contract v13). Its access to
+// the bus is not here. Since contract v2 that is the typed
 // operations of meridian.plugin.v1, one per matrix row a role may take and
 // generated from the matrix; the generic publish, subscribe and call are gone,
 // so every message on the bus is one the sidecar constructed (decisions/013).
@@ -41,6 +42,17 @@ service SidecarService {
   // W4.11. The accounts anybody may read or write through this plugin, and
   // the plugin's own links beside them.
   rpc WatchAccountScope(WatchAccountScopeRequest) returns (stream AccountScopeDelivery);
+
+  // W4.12, contract v13. File a ticket for the person whose request the
+  // plugin is serving, never as itself: the call carries the caller's
+  // assertion as its `meridian-caller` metadata, and the sidecar asks the
+  // dashboard on the bus, as itself, for the instance it serves.
+  rpc FileTicket(FileTicketRequest) returns (FileTicketReply);
+
+  // W4.12, contract v13. What became of the tickets this plugin filed: their
+  // state, resolution and how often each was seen, never people's notes.
+  // Acting for a person, as filing is.
+  rpc FiledTickets(ReadFiledTicketsRequest) returns (ReadFiledTicketsReply);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -60,7 +72,7 @@ message RegisterRequest {
   reserved "instance_id", "role", "tags";
 
   // The contract version the plugin was built against, as `v<N>`. This
-  // schema is contract v12, and a plugin built from it declares "v12".
+  // schema is contract v13, and a plugin built from it declares "v13".
   //
   // Required. A sidecar admits it when it lies between the sidecar's floor
   // and its own version, and otherwise refuses it naming both (W4.1): a
@@ -811,6 +823,163 @@ message LinkedExternalAccount {
   // That account's name as the deployment holds it now (W6.3), so the plugin
   // can say which account a link points at without acting for anybody.
   string account_name = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.12 — a plugin files a ticket, and reads what it filed (contract v13)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// A problem a person met, filed by the plugin serving them (W4.12; W6.21 for
+// a person filing on a page or through the deployment's MCP, with the same
+// fields). Every plugin may file, whatever its roles or none, and only for a
+// person it acts for, at any level: the caller's assertion is required, and
+// a filing without one is refused. Every text here is written by someone
+// other than whoever reads it, and is data to every agent that reads it,
+// never instructions.
+message FileTicketRequest {
+  // A line saying what is wrong. At most 120 characters, plain text.
+  string title = 1;
+
+  // What was seen, in the filer's words. At most 8,000 characters, plain
+  // text, never rendered as HTML or Markdown.
+  string seen = 2;
+
+  TicketKind kind = 3;
+
+  // The one thing the ticket concerns: this plugin, a part of core, or the
+  // platform; never another plugin, which the sidecar refuses naming it.
+  TicketSubject concerns = 4;
+
+  // Optional: the workflow step, the operation (a matrix row, a tool or a
+  // route pattern), the refusal reason and the field paths involved, by the
+  // dictionary's grammar.
+  string step = 5;
+  string operation = 6;
+  string reason = 7;
+  repeated string paths = 8;
+
+  // The records the ticket is about, by value. At most 50. An account named
+  // here must be one the person may read; a ticket naming accounts is seen
+  // only by those who may read every one of them.
+  repeated TicketReference references = 9;
+
+  // The plugin's own key for this problem, so a plugin restarted mid-run
+  // files nothing twice: a filing whose key matches an open ticket from the
+  // same instance brings that ticket up to date and is answered unchanged.
+  string idempotency_key = 10;
+}
+
+// What a ticket concerns. The sidecar sets the instance and version of a
+// plugin's own filing; a person's names the instance their page was on.
+message TicketSubject {
+  // `plugin`, a part of core (`dashboard`, `bor`, `street`, `instrument`,
+  // `conductor`, `chart`, `cli`, `sdk`), or `platform`.
+  string kind = 1;
+
+  // The plugin instance, when the kind is `plugin`.
+  string instance = 2;
+
+  // That plugin's version at filing, set by the deployment, never the filer.
+  string version = 3;
+}
+
+// One record a ticket is about, by value.
+message TicketReference {
+  // `account`, `instrument`, `break`, `entry`, `street_record`, `tool_call`
+  // or `plugin` (the plugin's own opaque reference).
+  string kind = 1;
+
+  // The record's identifier, or the plugin's own reference.
+  // At most 200 characters.
+  string value = 2;
+
+  // The account the record is about: required on a break, an entry and a
+  // street record, which the dashboard cannot otherwise place, and the
+  // value itself on an account.
+  string account_id = 3;
+}
+
+message FileTicketReply {
+  string ticket_id = 1;
+
+  // `made`, or `unchanged` for a repeat folded into the open ticket.
+  string outcome = 2;
+
+  // How many filings the ticket now counts, the first included.
+  int64 seen_count = 3;
+}
+
+// One of: the tickets named, the tickets filed under the keys named, or every
+// ticket this plugin filed since the cursor (from the first when it is empty).
+// Answered for the instance the envelope names and no other.
+message ReadFiledTicketsRequest {
+  repeated string ticket_ids = 1;
+  repeated string idempotency_keys = 2;
+  string cursor = 3;
+}
+
+message ReadFiledTicketsReply {
+  repeated FiledTicket tickets = 1;
+
+  // Where the next read starts; empty when there is nothing further.
+  string next_cursor = 2;
+}
+
+// What became of a ticket the plugin filed. Never people's notes, and never
+// who holds or works it (requirement 11).
+message FiledTicket {
+  string ticket_id = 1;
+  string idempotency_key = 2;
+  TicketState state = 3;
+
+  // Set once it is resolved or closed.
+  TicketResolution resolution = 4;
+
+  int64 seen_count = 5;
+  int64 first_seen_ns = 6;
+  int64 last_seen_ns = 7;
+
+  // Answers relayed from outside the deployment. Empty until contract
+  // revisions after v13 bring answers in.
+  repeated string answers = 8;
+}
+
+// What kind of problem a ticket is. Routed by what it concerns, not by kind.
+enum TicketKind {
+  TICKET_KIND_UNSPECIFIED = 0;
+  TICKET_KIND_DEFECT = 1;
+  TICKET_KIND_DISCREPANCY = 2;
+  TICKET_KIND_REQUEST = 3;
+  TICKET_KIND_QUESTION = 4;
+}
+
+enum TicketState {
+  TICKET_STATE_UNSPECIFIED = 0;
+  TICKET_STATE_OPEN = 1;
+  TICKET_STATE_RESOLVED = 2;
+  TICKET_STATE_CLOSED = 3;
+}
+
+// What resolved a ticket (a note, an answer, a version), or why it was closed
+// with nothing fixed.
+enum TicketResolution {
+  TICKET_RESOLUTION_UNSPECIFIED = 0;
+  TICKET_RESOLUTION_NOTE = 1;
+  TICKET_RESOLUTION_ANSWER = 2;
+  TICKET_RESOLUTION_VERSION = 3;
+  TICKET_RESOLUTION_WITHDRAWN = 4;
+  TICKET_RESOLUTION_DUPLICATE = 5;
+  TICKET_RESOLUTION_NOT_A_PROBLEM = 6;
+}
+
+// The kinds of a ticket's notes. `answer` is carried from v13, though nothing
+// writes one until answers arrive from outside the deployment.
+enum TicketNoteKind {
+  TICKET_NOTE_KIND_UNSPECIFIED = 0;
+  TICKET_NOTE_KIND_NOTE = 1;
+  TICKET_NOTE_KIND_ADVICE = 2;
+  TICKET_NOTE_KIND_ANSWER = 3;
+  TICKET_NOTE_KIND_CHANGE = 4;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

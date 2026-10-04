@@ -1150,6 +1150,18 @@
       "step": "W4.11",
       "title": "Receive the plugin's account scope",
       "stability": "stable"
+    },
+    {
+      "name": "FileTicket",
+      "step": "W4.12",
+      "title": "A plugin files a ticket, and reads what it filed",
+      "stability": "preview"
+    },
+    {
+      "name": "FiledTickets",
+      "step": "W4.12",
+      "title": "A plugin files a ticket, and reads what it filed",
+      "stability": "preview"
     }
   ],
   "combinations": [

@@ -206,6 +206,20 @@ pub const PLUGIN_FIGURE_TEXT_LENGTH: Length = Length { least: 0, most: 40 };
 /// tile
 pub const PLUGIN_FIGURE_WHY_LENGTH: Length = Length { least: 0, most: 200 };
 
+/// meridian.v1.FileTicketRequest.title: says in a line what is wrong
+pub const FILE_TICKET_REQUEST_TITLE_LENGTH: Length = Length { least: 1, most: 120 };
+
+/// meridian.v1.FileTicketRequest.seen: says what was seen, in the filer's
+/// words
+pub const FILE_TICKET_REQUEST_SEEN_LENGTH: Length = Length { least: 0, most: 8000 };
+
+/// meridian.v1.FileTicketRequest.references: names the records the ticket is
+/// about, by value
+pub const FILE_TICKET_REQUEST_REFERENCES_COUNT: Count = Count { least: 0, most: 50 };
+
+/// meridian.v1.TicketReference.value: names the record by value
+pub const TICKET_REFERENCE_VALUE_LENGTH: Length = Length { least: 1, most: 200 };
+
 /// SidecarReceive.limit: bounds what the sidecar holds for a plugin that
 /// reads slowly
 pub const SIDECAR_RECEIVE_LIMIT_RANGE: Range = Range { least: 0, most: 1024, capped: true };
