@@ -98,6 +98,9 @@ pub const LINK_EXTERNAL_ACCOUNT_REQUEST_NEW_ACCOUNT_OWNER_LENGTH: Length = Lengt
 /// else worth knowing about a new account
 pub const LINK_EXTERNAL_ACCOUNT_REQUEST_NEW_ACCOUNT_NOTE_LENGTH: Length = Length { least: 0, most: 2000 };
 
+/// meridian.v1.TicketNote.note: carries the note's text
+pub const TICKET_NOTE_NOTE_LENGTH: Length = Length { least: 1, most: 4000 };
+
 /// meridian.v1.AsReported.scheme: says whose vocabulary a value as reported
 /// is in
 pub const AS_REPORTED_SCHEME_LENGTH: Length = Length { least: 1, most: 64 };
