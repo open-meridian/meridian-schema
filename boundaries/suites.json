@@ -4,6 +4,54 @@
   "suites_are": "each role's conformance suite: a plugin holding the role is verified for it only by passing every case. A case's given is what the plugin's source presents, in the contract's words; its expect is what the plugin sends, each matched by one message on that row, fields by their paths in the row's message, `<set>` any value present and `<unset>` none, a list of partial messages each matched by one element; sends false is nothing on the row.",
   "suites": [
     {
+      "role": "ccm",
+      "since": "v14",
+      "says": "A ccm plugin (broker and venue connectivity) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "compliance",
+      "since": "v14",
+      "says": "A compliance plugin (pre- and post-trade compliance rules) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "role": "custody",
       "since": "v11",
       "says": "A custody plugin passing every case reports its source's accounts with their kinds, its sync state in the contract's own values, and each account's holdings counted once, every row referencing the raw record it was converted from, the settled and pending quantities stated, the custodian named, and every value it closed rather than read carrying its provenance; it sends a value it cannot convert as not known beside the value as reported, and withholds a statement it cannot serve clean.\n",
@@ -867,10 +915,123 @@
       ]
     },
     {
+      "role": "dgm",
+      "since": "v14",
+      "says": "A dgm plugin (external data ingress) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "ems",
+      "since": "v14",
+      "says": "A ems plugin (execution management) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "match",
+      "since": "v14",
+      "says": "A match plugin (confirmation with external matching services) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "oms",
+      "since": "v14",
+      "says": "A oms plugin (order management) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "role": "operations",
       "since": "v14",
       "says": "An operations plugin passing every case reads the account's activity when it reconciles, hears each activity recorded, and offers the activity that explains a break as its candidate cause, linked by value, under the category that fits; it books nothing from activity and confirms nothing without a person.\n",
       "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "income-reinvested-explains-a-quantity-gained",
           "given": "a completed statement shows an account holding more units of a money market fund than the book, and the account's activity since its last reconciled statement holds a reinvestment of exactly those units\n",
@@ -986,6 +1147,126 @@
             {
               "row": "ResolveBreak",
               "sends": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "portfolio",
+      "since": "v14",
+      "says": "A portfolio plugin (portfolio construction) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "reporting",
+      "since": "v14",
+      "says": "A reporting plugin (reporting, analytics and valuation) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "servicing",
+      "since": "v14",
+      "says": "A servicing plugin (non-trading transactions) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "settlement",
+      "since": "v14",
+      "says": "A settlement plugin (external settlement rails) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "signal",
+      "since": "v14",
+      "says": "A signal plugin (signal generation) passing every case saves a setting an admin of the plugin gives on its page at admin as the plugin's own setting, sent for that admin, never a secret.\n",
+      "cases": [
+        {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
             }
           ]
         }

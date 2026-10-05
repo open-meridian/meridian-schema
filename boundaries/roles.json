@@ -60,7 +60,9 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [],
         "hears": []
       }
@@ -114,7 +116,9 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [
           "ResolveInstrument",
           "ListPositions",
@@ -277,7 +281,9 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [],
         "hears": []
       }
@@ -328,7 +334,9 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [],
         "hears": []
       }
@@ -366,7 +374,9 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [],
         "hears": []
       }
@@ -419,7 +429,9 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [
           "ResolveInstrument",
           "ListPositions",
@@ -478,6 +490,7 @@
       "edge": false,
       "scope": {
         "publishes": [
+          "SetPluginSettings",
           "RecordOpeningBalance",
           "RecordBreak",
           "RecordAccountFigures",
@@ -548,7 +561,9 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [
           "ResolveInstrument",
           "ListPositions",
@@ -606,7 +621,9 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [
           "ResolveInstrument",
           "ListPositions",
@@ -650,7 +667,9 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [],
         "hears": []
       }
@@ -682,7 +701,9 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [],
         "hears": []
       }
@@ -714,7 +735,9 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [],
+        "publishes": [
+          "SetPluginSettings"
+        ],
         "reads": [],
         "hears": []
       }
@@ -1166,7 +1189,19 @@
       "topic": "platform.config.command.set-plugin-settings",
       "roles": {
         "publishes": [
-          "custody"
+          "ccm",
+          "compliance",
+          "custody",
+          "dgm",
+          "ems",
+          "match",
+          "oms",
+          "operations",
+          "portfolio",
+          "reporting",
+          "servicing",
+          "settlement",
+          "signal"
         ]
       },
       "stability": "preview"

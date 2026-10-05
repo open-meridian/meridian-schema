@@ -5205,7 +5205,7 @@
       "meaning": "each a setting the plugin declared and a value its declared type reads, checked against the declaration; from a plugin's page never a secret",
       "not_meaning": "the whole of the plugin's settings: a setting not named is left as it is",
       "filled": "entered",
-      "filled_by": "custody",
+      "filled_by": "plugin",
       "since": "v14",
       "stability": "preview",
       "store": "conductor"
@@ -5218,7 +5218,7 @@
       "meaning": "each a setting the plugin declared; from a plugin's page never a secret",
       "not_meaning": "a value of empty text, which is a value",
       "filled": "entered",
-      "filled_by": "custody",
+      "filled_by": "plugin",
       "since": "v14",
       "stability": "preview",
       "store": "conductor"
@@ -5231,7 +5231,7 @@
       "meaning": "the name the plugin declared it under (W4.8)",
       "not_meaning": "what a person reads, which the declaration's label is",
       "filled": "entered",
-      "filled_by": "custody",
+      "filled_by": "plugin",
       "since": "v14",
       "stability": "preview",
       "store": "conductor"
@@ -5244,7 +5244,7 @@
       "meaning": "the value as text, read by the setting's declared type: digits for an integer, true or false for a boolean, one of the choices for a choice",
       "not_meaning": "a secret's value, which a plugin's page never sends and no record carries",
       "filled": "entered",
-      "filled_by": "custody",
+      "filled_by": "plugin",
       "since": "v14",
       "stability": "preview",
       "store": "conductor"
