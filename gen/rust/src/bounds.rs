@@ -271,3 +271,6 @@ pub const CUSTODIAL_ACTIVITY_PROVENANCE_COUNT: Count = Count { least: 0, most: 3
 
 /// meridian.v1.ListActivitiesRequest.page_size: bounds a page
 pub const LIST_ACTIVITIES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ListSyncStatusesRequest.page_size: bounds a page
+pub const LIST_SYNC_STATUSES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };

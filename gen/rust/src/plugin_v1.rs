@@ -468,6 +468,36 @@ pub struct ListActivitiesResult {
     #[prost(string, tag = "4")]
     pub history_from: ::prost::alloc::string::String,
 }
+/// Read the latest sync status of each account in scope, or those recorded
+/// since a watermark (W2.14), paged.
+/// The params of ListSyncStatuses: meridian.v1.ListSyncStatusesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListSyncStatusesParams {
+    /// Empty: every account in the reader's scope.
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// Only sync statuses recorded after it, every one in the order recorded;
+    /// unset, the latest per account.
+    #[prost(message, optional, tag = "2")]
+    pub since: ::core::option::Option<Watermark>,
+    #[prost(int32, tag = "3")]
+    pub page_size: i32,
+    /// Opaque: the previous reply's `next_cursor`, or empty for the first page.
+    #[prost(string, tag = "4")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListSyncStatuses: meridian.v1.ListSyncStatusesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListSyncStatusesResult {
+    /// Each as it was announced (W2.13).
+    #[prost(message, repeated, tag = "1")]
+    pub statuses: ::prost::alloc::vec::Vec<SyncStatusRecordedEvent>,
+    #[prost(string, tag = "2")]
+    pub next_cursor: ::prost::alloc::string::String,
+    /// The point in the store's record the page was read at.
+    #[prost(message, optional, tag = "3")]
+    pub as_of: ::core::option::Option<Watermark>,
+}
 /// Reverse resolution: identifiers to an instrument, as of a date.
 /// The params of ResolveIdentifier: meridian.v1.ResolveIdentifierRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1164,7 +1194,7 @@ pub struct ReceiveRequest {
 pub struct Delivery {
     #[prost(message, optional, tag = "1")]
     pub meta: ::core::option::Option<DeliveryMeta>,
-    #[prost(oneof = "delivery::Item", tags = "2, 16, 17, 18, 19, 20, 21, 22")]
+    #[prost(oneof = "delivery::Item", tags = "2, 16, 17, 18, 19, 20, 21, 22, 23")]
     pub item: ::core::option::Option<delivery::Item>,
 }
 /// Nested message and enum types in `Delivery`.
@@ -1196,6 +1226,9 @@ pub mod delivery {
         /// W2.12: platform.street.event.activity-recorded.
         #[prost(message, tag = "22")]
         ActivityRecorded(super::ActivityRecordedEvent),
+        /// W2.13: platform.street.event.sync-status-recorded.
+        #[prost(message, tag = "23")]
+        SyncStatusRecorded(super::SyncStatusRecordedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -1854,6 +1887,82 @@ pub struct ActivityRecordedEvent {
     pub journal: ::core::option::Option<JournalRef>,
     #[prost(message, optional, tag = "8")]
     pub cause: ::core::option::Option<ChangeCause>,
+}
+/// A sync status was recorded (W2.13): the street heard a custody plugin's
+/// sync status (W2.1) and kept it, so operations tells a connection that needs
+/// a person to sign in again apart from data that is merely old. The whole
+/// record; also each item of a read (W2.14), as it was announced.
+/// A mirror of meridian.v1.SyncStatusRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SyncStatusRecordedEvent {
+    /// As the custody plugin published it, its account as the sidecar stamped
+    /// it: empty when the external account is not linked, and then delivered to
+    /// no plugin.
+    #[prost(message, optional, tag = "1")]
+    pub status: ::core::option::Option<SyncStatusEvent>,
+    #[prost(int64, tag = "2")]
+    pub recorded_at_ns: i64,
+    /// The record's number in the street's partition, chained per account with
+    /// the sync statuses before it, and who caused it (W2.13, W4.3).
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "4")]
+    pub cause: ::core::option::Option<ChangeCause>,
+}
+/// How fresh a connected account's data is, as reported by the rail.
+///
+/// And why, when it is not current. Published so an operator can tell stale
+/// data from absent data, which look identical on a holdings screen and mean
+/// completely different things. And "unhealthy" alone cannot say whose fix it
+/// is: a connection that needs a person to sign in again, one somebody
+/// disabled, and one that is a day late by design look the same as a flag and
+/// ask for three different things.
+/// A mirror of meridian.v1.SyncStatusEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SyncStatusEvent {
+    #[prost(string, tag = "1")]
+    pub source: ::prost::alloc::string::String,
+    /// The account the external account is linked to (W6.4), set by the sidecar.
+    /// Empty when it is not linked.
+    #[prost(string, tag = "2")]
+    pub account_id: ::prost::alloc::string::String,
+    /// When the rail last successfully synced this account from the institution.
+    /// Not when the data is as of: a venue a day late by design syncs today what
+    /// was true yesterday, which the two fields below say.
+    #[prost(int64, tag = "3")]
+    pub last_synced_at_ns: i64,
+    /// Whether the rail currently considers the connection healthy. A false here
+    /// with a recent last_synced_at_ns means the data is good but the connection
+    /// has since broken. `state` says why.
+    #[prost(bool, tag = "4")]
+    pub connection_healthy: bool,
+    /// Rail-supplied text, for whatever `state` does not say. Diagnostic only;
+    /// nothing branches on it.
+    #[prost(string, tag = "5")]
+    pub status_detail: ::prost::alloc::string::String,
+    #[prost(int64, tag = "6")]
+    pub observed_at_ns: i64,
+    /// The account as the rail knows it, which the sidecar translates.
+    #[prost(string, tag = "7")]
+    pub external_account_id: ::prost::alloc::string::String,
+    /// Whether the data is current, and if not, why: which is also whose fix it
+    /// is and what the dashboard tells a deployment admin to do.
+    #[prost(enumeration = "SyncState", tag = "8")]
+    pub state: i32,
+    /// When the holdings the rail serves are as of, and when the history
+    /// (transactions) is. Separately, because venues keep them apart and a
+    /// connection can have one current and the other not: SnapTrade reports
+    /// holdings to the minute and transactions by the day. Zero where the rail
+    /// does not say.
+    #[prost(int64, tag = "9")]
+    pub holdings_as_of_ns: i64,
+    #[prost(int64, tag = "10")]
+    pub history_as_of_ns: i64,
+    /// The first date the source can read the account's activity from, ISO
+    /// 8601 (contract v14, W2.10): how far back a backfill reaches, beside how
+    /// fresh the history is. Empty where the source does not say.
+    #[prost(string, tag = "11")]
+    pub history_from: ::prost::alloc::string::String,
 }
 /// The canonical instrument record.
 ///
@@ -4307,6 +4416,36 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W2.14: platform.street.query.list-sync-statuses (query; preview).
+        pub async fn list_sync_statuses(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListSyncStatusesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListSyncStatusesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListSyncStatuses",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListSyncStatuses",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W3.1: platform.reference.query.resolve-identifier (query; stable).
         pub async fn resolve_identifier(
             &mut self,
@@ -4873,6 +5012,14 @@ pub mod plugin_operations_server {
             request: tonic::Request<super::ListActivitiesParams>,
         ) -> std::result::Result<
             tonic::Response<super::ListActivitiesResult>,
+            tonic::Status,
+        >;
+        /// W2.14: platform.street.query.list-sync-statuses (query; preview).
+        async fn list_sync_statuses(
+            &self,
+            request: tonic::Request<super::ListSyncStatusesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListSyncStatusesResult>,
             tonic::Status,
         >;
         /// W3.1: platform.reference.query.resolve-identifier (query; stable).
@@ -5450,6 +5597,52 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListActivitiesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListSyncStatuses" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListSyncStatusesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListSyncStatusesParams>
+                    for ListSyncStatusesSvc<T> {
+                        type Response = super::ListSyncStatusesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListSyncStatusesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_sync_statuses(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListSyncStatusesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -489,6 +489,7 @@
           "ListCustodialPositions",
           "ListStatements",
           "ListActivities",
+          "ListSyncStatuses",
           "ResolveInstrument",
           "ListPositions",
           "ListBreaks",
@@ -499,6 +500,7 @@
           "StatementRecorded",
           "CustodialPositionUpdated",
           "ActivityRecorded",
+          "SyncStatusRecorded",
           "PositionChanged",
           "BreakChanged",
           "AccountFiguresRecorded",
@@ -940,6 +942,19 @@
       "stability": "stable"
     },
     {
+      "name": "ListSyncStatuses",
+      "step": "W2.14",
+      "title": "Read an account's sync status",
+      "kind": "query",
+      "topic": "platform.street.query.list-sync-statuses",
+      "roles": {
+        "reads": [
+          "operations"
+        ]
+      },
+      "stability": "preview"
+    },
+    {
       "name": "PositionChanged",
       "step": "W9.8",
       "title": "Journal each act and publish its changes",
@@ -1154,6 +1169,19 @@
         ]
       },
       "stability": "stable"
+    },
+    {
+      "name": "SyncStatusRecorded",
+      "step": "W2.13",
+      "title": "Publish that a sync status was recorded",
+      "kind": "event",
+      "topic": "platform.street.event.sync-status-recorded",
+      "roles": {
+        "hears": [
+          "operations"
+        ]
+      },
+      "stability": "preview"
     }
   ],
   "every_plugin": [
@@ -1565,9 +1593,21 @@
           "row": "ListActivities",
           "as": "reads",
           "granted": "v14"
+        },
+        {
+          "role": "operations",
+          "row": "SyncStatusRecorded",
+          "as": "hears",
+          "granted": "v14"
+        },
+        {
+          "role": "operations",
+          "row": "ListSyncStatuses",
+          "as": "reads",
+          "granted": "v14"
         }
       ],
-      "available": "The street's statements and positions at v7; the book at v8, its opening balance refused from v9 until every required field is supplied; from v14 the custodian's activity, which explains a break and proposes its adjustment for a person to confirm."
+      "available": "The street's statements and positions at v7; the book at v8, its opening balance refused from v9 until every required field is supplied; from v14 the custodian's activity, which explains a break and proposes its adjustment for a person to confirm, and each connection's sync status, so a connection needing a person to sign in again is told apart from data merely old."
     },
     {
       "request": "Post-trade compliance alerts",

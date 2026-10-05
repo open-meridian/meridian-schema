@@ -30,6 +30,8 @@ service PluginOperations {
   rpc RecordActivity(RecordActivityParams) returns (RecordActivityResult);
   // W2.11: platform.street.query.list-activities (query; preview).
   rpc ListActivities(ListActivitiesParams) returns (ListActivitiesResult);
+  // W2.14: platform.street.query.list-sync-statuses (query; preview).
+  rpc ListSyncStatuses(ListSyncStatusesParams) returns (ListSyncStatusesResult);
   // W3.1: platform.reference.query.resolve-identifier (query; stable).
   rpc ResolveIdentifier(ResolveIdentifierParams) returns (ResolveIdentifierResult);
   // W3.2: platform.reference.event.instrument-missing (event; stable).
@@ -538,6 +540,34 @@ message ListActivitiesResult {
   // has no activity to explain it. Empty where the request names no account
   // or the source has not said.
   string history_from = 4;
+}
+
+// Read the latest sync status of each account in scope, or those recorded
+// since a watermark (W2.14), paged.
+// The params of ListSyncStatuses: meridian.v1.ListSyncStatusesRequest, less what the sidecar sets.
+message ListSyncStatusesParams {
+  // Empty: every account in the reader's scope.
+  string account_id = 1;
+
+  // Only sync statuses recorded after it, every one in the order recorded;
+  // unset, the latest per account.
+  Watermark since = 2;
+
+  int32 page_size = 3;
+
+  // Opaque: the previous reply's `next_cursor`, or empty for the first page.
+  string cursor = 4;
+}
+
+// The result of ListSyncStatuses: meridian.v1.ListSyncStatusesReply.
+message ListSyncStatusesResult {
+  // Each as it was announced (W2.13).
+  repeated SyncStatusRecordedEvent statuses = 1;
+
+  string next_cursor = 2;
+
+  // The point in the store's record the page was read at.
+  Watermark as_of = 3;
 }
 
 // Reverse resolution: identifiers to an instrument, as of a date.
@@ -1219,6 +1249,8 @@ message Delivery {
     AccountAttributeChangedEvent account_attribute_changed = 21;
     // W2.12: platform.street.event.activity-recorded.
     ActivityRecordedEvent activity_recorded = 22;
+    // W2.13: platform.street.event.sync-status-recorded.
+    SyncStatusRecordedEvent sync_status_recorded = 23;
   }
 }
 
@@ -2027,6 +2059,80 @@ message ActivityRecordedEvent {
   JournalRef journal = 7;
 
   ChangeCause cause = 8;
+}
+
+// A sync status was recorded (W2.13): the street heard a custody plugin's
+// sync status (W2.1) and kept it, so operations tells a connection that needs
+// a person to sign in again apart from data that is merely old. The whole
+// record; also each item of a read (W2.14), as it was announced.
+// A mirror of meridian.v1.SyncStatusRecordedEvent.
+message SyncStatusRecordedEvent {
+  // As the custody plugin published it, its account as the sidecar stamped
+  // it: empty when the external account is not linked, and then delivered to
+  // no plugin.
+  SyncStatusEvent status = 1;
+
+  int64 recorded_at_ns = 2;
+
+  // The record's number in the street's partition, chained per account with
+  // the sync statuses before it, and who caused it (W2.13, W4.3).
+  JournalRef journal = 3;
+
+  ChangeCause cause = 4;
+}
+
+// How fresh a connected account's data is, as reported by the rail.
+//
+// And why, when it is not current. Published so an operator can tell stale
+// data from absent data, which look identical on a holdings screen and mean
+// completely different things. And "unhealthy" alone cannot say whose fix it
+// is: a connection that needs a person to sign in again, one somebody
+// disabled, and one that is a day late by design look the same as a flag and
+// ask for three different things.
+// A mirror of meridian.v1.SyncStatusEvent.
+message SyncStatusEvent {
+  string source = 1;
+
+  // The account the external account is linked to (W6.4), set by the sidecar.
+  // Empty when it is not linked.
+  string account_id = 2;
+
+  // When the rail last successfully synced this account from the institution.
+  // Not when the data is as of: a venue a day late by design syncs today what
+  // was true yesterday, which the two fields below say.
+  int64 last_synced_at_ns = 3;
+
+  // Whether the rail currently considers the connection healthy. A false here
+  // with a recent last_synced_at_ns means the data is good but the connection
+  // has since broken. `state` says why.
+  bool connection_healthy = 4;
+
+  // Rail-supplied text, for whatever `state` does not say. Diagnostic only;
+  // nothing branches on it.
+  string status_detail = 5;
+
+  int64 observed_at_ns = 6;
+
+  // The account as the rail knows it, which the sidecar translates.
+  string external_account_id = 7;
+
+  // Whether the data is current, and if not, why: which is also whose fix it
+  // is and what the dashboard tells a deployment admin to do.
+  SyncState state = 8;
+
+  // When the holdings the rail serves are as of, and when the history
+  // (transactions) is. Separately, because venues keep them apart and a
+  // connection can have one current and the other not: SnapTrade reports
+  // holdings to the minute and transactions by the day. Zero where the rail
+  // does not say.
+  int64 holdings_as_of_ns = 9;
+
+  int64 history_as_of_ns = 10;
+
+  // The first date the source can read the account's activity from, ISO
+  // 8601 (contract v14, W2.10): how far back a backfill reaches, beside how
+  // fresh the history is. Empty where the source does not say.
+  string history_from = 11;
 }
 
 // The kind of claim holding an instrument gives. A closed list, ruled by the
