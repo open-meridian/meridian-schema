@@ -60,9 +60,7 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [],
         "hears": []
       }
@@ -116,9 +114,7 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [
           "ResolveInstrument",
           "ListPositions",
@@ -238,8 +234,7 @@
           "RecordHolding",
           "RecordActivity",
           "ReportMissingInstrument",
-          "LinkExternalAccount",
-          "SetPluginSettings"
+          "LinkExternalAccount"
         ],
         "reads": [
           "ResolveIdentifier",
@@ -281,9 +276,7 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [],
         "hears": []
       }
@@ -334,9 +327,7 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [],
         "hears": []
       }
@@ -374,9 +365,7 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [],
         "hears": []
       }
@@ -429,9 +418,7 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [
           "ResolveInstrument",
           "ListPositions",
@@ -490,7 +477,6 @@
       "edge": false,
       "scope": {
         "publishes": [
-          "SetPluginSettings",
           "RecordOpeningBalance",
           "RecordBreak",
           "RecordAccountFigures",
@@ -561,9 +547,7 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [
           "ResolveInstrument",
           "ListPositions",
@@ -621,9 +605,7 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [
           "ResolveInstrument",
           "ListPositions",
@@ -667,9 +649,7 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [],
         "hears": []
       }
@@ -701,9 +681,7 @@
       ],
       "edge": true,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [],
         "hears": []
       }
@@ -735,9 +713,7 @@
       ],
       "edge": false,
       "scope": {
-        "publishes": [
-          "SetPluginSettings"
-        ],
+        "publishes": [],
         "reads": [],
         "hears": []
       }
@@ -1180,31 +1156,6 @@
         ]
       },
       "stability": "stable"
-    },
-    {
-      "name": "SetPluginSettings",
-      "step": "W6.11",
-      "title": "Set a plugin's settings",
-      "kind": "command",
-      "topic": "platform.config.command.set-plugin-settings",
-      "roles": {
-        "publishes": [
-          "ccm",
-          "compliance",
-          "custody",
-          "dgm",
-          "ems",
-          "match",
-          "oms",
-          "operations",
-          "portfolio",
-          "reporting",
-          "servicing",
-          "settlement",
-          "signal"
-        ]
-      },
-      "stability": "preview"
     },
     {
       "name": "StatementRecorded",

@@ -236,6 +236,41 @@ pub struct SettingDeclaration {
     /// (`meridian up --development`), and never on one installed otherwise.
     #[prost(bool, tag = "11")]
     pub developer: bool,
+    /// For SETTING_TYPE_TABLE (contract v14): the columns, in the order shown.
+    /// The value is JSON text, a list of rows, each an object of its cells keyed
+    /// by column name, every cell text, with `changed_by` and `changed_at` (RFC
+    /// 3339, UTC), which the conductor stamps on a row added or changed; an
+    /// unchanged row keeps its own. An admin of the plugin enters the rows in
+    /// the dashboard's Settings form, which shows them as an editable table;
+    /// the plugin only reads them.
+    #[prost(message, repeated, tag = "12")]
+    pub columns: ::prost::alloc::vec::Vec<SettingColumn>,
+    /// For SETTING_TYPE_TABLE: the most rows it holds; 0 for 500, the most any
+    /// table holds.
+    #[prost(int32, tag = "13")]
+    pub most_rows: i32,
+}
+/// One column of a table setting (contract v14).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettingColumn {
+    /// The key each row's cell is held under. Never `changed_by` or
+    /// `changed_at`, which the conductor stamps.
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// The column's heading in the form; the name when empty.
+    #[prost(string, tag = "2")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(enumeration = "SettingColumnType", tag = "3")]
+    pub r#type: i32,
+    /// A row leaving this cell empty is refused, naming the cell.
+    #[prost(bool, tag = "4")]
+    pub required: bool,
+    /// Shown beside the heading.
+    #[prost(string, tag = "5")]
+    pub description: ::prost::alloc::string::String,
+    /// For SETTING_COLUMN_TYPE_CHOICE: the options, in the order shown.
+    #[prost(message, repeated, tag = "6")]
+    pub choices: ::prost::alloc::vec::Vec<SettingChoice>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SettingChoice {
@@ -911,6 +946,58 @@ impl AccessLevel {
         }
     }
 }
+/// What a table setting's column holds (contract v14). Every cell travels as
+/// text in the row's JSON.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SettingColumnType {
+    Unspecified = 0,
+    Text = 1,
+    Integer = 2,
+    /// An exact decimal, written as text, at most 18 places.
+    Decimal = 3,
+    /// YYYY-MM-DD.
+    Date = 4,
+    /// One of the column's choices, held as its value.
+    Choice = 5,
+    /// An external account this plugin reported, by its identifier.
+    ExternalAccount = 6,
+    /// A deployment instrument record's ID, picked by search and checked to
+    /// exist; never a symbol.
+    Instrument = 7,
+}
+impl SettingColumnType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SETTING_COLUMN_TYPE_UNSPECIFIED",
+            Self::Text => "SETTING_COLUMN_TYPE_TEXT",
+            Self::Integer => "SETTING_COLUMN_TYPE_INTEGER",
+            Self::Decimal => "SETTING_COLUMN_TYPE_DECIMAL",
+            Self::Date => "SETTING_COLUMN_TYPE_DATE",
+            Self::Choice => "SETTING_COLUMN_TYPE_CHOICE",
+            Self::ExternalAccount => "SETTING_COLUMN_TYPE_EXTERNAL_ACCOUNT",
+            Self::Instrument => "SETTING_COLUMN_TYPE_INSTRUMENT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SETTING_COLUMN_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "SETTING_COLUMN_TYPE_TEXT" => Some(Self::Text),
+            "SETTING_COLUMN_TYPE_INTEGER" => Some(Self::Integer),
+            "SETTING_COLUMN_TYPE_DECIMAL" => Some(Self::Decimal),
+            "SETTING_COLUMN_TYPE_DATE" => Some(Self::Date),
+            "SETTING_COLUMN_TYPE_CHOICE" => Some(Self::Choice),
+            "SETTING_COLUMN_TYPE_EXTERNAL_ACCOUNT" => Some(Self::ExternalAccount),
+            "SETTING_COLUMN_TYPE_INSTRUMENT" => Some(Self::Instrument),
+            _ => None,
+        }
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum SettingType {
@@ -920,6 +1007,8 @@ pub enum SettingType {
     Boolean = 3,
     /// One of the declared choices, held as its value.
     Choice = 4,
+    /// Rows of the declared columns, held as JSON text (contract v14).
+    Table = 5,
 }
 impl SettingType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -933,6 +1022,7 @@ impl SettingType {
             Self::Integer => "SETTING_TYPE_INTEGER",
             Self::Boolean => "SETTING_TYPE_BOOLEAN",
             Self::Choice => "SETTING_TYPE_CHOICE",
+            Self::Table => "SETTING_TYPE_TABLE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -943,6 +1033,7 @@ impl SettingType {
             "SETTING_TYPE_INTEGER" => Some(Self::Integer),
             "SETTING_TYPE_BOOLEAN" => Some(Self::Boolean),
             "SETTING_TYPE_CHOICE" => Some(Self::Choice),
+            "SETTING_TYPE_TABLE" => Some(Self::Table),
             _ => None,
         }
     }

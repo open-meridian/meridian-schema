@@ -42,8 +42,6 @@ service PluginOperations {
   rpc LinkExternalAccount(LinkExternalAccountParams) returns (LinkExternalAccountResult);
   // W6.4: platform.config.query.accounts (query; stable).
   rpc ReadAccountsForLinking(ReadAccountsForLinkingParams) returns (ReadAccountsForLinkingResult);
-  // W6.11: platform.config.command.set-plugin-settings (command; preview).
-  rpc SetPluginSettings(SetPluginSettingsParams) returns (SetPluginSettingsResult);
   // W9.1: platform.book.command.record-opening-balance (command; stable).
   rpc RecordOpeningBalance(RecordOpeningBalanceParams) returns (RecordOpeningBalanceResult);
   // W9.4: platform.book.command.record-break (command; stable).
@@ -745,55 +743,6 @@ message ReadAccountsForLinkingResult {
   // Each account's identifier, name, state, custodian, type, owner and note;
   // no holdings.
   repeated AccountRecord accounts = 1;
-}
-
-// Sets or clears a plugin's settings, for an admin of the plugin.
-// Sent by the dashboard from the plugin's Settings form, or by the plugin from
-// one of its own pages at admin, acting for the admin viewing it in a session
-// opened by Manage (W6.11, W4.9), its sidecar stamping plugin_instance_id. A
-// plugin's page never names a secret.
-// The params of SetPluginSettings: meridian.v1.SetPluginSettingsRequest, less what the sidecar sets.
-message SetPluginSettingsParams {
-  // Set or replace these.
-  repeated PluginSettingValue values = 2;
-
-  // Remove these.
-  repeated string cleared = 3;
-
-  // Set by the sidecar, never by a plugin (stamped.tsv).
-  reserved 1;
-  reserved "plugin_instance_id";
-
-  // W4.9: the person this is sent for, as the assertion the plugin was
-  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
-  // acts as itself. Set, the sidecar admits a command on an account only
-  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
-  // account it names, and stamps them on it; one to the deployment's
-  // configuration (platform.config) only in a session at
-  // ACCESS_LEVEL_ADMIN, and never without.
-  meridian.v1.CallerAssertion acting_for = 1000;
-}
-
-// What the dashboard may show. A secret's value is never here, only that it
-// is set.
-// The result of SetPluginSettings: meridian.v1.PluginSettingsRecord.
-message SetPluginSettingsResult {
-  string plugin_instance_id = 1;
-
-  repeated PluginSettingValue values = 2;
-
-  repeated string secrets_set = 3;
-
-  int64 updated_at_ns = 4;
-
-  // What the plugin declared when it last registered (W4.8), which the form
-  // is built from and every value is checked against.
-  repeated SettingDeclaration declared_settings = 5;
-
-  // Who changed a setting at updated_at_ns: the deployment-local subject of
-  // the admin the dashboard or the plugin's sidecar stamped, from the form
-  // and the plugin's page alike (W6.11). Empty while nothing is set.
-  string updated_by = 6;
 }
 
 // The params of RecordOpeningBalance: meridian.v1.RecordOpeningBalanceRequest, less what the sidecar sets.
@@ -2520,90 +2469,6 @@ enum AccountState {
   ACCOUNT_STATE_OPEN = 1;
   // Closed, not deleted: an account is the subject of records that outlive it.
   ACCOUNT_STATE_CLOSED = 2;
-}
-
-// A mirror of meridian.v1.PluginSettingValue.
-message PluginSettingValue {
-  string name = 1;
-
-  string value = 2;
-}
-
-// One setting the plugin needs.
-// A mirror of meridian.v1.SettingDeclaration.
-message SettingDeclaration {
-  string name = 1;
-
-  SettingType type = 2;
-
-  // A plugin missing a required setting stays registered and reports itself
-  // not healthy with that reason until it arrives (W4.7).
-  bool required = 3;
-
-  // Write-only: set or replaced through the dashboard, never read back,
-  // displayed, logged, reported or bundled.
-  bool secret = 4;
-
-  // Shown beside the field in the dashboard.
-  string description = 5;
-
-  // What the dashboard's form calls the setting, such as "Client ID"; the
-  // name when empty.
-  string label = 6;
-
-  // The value the plugin uses while none is set, written as the form would
-  // take it. Shown greyed in the empty field; never stored as a setting's
-  // value. Never declared for a secret.
-  string default_value = 7;
-
-  // The unit a number is in, such as "seconds" or "hours", shown beside the
-  // field.
-  string unit = 8;
-
-  // For SETTING_TYPE_CHOICE: the options, in the order shown, of which one is
-  // chosen. A value not among them is refused.
-  repeated SettingChoice choices = 9;
-
-  // Unset: the setting always applies. Set: it applies only while another
-  // setting holds one of the values named, and is shown, and required when
-  // `required`, only then.
-  SettingCondition applies_when = 10;
-
-  // For whoever develops the plugin, such as serving built-in data instead of
-  // calling the venue: the form shows it only on a development deployment
-  // (`meridian up --development`), and never on one installed otherwise.
-  bool developer = 11;
-}
-
-// A mirror of meridian.v1.SettingType.
-enum SettingType {
-  SETTING_TYPE_UNSPECIFIED = 0;
-  SETTING_TYPE_STRING = 1;
-  SETTING_TYPE_INTEGER = 2;
-  SETTING_TYPE_BOOLEAN = 3;
-  // One of the declared choices, held as its value.
-  SETTING_TYPE_CHOICE = 4;
-}
-
-// A mirror of meridian.v1.SettingChoice.
-message SettingChoice {
-  // What the setting holds when this is chosen.
-  string value = 1;
-
-  // What the form shows, such as "Personal key".
-  string label = 2;
-
-  // Shown beside the option.
-  string description = 3;
-}
-
-// A mirror of meridian.v1.SettingCondition.
-message SettingCondition {
-  // Another setting the same plugin declares, which comes before this one.
-  string setting = 1;
-
-  // The values of that setting under which this one applies.
-  repeated string one_of = 2;
 }
 
 // A mirror of meridian.v1.OpeningSource.

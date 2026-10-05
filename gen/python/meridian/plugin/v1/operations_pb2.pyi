@@ -155,14 +155,6 @@ class AccountState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ACCOUNT_STATE_OPEN: _ClassVar[AccountState]
     ACCOUNT_STATE_CLOSED: _ClassVar[AccountState]
 
-class SettingType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    SETTING_TYPE_UNSPECIFIED: _ClassVar[SettingType]
-    SETTING_TYPE_STRING: _ClassVar[SettingType]
-    SETTING_TYPE_INTEGER: _ClassVar[SettingType]
-    SETTING_TYPE_BOOLEAN: _ClassVar[SettingType]
-    SETTING_TYPE_CHOICE: _ClassVar[SettingType]
-
 class OpeningSourceKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     OPENING_SOURCE_KIND_UNSPECIFIED: _ClassVar[OpeningSourceKind]
@@ -326,11 +318,6 @@ LIQUIDITY_FEE_REGIME_NONE: LiquidityFeeRegime
 ACCOUNT_STATE_UNSPECIFIED: AccountState
 ACCOUNT_STATE_OPEN: AccountState
 ACCOUNT_STATE_CLOSED: AccountState
-SETTING_TYPE_UNSPECIFIED: SettingType
-SETTING_TYPE_STRING: SettingType
-SETTING_TYPE_INTEGER: SettingType
-SETTING_TYPE_BOOLEAN: SettingType
-SETTING_TYPE_CHOICE: SettingType
 OPENING_SOURCE_KIND_UNSPECIFIED: OpeningSourceKind
 OPENING_SOURCE_KIND_CUSTODIAN: OpeningSourceKind
 OPENING_SOURCE_KIND_PRIOR_SYSTEM: OpeningSourceKind
@@ -740,32 +727,6 @@ class ReadAccountsForLinkingResult(_message.Message):
     ACCOUNTS_FIELD_NUMBER: _ClassVar[int]
     accounts: _containers.RepeatedCompositeFieldContainer[AccountRecord]
     def __init__(self, accounts: _Optional[_Iterable[_Union[AccountRecord, _Mapping]]] = ...) -> None: ...
-
-class SetPluginSettingsParams(_message.Message):
-    __slots__ = ("values", "cleared", "acting_for")
-    VALUES_FIELD_NUMBER: _ClassVar[int]
-    CLEARED_FIELD_NUMBER: _ClassVar[int]
-    ACTING_FOR_FIELD_NUMBER: _ClassVar[int]
-    values: _containers.RepeatedCompositeFieldContainer[PluginSettingValue]
-    cleared: _containers.RepeatedScalarFieldContainer[str]
-    acting_for: _sidecar_pb2.CallerAssertion
-    def __init__(self, values: _Optional[_Iterable[_Union[PluginSettingValue, _Mapping]]] = ..., cleared: _Optional[_Iterable[str]] = ..., acting_for: _Optional[_Union[_sidecar_pb2.CallerAssertion, _Mapping]] = ...) -> None: ...
-
-class SetPluginSettingsResult(_message.Message):
-    __slots__ = ("plugin_instance_id", "values", "secrets_set", "updated_at_ns", "declared_settings", "updated_by")
-    PLUGIN_INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
-    VALUES_FIELD_NUMBER: _ClassVar[int]
-    SECRETS_SET_FIELD_NUMBER: _ClassVar[int]
-    UPDATED_AT_NS_FIELD_NUMBER: _ClassVar[int]
-    DECLARED_SETTINGS_FIELD_NUMBER: _ClassVar[int]
-    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
-    plugin_instance_id: str
-    values: _containers.RepeatedCompositeFieldContainer[PluginSettingValue]
-    secrets_set: _containers.RepeatedScalarFieldContainer[str]
-    updated_at_ns: int
-    declared_settings: _containers.RepeatedCompositeFieldContainer[SettingDeclaration]
-    updated_by: str
-    def __init__(self, plugin_instance_id: _Optional[str] = ..., values: _Optional[_Iterable[_Union[PluginSettingValue, _Mapping]]] = ..., secrets_set: _Optional[_Iterable[str]] = ..., updated_at_ns: _Optional[int] = ..., declared_settings: _Optional[_Iterable[_Union[SettingDeclaration, _Mapping]]] = ..., updated_by: _Optional[str] = ...) -> None: ...
 
 class RecordOpeningBalanceParams(_message.Message):
     __slots__ = ("account_id", "as_of_date", "sources", "positions", "reason", "replaces_entry_id", "idempotency_key", "acting_for")
@@ -1688,58 +1649,6 @@ class AccountRecord(_message.Message):
     owner: str
     note: str
     def __init__(self, account_id: _Optional[str] = ..., name: _Optional[str] = ..., state: _Optional[_Union[AccountState, str]] = ..., created_at_ns: _Optional[int] = ..., custodian: _Optional[str] = ..., account_type: _Optional[str] = ..., owner: _Optional[str] = ..., note: _Optional[str] = ...) -> None: ...
-
-class PluginSettingValue(_message.Message):
-    __slots__ = ("name", "value")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    value: str
-    def __init__(self, name: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-
-class SettingDeclaration(_message.Message):
-    __slots__ = ("name", "type", "required", "secret", "description", "label", "default_value", "unit", "choices", "applies_when", "developer")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    TYPE_FIELD_NUMBER: _ClassVar[int]
-    REQUIRED_FIELD_NUMBER: _ClassVar[int]
-    SECRET_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    LABEL_FIELD_NUMBER: _ClassVar[int]
-    DEFAULT_VALUE_FIELD_NUMBER: _ClassVar[int]
-    UNIT_FIELD_NUMBER: _ClassVar[int]
-    CHOICES_FIELD_NUMBER: _ClassVar[int]
-    APPLIES_WHEN_FIELD_NUMBER: _ClassVar[int]
-    DEVELOPER_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    type: SettingType
-    required: bool
-    secret: bool
-    description: str
-    label: str
-    default_value: str
-    unit: str
-    choices: _containers.RepeatedCompositeFieldContainer[SettingChoice]
-    applies_when: SettingCondition
-    developer: bool
-    def __init__(self, name: _Optional[str] = ..., type: _Optional[_Union[SettingType, str]] = ..., required: bool = ..., secret: bool = ..., description: _Optional[str] = ..., label: _Optional[str] = ..., default_value: _Optional[str] = ..., unit: _Optional[str] = ..., choices: _Optional[_Iterable[_Union[SettingChoice, _Mapping]]] = ..., applies_when: _Optional[_Union[SettingCondition, _Mapping]] = ..., developer: bool = ...) -> None: ...
-
-class SettingChoice(_message.Message):
-    __slots__ = ("value", "label", "description")
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    LABEL_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    value: str
-    label: str
-    description: str
-    def __init__(self, value: _Optional[str] = ..., label: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
-
-class SettingCondition(_message.Message):
-    __slots__ = ("setting", "one_of")
-    SETTING_FIELD_NUMBER: _ClassVar[int]
-    ONE_OF_FIELD_NUMBER: _ClassVar[int]
-    setting: str
-    one_of: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, setting: _Optional[str] = ..., one_of: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class OpeningSource(_message.Message):
     __slots__ = ("kind", "name", "as_of_date", "basis", "street_records")

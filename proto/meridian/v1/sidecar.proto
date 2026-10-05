@@ -341,6 +341,59 @@ message SettingDeclaration {
   // calling the venue: the form shows it only on a development deployment
   // (`meridian up --development`), and never on one installed otherwise.
   bool developer = 11;
+
+  // For SETTING_TYPE_TABLE (contract v14): the columns, in the order shown.
+  // The value is JSON text, a list of rows, each an object of its cells keyed
+  // by column name, every cell text, with `changed_by` and `changed_at` (RFC
+  // 3339, UTC), which the conductor stamps on a row added or changed; an
+  // unchanged row keeps its own. An admin of the plugin enters the rows in
+  // the dashboard's Settings form, which shows them as an editable table;
+  // the plugin only reads them.
+  repeated SettingColumn columns = 12;
+
+  // For SETTING_TYPE_TABLE: the most rows it holds; 0 for 500, the most any
+  // table holds.
+  int32 most_rows = 13;
+}
+
+// One column of a table setting (contract v14).
+message SettingColumn {
+  // The key each row's cell is held under. Never `changed_by` or
+  // `changed_at`, which the conductor stamps.
+  string name = 1;
+
+  // The column's heading in the form; the name when empty.
+  string label = 2;
+
+  SettingColumnType type = 3;
+
+  // A row leaving this cell empty is refused, naming the cell.
+  bool required = 4;
+
+  // Shown beside the heading.
+  string description = 5;
+
+  // For SETTING_COLUMN_TYPE_CHOICE: the options, in the order shown.
+  repeated SettingChoice choices = 6;
+}
+
+// What a table setting's column holds (contract v14). Every cell travels as
+// text in the row's JSON.
+enum SettingColumnType {
+  SETTING_COLUMN_TYPE_UNSPECIFIED = 0;
+  SETTING_COLUMN_TYPE_TEXT = 1;
+  SETTING_COLUMN_TYPE_INTEGER = 2;
+  // An exact decimal, written as text, at most 18 places.
+  SETTING_COLUMN_TYPE_DECIMAL = 3;
+  // YYYY-MM-DD.
+  SETTING_COLUMN_TYPE_DATE = 4;
+  // One of the column's choices, held as its value.
+  SETTING_COLUMN_TYPE_CHOICE = 5;
+  // An external account this plugin reported, by its identifier.
+  SETTING_COLUMN_TYPE_EXTERNAL_ACCOUNT = 6;
+  // A deployment instrument record's ID, picked by search and checked to
+  // exist; never a symbol.
+  SETTING_COLUMN_TYPE_INSTRUMENT = 7;
 }
 
 message SettingChoice {
@@ -370,6 +423,9 @@ enum SettingType {
 
   // One of the declared choices, held as its value.
   SETTING_TYPE_CHOICE = 4;
+
+  // Rows of the declared columns, held as JSON text (contract v14).
+  SETTING_TYPE_TABLE = 5;
 }
 
 message RegisterReply {
