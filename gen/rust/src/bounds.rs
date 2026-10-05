@@ -184,6 +184,10 @@ pub const NOT_CARRIED_NAME_LENGTH: Length = Length { least: 1, most: 128 };
 /// keeps a raw record
 pub const STORAGE_DECLARATION_RETENTION_DAYS_RANGE: Range = Range { least: 1, most: 36500, capped: false };
 
+/// meridian.v1.SettingDeclaration.most_rows: bounds how many rows a table
+/// setting holds
+pub const SETTING_DECLARATION_MOST_ROWS_RANGE: Range = Range { least: 0, most: 500, capped: false };
+
 /// meridian.v1.HeartbeatRequest.figures: reports the plugin's figures as they
 /// stand, in the order to draw them
 pub const HEARTBEAT_REQUEST_FIGURES_COUNT: Count = Count { least: 0, most: 8 };
