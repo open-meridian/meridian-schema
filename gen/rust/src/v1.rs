@@ -10,7 +10,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v13, and a plugin built from it declares "v13".
+    /// schema is contract v15, and a plugin built from it declares "v15".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -54,7 +54,8 @@ pub struct RegisterRequest {
 /// route: a call reaches the plugin as the request its route would receive
 /// from a page, at one of its levels, and is never wider than that page. A
 /// plugin names no parts of itself for access by it (decisions/026): consent
-/// and access stay per plugin and level.
+/// and access are per plugin, role and level, the roles the deployment's
+/// fixed list (contract v15; decisions/033).
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ToolDeclaration {
     /// Unique among the plugin's tools: 1 to 61 characters, lower-case
@@ -100,6 +101,18 @@ pub struct ToolDeclaration {
     /// 65,536 characters; empty for an act.
     #[prost(string, tag = "9")]
     pub output_schema: ::prost::alloc::string::String,
+    /// The roles the tool serves, from those the plugin was launched with; a
+    /// derived tool takes its route's (W4.1, contract v15). Listed on the
+    /// surface to a person holding one of its levels on one of these roles,
+    /// and a call opens at the highest such level the delegation covers
+    /// (W6.20). Empty on a plugin holding one role, where it serves that
+    /// role, and on a plugin holding none; refused empty from a plugin built
+    /// at v15 or later holding several. A tool naming a role the plugin was
+    /// not launched with is refused by name, the plugin admitted. It grants
+    /// nothing: the sidecar admits what a call sends by the role whose
+    /// generated grants include it (W4.9). At most 13.
+    #[prost(string, repeated, tag = "10")]
+    pub roles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// What a version declares beside its roles (W8.1, contract v11;
 /// spec/vendor-differences-have-a-place-in-the-contract, requirements 16, 19
@@ -190,6 +203,18 @@ pub struct PageDeclaration {
     /// registration, naming the page (W4.1, W4.8).
     #[prost(enumeration = "AccessLevel", repeated, tag = "3")]
     pub levels: ::prost::alloc::vec::Vec<i32>,
+    /// The roles the page serves, from those the plugin was launched with
+    /// (W4.1, contract v15). Its tab shows under a button when, for one of
+    /// these roles, the person's level within that button is one of the
+    /// page's levels, and a page serving several adapts per role (W6.9).
+    /// Empty on a plugin holding one role, where it serves that role, and on
+    /// a plugin holding none; refused empty from a plugin built at v15 or
+    /// later holding several, and read as every role from one built earlier.
+    /// A page naming a role the plugin was not launched with refuses the
+    /// plugin's registration, naming it and the plugin's roles. It decides
+    /// what is shown, never what is admitted (W4.9). At most 13.
+    #[prost(string, repeated, tag = "4")]
+    pub roles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// One setting the plugin needs.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -249,6 +274,17 @@ pub struct SettingDeclaration {
     /// table holds.
     #[prost(int32, tag = "13")]
     pub most_rows: i32,
+    /// The roles the setting serves, from those the plugin was launched with
+    /// (W4.1, W6.11, contract v15): shown to an admin of any of them, and set
+    /// only by a person holding admin on every one. Empty on a plugin holding
+    /// one role, where it serves that role, and on a plugin holding none;
+    /// refused empty from a plugin built at v15 or later holding several. A
+    /// setting naming a role the plugin was not launched with refuses the
+    /// plugin's registration. Not who may read the value: a secret is shown
+    /// back to nobody, and the plugin reads every setting it declared.
+    /// At most 13.
+    #[prost(string, repeated, tag = "14")]
+    pub roles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// One column of a table setting (contract v14).
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -573,15 +609,19 @@ pub struct CallerClaims {
     /// in the write set; under ACCESS_LEVEL_ADMIN the deployment's accounts
     /// read, answered with identities only, and the link, and nothing else;
     /// under ACCESS_LEVEL_READ nothing (W4.9). Absent means none: an assertion
-    /// naming no level holds nothing.
+    /// naming no level holds nothing. It is the session's button, not a role:
+    /// from contract v15 the person's level on each of the plugin's roles
+    /// within it is in `roles`, and the sidecar admits a command by the role
+    /// holding it.
     #[prost(enumeration = "AccessLevel", tag = "11")]
     pub level: i32,
-    /// The accounts the session reaches through this plugin, cut to `level`.
-    /// Under ACCESS_LEVEL_WRITE, the read set, every account the person may
-    /// read through their `read` and `write` grants, and the write set, the
-    /// accounts their `write` grants name; under ACCESS_LEVEL_READ, the read
-    /// set alone; under ACCESS_LEVEL_ADMIN, neither. Every write account is
-    /// also listed as read.
+    /// The accounts the session reaches through this plugin, cut to `level`,
+    /// the union over the session's roles. Under ACCESS_LEVEL_WRITE, the read
+    /// set, every account the person may read through their `read` and
+    /// `write` grants, and the write set, the accounts their `write` grants
+    /// name; under ACCESS_LEVEL_READ, the read set alone; under
+    /// ACCESS_LEVEL_ADMIN, neither. Every write account is also listed as
+    /// read.
     #[prost(string, repeated, tag = "9")]
     pub read_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag = "10")]
@@ -626,6 +666,51 @@ pub struct CallerClaims {
     /// it. Absent for every other request.
     #[prost(string, tag = "14")]
     pub tool_name: ::prost::alloc::string::String,
+    /// The person's level and accounts on each of the plugin's roles within
+    /// the session's button (W6.9, contract v15; decisions/033): one entry per
+    /// role they hold something on, under Manage each role they administer at
+    /// ACCESS_LEVEL_ADMIN with no account, under Open each role they hold a
+    /// data level on at that level, under View each at ACCESS_LEVEL_READ.
+    /// Nothing for a role they hold nothing on. The sidecar admits a command
+    /// sent for them by their `write` on a role whose generated grants include
+    /// it, the account among that role's write accounts (W4.9). Empty for a
+    /// plugin holding no role, and from a dashboard before v15: a sidecar then
+    /// reads `level` and the account sets as the one role's on a plugin
+    /// holding one, and refuses a command sent for the person on a plugin
+    /// holding several. At most 13.
+    #[prost(message, repeated, tag = "15")]
+    pub roles: ::prost::alloc::vec::Vec<RoleAccess>,
+}
+/// A level on one role of a plugin, and the accounts it reaches there
+/// (contract v15; decisions/033): in the claims, the person's within the
+/// session's button (W6.9); in the access table, a user group's or a
+/// person's data level (W4.10). Its accounts are positions in the carrying
+/// message's `read_account_ids`, never repeated, so a session's header
+/// carries as many accounts as before roles.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RoleAccess {
+    /// A role from the deployment's fixed list that the plugin was launched
+    /// with, never a part the plugin names for itself.
+    #[prost(string, tag = "1")]
+    pub role: ::prost::alloc::string::String,
+    /// In the claims, the level within the session's button; in the access
+    /// table, the data level held, read or write, never ACCESS_LEVEL_ADMIN.
+    /// Never unspecified.
+    #[prost(enumeration = "AccessLevel", tag = "2")]
+    pub level: i32,
+    /// The accounts this role reaches to read, as positions counted from 0 in
+    /// the carrying message's `read_account_ids`; every write account of the
+    /// role is among them. Empty under ACCESS_LEVEL_ADMIN, and where the role
+    /// reaches no account to read. At most 10,000.
+    #[prost(uint32, repeated, tag = "3")]
+    pub read_positions: ::prost::alloc::vec::Vec<u32>,
+    /// The accounts this role reaches to write, as positions in the same
+    /// `read_account_ids`, since every write account is a read account. A
+    /// command for the person in this role is admitted only on one of these.
+    /// Empty at read and admin, and where the role reaches no account to
+    /// write. At most 10,000.
+    #[prost(uint32, repeated, tag = "4")]
+    pub write_positions: ::prost::alloc::vec::Vec<u32>,
 }
 /// The sidecar knows which plugin is asking.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -644,7 +729,8 @@ pub struct PluginAccessReply {
 }
 /// For one user group, or one person: the accounts they may read and may
 /// write through this plugin. Write implies read, and every write account is
-/// also listed as read.
+/// also listed as read. The two sets are the union over the plugin's roles,
+/// what a plugin built before contract v15 reads; `roles` breaks them down.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UserGroupAccess {
     #[prost(string, tag = "1")]
@@ -655,6 +741,13 @@ pub struct UserGroupAccess {
     pub read_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag = "5")]
     pub write_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// One entry per role of this plugin the group holds a data level on, at
+    /// that level, its accounts as positions in the group's read accounts;
+    /// only this plugin's roles, and none for admin, which the table does not
+    /// list (W4.10, contract v15). Empty for a plugin holding no role, and
+    /// before v15. At most 13.
+    #[prost(message, repeated, tag = "6")]
+    pub roles: ::prost::alloc::vec::Vec<RoleAccess>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PersonAccess {
@@ -670,6 +763,13 @@ pub struct PersonAccess {
     pub read_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag = "7")]
     pub write_account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// One entry per role of this plugin the person holds a data level on
+    /// through their groups' grants, at that level, its accounts as positions
+    /// in the person's read accounts; only this plugin's roles, and none for
+    /// admin (W4.10, contract v15). Empty for a plugin holding no role, and
+    /// before v15. At most 13.
+    #[prost(message, repeated, tag = "8")]
+    pub roles: ::prost::alloc::vec::Vec<RoleAccess>,
 }
 /// The sidecar knows which plugin is asking.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -895,11 +995,12 @@ impl NotCarriedReason {
 }
 /// A person's level on a plugin, the same three for every plugin: a plugin
 /// names no parts of itself for access (W6.7; decisions/026, 027). An access
-/// group's entry names a plugin at one of them; a session is opened at one
-/// (W6.9); a page serves one or several (W4.8).
+/// group's entry names a plugin, one role it holds, and one of them (contract
+/// v15; decisions/033); a session is opened at one (W6.9); a page serves one
+/// or several (W4.8).
 ///
-/// A person may hold `admin` on a plugin and, independently, one data level,
-/// the higher one granted. The levels are agnostic of accounts: which
+/// A person may hold `admin` on a role of a plugin and, independently, one
+/// data level, the higher one granted. The levels are agnostic of accounts: which
 /// accounts `read` and `write` reach is decided by the account groups their
 /// grants name, and `admin` reaches none.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

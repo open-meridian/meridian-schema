@@ -8127,6 +8127,12 @@
     {
       "name": "meridian.v1.ToolDeclaration.roles",
       "type": "repeated text",
+      "bounds": {
+        "count": [
+          0,
+          13
+        ]
+      },
       "empty": "empty on a plugin holding one role, where it serves that role, and on a plugin holding none; refused empty from a plugin built at v15 or later holding several",
       "intent": "says which of the plugin's roles the tool serves",
       "meaning": "roles from the deployment's fixed list that the plugin was launched with, a derived tool taking its route's; listed to a person holding one of its levels on one of these roles, and a call opens at the highest such level the delegation covers",
@@ -8443,6 +8449,12 @@
     {
       "name": "meridian.v1.PageDeclaration.roles",
       "type": "repeated text",
+      "bounds": {
+        "count": [
+          0,
+          13
+        ]
+      },
       "empty": "empty on a plugin holding one role, where it serves that role, and on a plugin holding none; refused empty from a plugin built at v15 or later holding several, and read as every role from one built earlier",
       "intent": "says which of the plugin's roles the page serves",
       "meaning": "roles from the deployment's fixed list that the plugin was launched with; the page's tab shows under a button when, for one of these roles, the person's level within it is one of the page's levels, and a page serving several adapts per role",
@@ -8729,6 +8741,12 @@
     {
       "name": "meridian.v1.SettingDeclaration.roles",
       "type": "repeated text",
+      "bounds": {
+        "count": [
+          0,
+          13
+        ]
+      },
       "empty": "empty on a plugin holding one role, where it serves that role, and on a plugin holding none; refused empty from a plugin built at v15 or later holding several",
       "intent": "says which of the plugin's roles the setting serves",
       "meaning": "roles from the deployment's fixed list that the plugin was launched with; shown to an admin of any of them, and set only by a person holding admin on every one",
@@ -9559,6 +9577,12 @@
     {
       "name": "meridian.v1.CallerClaims.roles",
       "type": "repeated message RoleAccess",
+      "bounds": {
+        "count": [
+          0,
+          13
+        ]
+      },
       "empty": "empty for a plugin holding no role, and from a dashboard before v15: a sidecar then reads the level and account sets as the one role's on a plugin holding one, and refuses a command sent for the person on a plugin holding several",
       "intent": "carries the person's level and accounts on each of the plugin's roles within the session's button",
       "meaning": "one entry per role of the plugin the person holds something on within the button: under Manage each role they administer at admin with no account, under Open each role they hold a data level on at that level, under View each at read; the sidecar admits a command sent for them by their write on a role whose generated grants include it",
@@ -9617,6 +9641,12 @@
       "name": "meridian.v1.RoleAccess.read_positions",
       "type": "repeated integer",
       "unit": "positions, counted from 0, in the read accounts of the message carrying this entry",
+      "bounds": {
+        "count": [
+          0,
+          10000
+        ]
+      },
       "empty": "empty under admin, and where the role reaches no account to read",
       "intent": "names the accounts this role reaches to read, without repeating them",
       "meaning": "each a position in the carrying message's read_account_ids: the claims', a user group's or a person's; every write account of the role is among them",
@@ -9631,6 +9661,12 @@
       "name": "meridian.v1.RoleAccess.write_positions",
       "type": "repeated integer",
       "unit": "positions, counted from 0, in the read accounts of the message carrying this entry",
+      "bounds": {
+        "count": [
+          0,
+          10000
+        ]
+      },
       "empty": "empty at read and admin, and where the role reaches no account to write",
       "intent": "names the accounts this role reaches to write, without repeating them",
       "meaning": "each a position in the carrying message's read_account_ids, since every write account is a read account; a command for the person in this role is admitted only on one of these",
@@ -9722,6 +9758,12 @@
     {
       "name": "meridian.v1.UserGroupAccess.roles",
       "type": "repeated message RoleAccess",
+      "bounds": {
+        "count": [
+          0,
+          13
+        ]
+      },
       "empty": "empty for a plugin holding no role, and before v15",
       "intent": "breaks the group's access to the plugin down by role",
       "meaning": "one entry per role of this plugin the group holds a data level on, at that level, its accounts as positions in the group's read accounts; only this plugin's roles",
@@ -9814,6 +9856,12 @@
     {
       "name": "meridian.v1.PersonAccess.roles",
       "type": "repeated message RoleAccess",
+      "bounds": {
+        "count": [
+          0,
+          13
+        ]
+      },
       "empty": "empty for a plugin holding no role, and before v15",
       "intent": "breaks the person's access to the plugin down by role",
       "meaning": "one entry per role of this plugin the person holds a data level on through their groups' grants, at that level, its accounts as positions in the person's read accounts; only this plugin's roles",
