@@ -234,7 +234,8 @@
           "RecordHolding",
           "RecordActivity",
           "ReportMissingInstrument",
-          "LinkExternalAccount"
+          "LinkExternalAccount",
+          "SetPluginSettings"
         ],
         "reads": [
           "ResolveIdentifier",
@@ -1156,6 +1157,19 @@
         ]
       },
       "stability": "stable"
+    },
+    {
+      "name": "SetPluginSettings",
+      "step": "W6.11",
+      "title": "Set a plugin's settings",
+      "kind": "command",
+      "topic": "platform.config.command.set-plugin-settings",
+      "roles": {
+        "publishes": [
+          "custody"
+        ]
+      },
+      "stability": "preview"
     },
     {
       "name": "StatementRecorded",

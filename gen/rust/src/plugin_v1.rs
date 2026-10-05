@@ -669,6 +669,53 @@ pub struct ReadAccountsForLinkingResult {
     #[prost(message, repeated, tag = "1")]
     pub accounts: ::prost::alloc::vec::Vec<AccountRecord>,
 }
+/// Sets or clears a plugin's settings, for an admin of the plugin.
+/// Sent by the dashboard from the plugin's Settings form, or by the plugin from
+/// one of its own pages at admin, acting for the admin viewing it in a session
+/// opened by Manage (W6.11, W4.9), its sidecar stamping plugin_instance_id. A
+/// plugin's page never names a secret.
+/// The params of SetPluginSettings: meridian.v1.SetPluginSettingsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetPluginSettingsParams {
+    /// Set or replace these.
+    #[prost(message, repeated, tag = "2")]
+    pub values: ::prost::alloc::vec::Vec<PluginSettingValue>,
+    /// Remove these.
+    #[prost(string, repeated, tag = "3")]
+    pub cleared: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// What the dashboard may show. A secret's value is never here, only that it
+/// is set.
+/// The result of SetPluginSettings: meridian.v1.PluginSettingsRecord.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetPluginSettingsResult {
+    #[prost(string, tag = "1")]
+    pub plugin_instance_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub values: ::prost::alloc::vec::Vec<PluginSettingValue>,
+    #[prost(string, repeated, tag = "3")]
+    pub secrets_set: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(int64, tag = "4")]
+    pub updated_at_ns: i64,
+    /// What the plugin declared when it last registered (W4.8), which the form
+    /// is built from and every value is checked against.
+    #[prost(message, repeated, tag = "5")]
+    pub declared_settings: ::prost::alloc::vec::Vec<SettingDeclaration>,
+    /// Who changed a setting at updated_at_ns: the deployment-local subject of
+    /// the admin the dashboard or the plugin's sidecar stamped, from the form
+    /// and the plugin's page alike (W6.11). Empty while nothing is set.
+    #[prost(string, tag = "6")]
+    pub updated_by: ::prost::alloc::string::String,
+}
 /// The params of RecordOpeningBalance: meridian.v1.RecordOpeningBalanceRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RecordOpeningBalanceParams {
@@ -2172,6 +2219,84 @@ pub struct AccountRecord {
     /// Anything else worth knowing about it. At most 2,000 characters.
     #[prost(string, tag = "8")]
     pub note: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.PluginSettingValue.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginSettingValue {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub value: ::prost::alloc::string::String,
+}
+/// One setting the plugin needs.
+/// A mirror of meridian.v1.SettingDeclaration.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettingDeclaration {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(enumeration = "SettingType", tag = "2")]
+    pub r#type: i32,
+    /// A plugin missing a required setting stays registered and reports itself
+    /// not healthy with that reason until it arrives (W4.7).
+    #[prost(bool, tag = "3")]
+    pub required: bool,
+    /// Write-only: set or replaced through the dashboard, never read back,
+    /// displayed, logged, reported or bundled.
+    #[prost(bool, tag = "4")]
+    pub secret: bool,
+    /// Shown beside the field in the dashboard.
+    #[prost(string, tag = "5")]
+    pub description: ::prost::alloc::string::String,
+    /// What the dashboard's form calls the setting, such as "Client ID"; the
+    /// name when empty.
+    #[prost(string, tag = "6")]
+    pub label: ::prost::alloc::string::String,
+    /// The value the plugin uses while none is set, written as the form would
+    /// take it. Shown greyed in the empty field; never stored as a setting's
+    /// value. Never declared for a secret.
+    #[prost(string, tag = "7")]
+    pub default_value: ::prost::alloc::string::String,
+    /// The unit a number is in, such as "seconds" or "hours", shown beside the
+    /// field.
+    #[prost(string, tag = "8")]
+    pub unit: ::prost::alloc::string::String,
+    /// For SETTING_TYPE_CHOICE: the options, in the order shown, of which one is
+    /// chosen. A value not among them is refused.
+    #[prost(message, repeated, tag = "9")]
+    pub choices: ::prost::alloc::vec::Vec<SettingChoice>,
+    /// Unset: the setting always applies. Set: it applies only while another
+    /// setting holds one of the values named, and is shown, and required when
+    /// `required`, only then.
+    #[prost(message, optional, tag = "10")]
+    pub applies_when: ::core::option::Option<SettingCondition>,
+    /// For whoever develops the plugin, such as serving built-in data instead of
+    /// calling the venue: the form shows it only on a development deployment
+    /// (`meridian up --development`), and never on one installed otherwise.
+    #[prost(bool, tag = "11")]
+    pub developer: bool,
+}
+/// A mirror of meridian.v1.SettingChoice.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettingChoice {
+    /// What the setting holds when this is chosen.
+    #[prost(string, tag = "1")]
+    pub value: ::prost::alloc::string::String,
+    /// What the form shows, such as "Personal key".
+    #[prost(string, tag = "2")]
+    pub label: ::prost::alloc::string::String,
+    /// Shown beside the option.
+    #[prost(string, tag = "3")]
+    pub description: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.SettingCondition.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettingCondition {
+    /// Another setting the same plugin declares, which comes before this one.
+    #[prost(string, tag = "1")]
+    pub setting: ::prost::alloc::string::String,
+    /// The values of that setting under which this one applies.
+    #[prost(string, repeated, tag = "2")]
+    pub one_of: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// A mirror of meridian.v1.OpeningSource.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3755,6 +3880,43 @@ impl AccountState {
         }
     }
 }
+/// A mirror of meridian.v1.SettingType.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SettingType {
+    Unspecified = 0,
+    String = 1,
+    Integer = 2,
+    Boolean = 3,
+    /// One of the declared choices, held as its value.
+    Choice = 4,
+}
+impl SettingType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SETTING_TYPE_UNSPECIFIED",
+            Self::String => "SETTING_TYPE_STRING",
+            Self::Integer => "SETTING_TYPE_INTEGER",
+            Self::Boolean => "SETTING_TYPE_BOOLEAN",
+            Self::Choice => "SETTING_TYPE_CHOICE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SETTING_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "SETTING_TYPE_STRING" => Some(Self::String),
+            "SETTING_TYPE_INTEGER" => Some(Self::Integer),
+            "SETTING_TYPE_BOOLEAN" => Some(Self::Boolean),
+            "SETTING_TYPE_CHOICE" => Some(Self::Choice),
+            _ => None,
+        }
+    }
+}
 /// A mirror of meridian.v1.OpeningSourceKind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -4593,6 +4755,36 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W6.11: platform.config.command.set-plugin-settings (command; preview).
+        pub async fn set_plugin_settings(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SetPluginSettingsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetPluginSettingsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/SetPluginSettings",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "SetPluginSettings",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W9.1: platform.book.command.record-opening-balance (command; stable).
         pub async fn record_opening_balance(
             &mut self,
@@ -5057,6 +5249,14 @@ pub mod plugin_operations_server {
             request: tonic::Request<super::ReadAccountsForLinkingParams>,
         ) -> std::result::Result<
             tonic::Response<super::ReadAccountsForLinkingResult>,
+            tonic::Status,
+        >;
+        /// W6.11: platform.config.command.set-plugin-settings (command; preview).
+        async fn set_plugin_settings(
+            &self,
+            request: tonic::Request<super::SetPluginSettingsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetPluginSettingsResult>,
             tonic::Status,
         >;
         /// W9.1: platform.book.command.record-opening-balance (command; stable).
@@ -5882,6 +6082,55 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ReadAccountsForLinkingSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/SetPluginSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetPluginSettingsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::SetPluginSettingsParams>
+                    for SetPluginSettingsSvc<T> {
+                        type Response = super::SetPluginSettingsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetPluginSettingsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::set_plugin_settings(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SetPluginSettingsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -193,6 +193,24 @@
           ]
         },
         {
+          "name": "setting-saved-on-the-plugins-page",
+          "given": "an admin of the plugin saves a setting that is not secret on one of the plugin's pages at admin, such as a plan's own fund code linked to an instrument",
+          "since": "v14",
+          "expect": [
+            {
+              "row": "SetPluginSettings",
+              "fields": {
+                "values": [
+                  {
+                    "name": "<set>",
+                    "value": "<set>"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "a-security-holding",
           "given": "an account holds one security, the venue stating its quantity, its settled quantity and its currency",
           "expect": [

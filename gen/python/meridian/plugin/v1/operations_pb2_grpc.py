@@ -104,6 +104,11 @@ class PluginOperationsStub(object):
                 request_serializer=meridian_dot_plugin_dot_v1_dot_operations__pb2.ReadAccountsForLinkingParams.SerializeToString,
                 response_deserializer=meridian_dot_plugin_dot_v1_dot_operations__pb2.ReadAccountsForLinkingResult.FromString,
                 _registered_method=True)
+        self.SetPluginSettings = channel.unary_unary(
+                '/meridian.plugin.v1.PluginOperations/SetPluginSettings',
+                request_serializer=meridian_dot_plugin_dot_v1_dot_operations__pb2.SetPluginSettingsParams.SerializeToString,
+                response_deserializer=meridian_dot_plugin_dot_v1_dot_operations__pb2.SetPluginSettingsResult.FromString,
+                _registered_method=True)
         self.RecordOpeningBalance = channel.unary_unary(
                 '/meridian.plugin.v1.PluginOperations/RecordOpeningBalance',
                 request_serializer=meridian_dot_plugin_dot_v1_dot_operations__pb2.RecordOpeningBalanceParams.SerializeToString,
@@ -267,6 +272,13 @@ class PluginOperationsServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetPluginSettings(self, request, context):
+        """W6.11: platform.config.command.set-plugin-settings (command; preview).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def RecordOpeningBalance(self, request, context):
         """W9.1: platform.book.command.record-opening-balance (command; stable).
         """
@@ -423,6 +435,11 @@ def add_PluginOperationsServicer_to_server(servicer, server):
                     servicer.ReadAccountsForLinking,
                     request_deserializer=meridian_dot_plugin_dot_v1_dot_operations__pb2.ReadAccountsForLinkingParams.FromString,
                     response_serializer=meridian_dot_plugin_dot_v1_dot_operations__pb2.ReadAccountsForLinkingResult.SerializeToString,
+            ),
+            'SetPluginSettings': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetPluginSettings,
+                    request_deserializer=meridian_dot_plugin_dot_v1_dot_operations__pb2.SetPluginSettingsParams.FromString,
+                    response_serializer=meridian_dot_plugin_dot_v1_dot_operations__pb2.SetPluginSettingsResult.SerializeToString,
             ),
             'RecordOpeningBalance': grpc.unary_unary_rpc_method_handler(
                     servicer.RecordOpeningBalance,
@@ -863,6 +880,33 @@ class PluginOperations(object):
             '/meridian.plugin.v1.PluginOperations/ReadAccountsForLinking',
             meridian_dot_plugin_dot_v1_dot_operations__pb2.ReadAccountsForLinkingParams.SerializeToString,
             meridian_dot_plugin_dot_v1_dot_operations__pb2.ReadAccountsForLinkingResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetPluginSettings(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/meridian.plugin.v1.PluginOperations/SetPluginSettings',
+            meridian_dot_plugin_dot_v1_dot_operations__pb2.SetPluginSettingsParams.SerializeToString,
+            meridian_dot_plugin_dot_v1_dot_operations__pb2.SetPluginSettingsResult.FromString,
             options,
             channel_credentials,
             insecure,
