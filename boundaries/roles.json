@@ -1266,24 +1266,25 @@
     }
   ],
   "people": {
-    "says": "People are not roles. Who may use a plugin is a person's level on it, granted by a deployment admin in access groups. A plugin never grants it, and an agent never reaches for a role to give a person access.",
+    "says": "People are not roles. Who may use a plugin is a person's level on a role of it, granted by a deployment admin in access groups: write on a plugin's operations and read on its custody, say. A plugin never grants it, and an agent never reaches for a role to give a person access.",
     "levels": [
       {
         "level": "read",
-        "says": "sees what the plugin shows"
+        "says": "sees what the plugin shows for that role"
       },
       {
         "level": "write",
-        "says": "also acts through the plugin"
+        "says": "also acts through the plugin in that role"
       },
       {
         "level": "admin",
-        "says": "also administers the plugin: its settings and admin pages"
+        "says": "administers that role's side of the plugin: its settings and admin pages"
       }
     ],
     "basis": [
       "decisions/026",
-      "decisions/027"
+      "decisions/027",
+      "decisions/033"
     ]
   },
   "philosophy": [
@@ -1351,11 +1352,12 @@
     {
       "number": 10,
       "principle": "People's access is the deployment's to grant.",
-      "says": "read, write or admin, per plugin, by a deployment admin. No plugin administers the deployment.",
+      "says": "read, write or admin, per role of a plugin, by a deployment admin. No plugin administers the deployment.",
       "basis": [
         "decisions/020",
         "decisions/026",
-        "decisions/027"
+        "decisions/027",
+        "decisions/033"
       ]
     },
     {
