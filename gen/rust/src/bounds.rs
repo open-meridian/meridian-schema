@@ -256,3 +256,18 @@ pub const LIST_CUSTODIAL_POSITIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { leas
 
 /// meridian.v1.ListStatementsRequest.page_size: bounds a page
 pub const LIST_STATEMENTS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.CustodialActivity.external_activity_id: lets the street
+/// recognise the same activity sent twice
+pub const CUSTODIAL_ACTIVITY_EXTERNAL_ACTIVITY_ID_LENGTH: Length = Length { least: 1, most: 200 };
+
+/// meridian.v1.CustodialActivity.description: carries the custodian's own
+/// description of the activity
+pub const CUSTODIAL_ACTIVITY_DESCRIPTION_LENGTH: Length = Length { least: 0, most: 500 };
+
+/// meridian.v1.CustodialActivity.provenance: says where each value the plugin
+/// closed rather than read came from
+pub const CUSTODIAL_ACTIVITY_PROVENANCE_COUNT: Count = Count { least: 0, most: 32 };
+
+/// meridian.v1.ListActivitiesRequest.page_size: bounds a page
+pub const LIST_ACTIVITIES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };

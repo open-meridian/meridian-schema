@@ -232,6 +232,7 @@
           "ReportSyncStatus",
           "RecordHoldingsStatement",
           "RecordHolding",
+          "RecordActivity",
           "ReportMissingInstrument",
           "LinkExternalAccount"
         ],
@@ -487,6 +488,7 @@
         "reads": [
           "ListCustodialPositions",
           "ListStatements",
+          "ListActivities",
           "ResolveInstrument",
           "ListPositions",
           "ListBreaks",
@@ -496,6 +498,7 @@
         "hears": [
           "StatementRecorded",
           "CustodialPositionUpdated",
+          "ActivityRecorded",
           "PositionChanged",
           "BreakChanged",
           "AccountFiguresRecorded",
@@ -749,6 +752,19 @@
       "stability": "stable"
     },
     {
+      "name": "ActivityRecorded",
+      "step": "W2.12",
+      "title": "Publish that activity was recorded",
+      "kind": "event",
+      "topic": "platform.street.event.activity-recorded",
+      "roles": {
+        "hears": [
+          "operations"
+        ]
+      },
+      "stability": "preview"
+    },
+    {
       "name": "BreakChanged",
       "step": "W9.8",
       "title": "Journal each act and publish its changes",
@@ -849,6 +865,19 @@
         ]
       },
       "stability": "stable"
+    },
+    {
+      "name": "ListActivities",
+      "step": "W2.11",
+      "title": "List an account's activity",
+      "kind": "query",
+      "topic": "platform.street.query.list-activities",
+      "roles": {
+        "reads": [
+          "operations"
+        ]
+      },
+      "stability": "preview"
     },
     {
       "name": "ListBreaks",
@@ -952,6 +981,19 @@
         ]
       },
       "stability": "stable"
+    },
+    {
+      "name": "RecordActivity",
+      "step": "W2.10",
+      "title": "Record an account's activity",
+      "kind": "command",
+      "topic": "platform.street.command.record-activity",
+      "roles": {
+        "publishes": [
+          "custody"
+        ]
+      },
+      "stability": "preview"
     },
     {
       "name": "RecordBreak",
@@ -1505,9 +1547,27 @@
           "row": "RecordBreak",
           "as": "publishes",
           "granted": "v8"
+        },
+        {
+          "role": "custody",
+          "row": "RecordActivity",
+          "as": "publishes",
+          "granted": "v14"
+        },
+        {
+          "role": "operations",
+          "row": "ActivityRecorded",
+          "as": "hears",
+          "granted": "v14"
+        },
+        {
+          "role": "operations",
+          "row": "ListActivities",
+          "as": "reads",
+          "granted": "v14"
         }
       ],
-      "available": "The street's statements and positions at v7; the book at v8, its opening balance refused from v9 until every required field is supplied."
+      "available": "The street's statements and positions at v7; the book at v8, its opening balance refused from v9 until every required field is supplied; from v14 the custodian's activity, which explains a break and proposes its adjustment for a person to confirm."
     },
     {
       "request": "Post-trade compliance alerts",

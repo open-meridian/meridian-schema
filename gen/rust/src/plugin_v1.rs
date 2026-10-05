@@ -65,6 +65,11 @@ pub struct ReportSyncStatusParams {
     pub holdings_as_of_ns: i64,
     #[prost(int64, tag = "10")]
     pub history_as_of_ns: i64,
+    /// The first date the source can read the account's activity from, ISO
+    /// 8601 (contract v14, W2.10): how far back a backfill reaches, beside how
+    /// fresh the history is. Empty where the source does not say.
+    #[prost(string, tag = "11")]
+    pub history_from: ::prost::alloc::string::String,
 }
 /// Open one statement: the connector's snapshot of one account, at one moment.
 ///
@@ -389,6 +394,79 @@ pub struct ListStatementsResult {
     /// The point in the store's record the page was read at.
     #[prost(message, optional, tag = "3")]
     pub as_of: ::core::option::Option<Watermark>,
+}
+/// Record one activity (W2.10), as a holding row is recorded.
+/// The params of RecordActivity: meridian.v1.RecordActivityRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordActivityParams {
+    /// The account as the rail knows it, which the sidecar translates.
+    #[prost(string, tag = "2")]
+    pub external_account_id: ::prost::alloc::string::String,
+    /// The plugin's scheme for its source, as on a statement.
+    #[prost(string, tag = "3")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub activity: ::core::option::Option<CustodialActivity>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of RecordActivity: meridian.v1.RecordActivityReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordActivityResult {
+    /// Street-assigned.
+    #[prost(string, tag = "1")]
+    pub activity_id: ::prost::alloc::string::String,
+    /// True when the activity had already been recorded, by its source,
+    /// account and external_activity_id, and the existing one is returned.
+    /// Makes redelivery a no-op rather than a duplicate.
+    #[prost(bool, tag = "2")]
+    pub already_recorded: bool,
+}
+/// Read an account's activity (W2.11), by trade date, paged.
+/// The params of ListActivities: meridian.v1.ListActivitiesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListActivitiesParams {
+    /// Empty: every account in the reader's scope.
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// ISO 8601, inclusive; empty for no bound on that side.
+    #[prost(string, tag = "2")]
+    pub trade_date_from: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub trade_date_to: ::prost::alloc::string::String,
+    /// Only activities recorded after it.
+    #[prost(message, optional, tag = "4")]
+    pub since: ::core::option::Option<Watermark>,
+    #[prost(int32, tag = "5")]
+    pub page_size: i32,
+    /// Opaque: the previous reply's `next_cursor`, or empty for the first page.
+    #[prost(string, tag = "6")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListActivities: meridian.v1.ListActivitiesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListActivitiesResult {
+    /// Each as it was announced (W2.12), by trade date.
+    #[prost(message, repeated, tag = "1")]
+    pub activities: ::prost::alloc::vec::Vec<ActivityRecordedEvent>,
+    #[prost(string, tag = "2")]
+    pub next_cursor: ::prost::alloc::string::String,
+    /// The point in the store's record the page was read at.
+    #[prost(message, optional, tag = "3")]
+    pub as_of: ::core::option::Option<Watermark>,
+    /// The first date the source can read the named account's activity from,
+    /// as its sync status last said (W2.1): an opening balance older than it
+    /// has no activity to explain it. Empty where the request names no account
+    /// or the source has not said.
+    #[prost(string, tag = "4")]
+    pub history_from: ::prost::alloc::string::String,
 }
 /// Reverse resolution: identifiers to an instrument, as of a date.
 /// The params of ResolveIdentifier: meridian.v1.ResolveIdentifierRequest, less what the sidecar sets.
@@ -1086,7 +1164,7 @@ pub struct ReceiveRequest {
 pub struct Delivery {
     #[prost(message, optional, tag = "1")]
     pub meta: ::core::option::Option<DeliveryMeta>,
-    #[prost(oneof = "delivery::Item", tags = "2, 16, 17, 18, 19, 20, 21")]
+    #[prost(oneof = "delivery::Item", tags = "2, 16, 17, 18, 19, 20, 21, 22")]
     pub item: ::core::option::Option<delivery::Item>,
 }
 /// Nested message and enum types in `Delivery`.
@@ -1115,6 +1193,9 @@ pub mod delivery {
         /// W9.8: platform.book.event.account-attribute-changed.
         #[prost(message, tag = "21")]
         AccountAttributeChanged(super::AccountAttributeChangedEvent),
+        /// W2.12: platform.street.event.activity-recorded.
+        #[prost(message, tag = "22")]
+        ActivityRecorded(super::ActivityRecordedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -1670,6 +1751,109 @@ pub struct ChangeCause {
     pub causation_id: ::prost::alloc::string::String,
     #[prost(int64, tag = "5")]
     pub committed_at_ns: i64,
+}
+/// One activity on an account, as the custodian states it: a purchase, a
+/// sale, a reinvested dividend, a dividend or interest, a fee or a tax, a
+/// split or another corporate action, a transfer, a contribution, a
+/// withdrawal or a journal (spec/the-custodians-activity-explains-a-break).
+///
+/// Evidence, never a source: the street keeps it as reported and derives no
+/// position, lot or cash figure from it, and nothing here moves the book. It
+/// explains a break and proposes an adjustment for a person to confirm
+/// (W9.4, W9.7). Never netted or deduplicated against holdings: a sweep
+/// fund's purchases appear as the custodian lists them.
+///
+/// The account it is on is named beside it, by the request that records it
+/// and the record the street keeps, so the account the sidecar stamped is the
+/// only one.
+/// A mirror of meridian.v1.CustodialActivity.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CustodialActivity {
+    /// The custodian's own identifier for the activity: what lets the street
+    /// recognise one sent twice. A custodian restating an activity under a new
+    /// identifier is a new activity, reported, never merged.
+    #[prost(string, tag = "1")]
+    pub external_activity_id: ::prost::alloc::string::String,
+    /// What happened, in the platform's own words, converted by the plugin
+    /// from the custodian's type.
+    #[prost(enumeration = "ActivityKind", tag = "2")]
+    pub kind: i32,
+    /// The custodian's type as reported, set only when `kind` is not known
+    /// because the type did not convert. For a person to map; never read.
+    #[prost(message, optional, tag = "3")]
+    pub kind_as_reported: ::core::option::Option<AsReported>,
+    /// The instrument it concerns, resolved at the edge as a holding's is
+    /// (W3.1): the deployment's record, or the currency's cash instrument.
+    /// Empty where the activity concerns none, or where the custodian's code
+    /// did not resolve, and then `instrument_as_reported` carries it.
+    #[prost(string, tag = "4")]
+    pub instrument_id: ::prost::alloc::string::String,
+    /// The custodian's code for the instrument as reported, set only when it
+    /// did not resolve: a plan's own fund code no person has linked yet.
+    #[prost(message, optional, tag = "5")]
+    pub instrument_as_reported: ::core::option::Option<AsReported>,
+    /// ISO 8601: when it was traded or took effect, and when it settles or
+    /// settled. The settlement date is empty where the custodian does not
+    /// state it.
+    #[prost(string, tag = "6")]
+    pub trade_date: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub settlement_date: ::prost::alloc::string::String,
+    /// The units of the instrument it moved, signed by what it did to the
+    /// account: positive added units (a purchase, a reinvestment, the shares a
+    /// split added, a transfer in), negative removed them (a sale, a fee taken
+    /// in units, a transfer out). Unset where it moved none, a cash dividend's
+    /// say, which is not zero.
+    #[prost(message, optional, tag = "8")]
+    pub units: ::core::option::Option<Decimal>,
+    /// The price per unit, as stated. Unset where the custodian states none;
+    /// never worked out from the amount and the units.
+    #[prost(message, optional, tag = "9")]
+    pub price: ::core::option::Option<Money>,
+    /// The amount of cash it moved, in its currency, signed by what it did to
+    /// the account's cash: positive in (a sale, a dividend, a contribution),
+    /// negative out (a purchase, a fee, a withdrawal). Unset where it moved
+    /// none, a split's say, which is not zero.
+    #[prost(message, optional, tag = "10")]
+    pub amount: ::core::option::Option<Money>,
+    /// The custodian's own description, as reported. Diagnostic and for a
+    /// person; nothing branches on it.
+    #[prost(string, tag = "11")]
+    pub description: ::prost::alloc::string::String,
+    /// The raw record it was converted from, in the plugin's own storage
+    /// (decisions/028), and the provenance of each value the plugin closed
+    /// rather than read: an instrument linked once by a named person, a
+    /// settlement date derived by a named rule.
+    #[prost(message, optional, tag = "12")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    #[prost(message, repeated, tag = "13")]
+    pub provenance: ::prost::alloc::vec::Vec<Provenance>,
+}
+/// An activity was recorded (W2.12): the whole record, so a reconciliation
+/// waiting on a cause re-runs its candidates without a second read. Also each
+/// item of a read (W2.11), as it was announced.
+/// A mirror of meridian.v1.ActivityRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ActivityRecordedEvent {
+    #[prost(string, tag = "1")]
+    pub activity_id: ::prost::alloc::string::String,
+    /// The account it is on, and as the rail knows it.
+    #[prost(string, tag = "2")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub external_account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "5")]
+    pub activity: ::core::option::Option<CustodialActivity>,
+    #[prost(int64, tag = "6")]
+    pub recorded_at_ns: i64,
+    /// The record's number in the street's partition, chained per account with
+    /// the activities before it, and who caused it (W2.12, W4.3).
+    #[prost(message, optional, tag = "7")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "8")]
+    pub cause: ::core::option::Option<ChangeCause>,
 }
 /// The canonical instrument record.
 ///
@@ -2318,7 +2502,7 @@ pub struct BreakCause {
     pub category: i32,
     #[prost(string, tag = "7")]
     pub note: ::prost::alloc::string::String,
-    #[prost(oneof = "break_cause::Item", tags = "2, 3, 4, 5, 6")]
+    #[prost(oneof = "break_cause::Item", tags = "2, 3, 4, 5, 6, 8")]
     pub item: ::core::option::Option<break_cause::Item>,
 }
 /// Nested message and enum types in `BreakCause`.
@@ -2336,6 +2520,9 @@ pub mod break_cause {
         EventReference(::prost::alloc::string::String),
         #[prost(bool, tag = "6")]
         NoneFound(bool),
+        /// The custodian's activity that explains it (contract v14).
+        #[prost(message, tag = "8")]
+        Activity(super::ActivityRef),
     }
 }
 /// A mirror of meridian.v1.PendingSettlementRef.
@@ -2347,6 +2534,21 @@ pub struct PendingSettlementRef {
     pub side: i32,
     #[prost(string, tag = "3")]
     pub value_date: ::prost::alloc::string::String,
+}
+/// An activity the street recorded (W2.12), named by value: never a key the
+/// book follows, and recorded as given (decisions/012).
+/// A mirror of meridian.v1.ActivityRef.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ActivityRef {
+    /// The street's identifier for the activity.
+    #[prost(string, tag = "1")]
+    pub activity_id: ::prost::alloc::string::String,
+    /// Its record in the street's partition.
+    #[prost(message, optional, tag = "2")]
+    pub change: ::core::option::Option<JournalRef>,
+    /// ISO 8601: the activity's trade date, as the custodian stated it.
+    #[prost(string, tag = "3")]
+    pub trade_date: ::prost::alloc::string::String,
 }
 /// A mirror of meridian.v1.BreakHandling.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2493,7 +2695,9 @@ pub struct Adjustment {
     pub lines: ::prost::alloc::vec::Vec<MovementLine>,
     #[prost(message, repeated, tag = "3")]
     pub basis_adjustments: ::prost::alloc::vec::Vec<BasisAdjustment>,
-    /// A corporate action's reference, as reported, where it records one.
+    /// A corporate action's reference, as reported, where it records one; from
+    /// contract v14, the activity's identifier (W2.12) where the adjustment was
+    /// proposed from the custodian's activity.
     #[prost(string, tag = "4")]
     pub event_reference: ::prost::alloc::string::String,
 }
@@ -2959,6 +3163,92 @@ impl EncumbranceKind {
             "ENCUMBRANCE_KIND_PENDING" => Some(Self::Pending),
             "ENCUMBRANCE_KIND_REHYPOTHECATED" => Some(Self::Rehypothecated),
             "ENCUMBRANCE_KIND_BORROWED" => Some(Self::Borrowed),
+            _ => None,
+        }
+    }
+}
+/// What an activity was (contract v14): a closed list, the platform's own
+/// words, never a custodian's.
+/// A mirror of meridian.v1.ActivityKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ActivityKind {
+    /// Not known: the custodian's type converts to none of these, and travels
+    /// beside it as reported.
+    Unspecified = 0,
+    /// Units bought.
+    Purchase = 1,
+    /// Units sold.
+    Sale = 2,
+    /// Income the custodian reinvested in units, as a money market fund's
+    /// monthly dividend is.
+    Reinvestment = 3,
+    /// A dividend paid in cash.
+    Dividend = 4,
+    /// Interest paid in cash.
+    Interest = 5,
+    /// A fee, in cash or in units.
+    Fee = 6,
+    /// A tax withheld or paid.
+    Tax = 7,
+    /// A split, the units it added or removed.
+    Split = 8,
+    /// Another corporate action, as the custodian states it.
+    CorporateAction = 9,
+    /// Units or cash moved in from another account.
+    TransferIn = 10,
+    /// Units or cash moved out to another account.
+    TransferOut = 11,
+    /// Cash paid into the account.
+    Contribution = 12,
+    /// Cash taken out of the account.
+    Withdrawal = 13,
+    /// A movement between the account's own positions or sub-accounts, as the
+    /// custodian journals it.
+    Journal = 14,
+}
+impl ActivityKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ACTIVITY_KIND_UNSPECIFIED",
+            Self::Purchase => "ACTIVITY_KIND_PURCHASE",
+            Self::Sale => "ACTIVITY_KIND_SALE",
+            Self::Reinvestment => "ACTIVITY_KIND_REINVESTMENT",
+            Self::Dividend => "ACTIVITY_KIND_DIVIDEND",
+            Self::Interest => "ACTIVITY_KIND_INTEREST",
+            Self::Fee => "ACTIVITY_KIND_FEE",
+            Self::Tax => "ACTIVITY_KIND_TAX",
+            Self::Split => "ACTIVITY_KIND_SPLIT",
+            Self::CorporateAction => "ACTIVITY_KIND_CORPORATE_ACTION",
+            Self::TransferIn => "ACTIVITY_KIND_TRANSFER_IN",
+            Self::TransferOut => "ACTIVITY_KIND_TRANSFER_OUT",
+            Self::Contribution => "ACTIVITY_KIND_CONTRIBUTION",
+            Self::Withdrawal => "ACTIVITY_KIND_WITHDRAWAL",
+            Self::Journal => "ACTIVITY_KIND_JOURNAL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ACTIVITY_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "ACTIVITY_KIND_PURCHASE" => Some(Self::Purchase),
+            "ACTIVITY_KIND_SALE" => Some(Self::Sale),
+            "ACTIVITY_KIND_REINVESTMENT" => Some(Self::Reinvestment),
+            "ACTIVITY_KIND_DIVIDEND" => Some(Self::Dividend),
+            "ACTIVITY_KIND_INTEREST" => Some(Self::Interest),
+            "ACTIVITY_KIND_FEE" => Some(Self::Fee),
+            "ACTIVITY_KIND_TAX" => Some(Self::Tax),
+            "ACTIVITY_KIND_SPLIT" => Some(Self::Split),
+            "ACTIVITY_KIND_CORPORATE_ACTION" => Some(Self::CorporateAction),
+            "ACTIVITY_KIND_TRANSFER_IN" => Some(Self::TransferIn),
+            "ACTIVITY_KIND_TRANSFER_OUT" => Some(Self::TransferOut),
+            "ACTIVITY_KIND_CONTRIBUTION" => Some(Self::Contribution),
+            "ACTIVITY_KIND_WITHDRAWAL" => Some(Self::Withdrawal),
+            "ACTIVITY_KIND_JOURNAL" => Some(Self::Journal),
             _ => None,
         }
     }
@@ -3576,6 +3866,9 @@ pub enum BreakCauseCategory {
     Fail = 5,
     CustodianError = 6,
     Unknown = 7,
+    /// Income the custodian reinvested in units, which the book has not
+    /// booked: a money market fund's monthly dividend (contract v14).
+    IncomeReinvested = 8,
 }
 impl BreakCauseCategory {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -3592,6 +3885,7 @@ impl BreakCauseCategory {
             Self::Fail => "BREAK_CAUSE_CATEGORY_FAIL",
             Self::CustodianError => "BREAK_CAUSE_CATEGORY_CUSTODIAN_ERROR",
             Self::Unknown => "BREAK_CAUSE_CATEGORY_UNKNOWN",
+            Self::IncomeReinvested => "BREAK_CAUSE_CATEGORY_INCOME_REINVESTED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -3605,6 +3899,7 @@ impl BreakCauseCategory {
             "BREAK_CAUSE_CATEGORY_FAIL" => Some(Self::Fail),
             "BREAK_CAUSE_CATEGORY_CUSTODIAN_ERROR" => Some(Self::CustodianError),
             "BREAK_CAUSE_CATEGORY_UNKNOWN" => Some(Self::Unknown),
+            "BREAK_CAUSE_CATEGORY_INCOME_REINVESTED" => Some(Self::IncomeReinvested),
             _ => None,
         }
     }
@@ -3948,6 +4243,66 @@ pub mod plugin_operations_client {
                     GrpcMethod::new(
                         "meridian.plugin.v1.PluginOperations",
                         "ListStatements",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W2.10: platform.street.command.record-activity (command; preview).
+        pub async fn record_activity(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordActivityParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordActivityResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordActivity",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "RecordActivity",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W2.11: platform.street.query.list-activities (query; preview).
+        pub async fn list_activities(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListActivitiesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListActivitiesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListActivities",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListActivities",
                     ),
                 );
             self.inner.unary(req, path, codec).await
@@ -4504,6 +4859,22 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListStatementsResult>,
             tonic::Status,
         >;
+        /// W2.10: platform.street.command.record-activity (command; preview).
+        async fn record_activity(
+            &self,
+            request: tonic::Request<super::RecordActivityParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordActivityResult>,
+            tonic::Status,
+        >;
+        /// W2.11: platform.street.query.list-activities (query; preview).
+        async fn list_activities(
+            &self,
+            request: tonic::Request<super::ListActivitiesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListActivitiesResult>,
+            tonic::Status,
+        >;
         /// W3.1: platform.reference.query.resolve-identifier (query; stable).
         async fn resolve_identifier(
             &self,
@@ -4987,6 +5358,98 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListStatementsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RecordActivity" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordActivitySvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordActivityParams>
+                    for RecordActivitySvc<T> {
+                        type Response = super::RecordActivityResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordActivityParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_activity(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordActivitySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListActivities" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListActivitiesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListActivitiesParams>
+                    for ListActivitiesSvc<T> {
+                        type Response = super::ListActivitiesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListActivitiesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_activities(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListActivitiesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
