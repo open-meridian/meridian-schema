@@ -98,6 +98,10 @@ pub const LINK_EXTERNAL_ACCOUNT_REQUEST_NEW_ACCOUNT_OWNER_LENGTH: Length = Lengt
 /// else worth knowing about a new account
 pub const LINK_EXTERNAL_ACCOUNT_REQUEST_NEW_ACCOUNT_NOTE_LENGTH: Length = Length { least: 0, most: 2000 };
 
+/// meridian.v1.KnownPluginRoles.roles: lists the roles the plugin was
+/// launched with
+pub const KNOWN_PLUGIN_ROLES_ROLES_COUNT: Count = Count { least: 0, most: 13 };
+
 /// meridian.v1.TicketNote.note: carries the note's text
 pub const TICKET_NOTE_NOTE_LENGTH: Length = Length { least: 1, most: 4000 };
 
