@@ -467,6 +467,67 @@ pub struct ListActivitiesResult {
     /// or the source has not said.
     #[prost(string, tag = "4")]
     pub history_from: ::prost::alloc::string::String,
+    /// The re-resolutions of the activities answered (W2.16, contract v15),
+    /// each naming its activity and account, in the order recorded; on a read
+    /// since a watermark, every re-resolution recorded after it, whether or not
+    /// its activity was. The activities above stay as first recorded: an
+    /// activity's instrument is its latest re-resolution's, or its own where
+    /// there is none. Empty where none was re-resolved, and before v15.
+    #[prost(message, repeated, tag = "5")]
+    pub re_resolutions: ::prost::alloc::vec::Vec<ActivityReResolution>,
+}
+/// Re-resolve a recorded activity (W2.15): its instrument resolved later, or
+/// otherwise -- a plan's own code linked after the activity was reported. The
+/// activity is named as it was recorded (W2.10), by its source, the external
+/// account and the custodian's identifier; only its instrument is
+/// re-resolved, and the activity as first recorded never changes
+/// (decisions/031).
+/// The params of ReResolveActivity: meridian.v1.ReResolveActivityRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReResolveActivityParams {
+    /// The account as the rail knows it, which the sidecar translates.
+    #[prost(string, tag = "2")]
+    pub external_account_id: ::prost::alloc::string::String,
+    /// The source and the custodian's identifier the activity was recorded
+    /// under: with the account, the key that names it. No activity under it is
+    /// a refusal, naming it.
+    #[prost(string, tag = "3")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub external_activity_id: ::prost::alloc::string::String,
+    /// The instrument it now resolves to, the deployment's record; empty where
+    /// the link it had been resolved by was removed, and then it is unresolved
+    /// again, its code as first reported.
+    #[prost(string, tag = "5")]
+    pub instrument_id: ::prost::alloc::string::String,
+    /// How it was resolved this time: supplied by the named person who set the
+    /// link, or derived by a named rule. Never the custodian's word.
+    #[prost(message, optional, tag = "6")]
+    pub provenance: ::core::option::Option<Provenance>,
+    /// When what resolves it was made: the link set, a table setting row's
+    /// changed_at, the rule run. The street stamps its own record time.
+    #[prost(int64, tag = "7")]
+    pub resolved_at_ns: i64,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of ReResolveActivity: meridian.v1.ReResolveActivityReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReResolveActivityResult {
+    /// The activity re-resolved, by the street's identifier for it.
+    #[prost(string, tag = "1")]
+    pub activity_id: ::prost::alloc::string::String,
+    /// True when the activity's latest resolution already named this
+    /// instrument and provenance, and nothing was recorded.
+    #[prost(bool, tag = "2")]
+    pub already_recorded: bool,
 }
 /// Read the latest sync status of each account in scope, or those recorded
 /// since a watermark (W2.14), paged.
@@ -1194,7 +1255,7 @@ pub struct ReceiveRequest {
 pub struct Delivery {
     #[prost(message, optional, tag = "1")]
     pub meta: ::core::option::Option<DeliveryMeta>,
-    #[prost(oneof = "delivery::Item", tags = "2, 16, 17, 18, 19, 20, 21, 22, 23")]
+    #[prost(oneof = "delivery::Item", tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24")]
     pub item: ::core::option::Option<delivery::Item>,
 }
 /// Nested message and enum types in `Delivery`.
@@ -1229,6 +1290,9 @@ pub mod delivery {
         /// W2.13: platform.street.event.sync-status-recorded.
         #[prost(message, tag = "23")]
         SyncStatusRecorded(super::SyncStatusRecordedEvent),
+        /// W2.16: platform.street.event.activity-re-resolved.
+        #[prost(message, tag = "24")]
+        ActivityReResolved(super::ActivityReResolvedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -1887,6 +1951,35 @@ pub struct ActivityRecordedEvent {
     pub journal: ::core::option::Option<JournalRef>,
     #[prost(message, optional, tag = "8")]
     pub cause: ::core::option::Option<ChangeCause>,
+}
+/// One re-resolution as the street keeps it, beside the activity it names
+/// (W2.16): its own record, chained per account with the re-resolutions
+/// before it and apart from the activities, so activity-recorded keeps what
+/// it said at v14.
+/// A mirror of meridian.v1.ActivityReResolution.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ActivityReResolution {
+    /// The activity it sits beside, and the account it is recorded against.
+    #[prost(string, tag = "1")]
+    pub activity_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub account_id: ::prost::alloc::string::String,
+    /// The instrument the activity now resolves to, empty where unresolved
+    /// again, and how.
+    #[prost(string, tag = "2")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub provenance: ::core::option::Option<Provenance>,
+    /// When what resolves it was made, as the plugin sent it; when the street
+    /// recorded it, never back-dated.
+    #[prost(int64, tag = "4")]
+    pub resolved_at_ns: i64,
+    #[prost(int64, tag = "5")]
+    pub recorded_at_ns: i64,
+    /// Its own number in the street's partition, chained per account with the
+    /// re-resolutions before it.
+    #[prost(message, optional, tag = "6")]
+    pub journal: ::core::option::Option<JournalRef>,
 }
 /// A sync status was recorded (W2.13): the street heard a custody plugin's
 /// sync status (W2.1) and kept it, so operations tells a connection that needs
@@ -2949,6 +3042,24 @@ pub struct AccountAttributeChangedEvent {
     pub journal: ::core::option::Option<JournalRef>,
     #[prost(message, optional, tag = "4")]
     pub cause: ::core::option::Option<ChangeCause>,
+}
+/// An activity was re-resolved (W2.16): the re-resolution whole, so a
+/// reconciliation whose break waited on an unresolved code re-runs its
+/// candidate causes without a second read.
+/// A mirror of meridian.v1.ActivityReResolvedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ActivityReResolvedEvent {
+    /// The account it is on, as its re-resolution names it.
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub re_resolution: ::core::option::Option<ActivityReResolution>,
+    /// Who caused it, and its number: the re-resolution's journal, at the top
+    /// as every delivered record carries it (W4.3).
+    #[prost(message, optional, tag = "3")]
+    pub cause: ::core::option::Option<ChangeCause>,
+    #[prost(message, optional, tag = "4")]
+    pub journal: ::core::option::Option<JournalRef>,
 }
 /// An account's kind (contract v11): one coarse kind, the platform's own
 /// words, never a venue's.
@@ -4416,6 +4527,36 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W2.15: platform.street.command.re-resolve-activity (command; preview).
+        pub async fn re_resolve_activity(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReResolveActivityParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReResolveActivityResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReResolveActivity",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReResolveActivity",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W2.14: platform.street.query.list-sync-statuses (query; preview).
         pub async fn list_sync_statuses(
             &mut self,
@@ -5014,6 +5155,14 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListActivitiesResult>,
             tonic::Status,
         >;
+        /// W2.15: platform.street.command.re-resolve-activity (command; preview).
+        async fn re_resolve_activity(
+            &self,
+            request: tonic::Request<super::ReResolveActivityParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReResolveActivityResult>,
+            tonic::Status,
+        >;
         /// W2.14: platform.street.query.list-sync-statuses (query; preview).
         async fn list_sync_statuses(
             &self,
@@ -5597,6 +5746,55 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListActivitiesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReResolveActivity" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReResolveActivitySvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReResolveActivityParams>
+                    for ReResolveActivitySvc<T> {
+                        type Response = super::ReResolveActivityResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReResolveActivityParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::re_resolve_activity(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReResolveActivitySvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

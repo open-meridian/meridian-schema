@@ -233,6 +233,7 @@
           "RecordHoldingsStatement",
           "RecordHolding",
           "RecordActivity",
+          "ReResolveActivity",
           "ReportMissingInstrument",
           "LinkExternalAccount"
         ],
@@ -500,6 +501,7 @@
           "StatementRecorded",
           "CustodialPositionUpdated",
           "ActivityRecorded",
+          "ActivityReResolved",
           "SyncStatusRecorded",
           "PositionChanged",
           "BreakChanged",
@@ -754,6 +756,19 @@
       "stability": "stable"
     },
     {
+      "name": "ActivityReResolved",
+      "step": "W2.16",
+      "title": "Publish that an activity was re-resolved",
+      "kind": "event",
+      "topic": "platform.street.event.activity-re-resolved",
+      "roles": {
+        "hears": [
+          "operations"
+        ]
+      },
+      "stability": "preview"
+    },
+    {
       "name": "ActivityRecorded",
       "step": "W2.12",
       "title": "Publish that activity was recorded",
@@ -970,6 +985,19 @@
         ]
       },
       "stability": "stable"
+    },
+    {
+      "name": "ReResolveActivity",
+      "step": "W2.15",
+      "title": "Re-resolve a recorded activity",
+      "kind": "command",
+      "topic": "platform.street.command.re-resolve-activity",
+      "roles": {
+        "publishes": [
+          "custody"
+        ]
+      },
+      "stability": "preview"
     },
     {
       "name": "ReadAccountsForLinking",
