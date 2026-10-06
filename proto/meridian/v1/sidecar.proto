@@ -9,7 +9,8 @@
 //
 // This service is a plugin's lifecycle and what it learns from the deployment:
 // registering, liveness, leaving, its settings, who may use it, its account
-// scope, and the tickets it files for a person (contract v13). Its access to
+// scope, the tickets it files for a person (contract v13), and at the edge
+// the moves of its raw records (contract v16). Its access to
 // the bus is not here. Since contract v2 that is the typed
 // operations of meridian.plugin.v1, one per matrix row a role may take and
 // generated from the matrix; the generic publish, subscribe and call are gone,
@@ -53,6 +54,13 @@ service SidecarService {
   // state, resolution and how often each was seen, never people's notes.
   // Acting for a person, as filing is.
   rpc FiledTickets(ReadFiledTicketsRequest) returns (ReadFiledTicketsReply);
+
+  // W4.13, contract v16. Report one unit of a kind of raw record archived,
+  // restored, returned or deleted, before anything is removed. As the
+  // plugin itself for a window's move, or acting for a person, the call
+  // carrying their assertion as its `meridian-caller` metadata; the sidecar
+  // asks the conductor on the bus as itself, for the instance it serves.
+  rpc RecordMove(RecordMoveRequest) returns (RecordMoveReply);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,7 +80,7 @@ message RegisterRequest {
   reserved "instance_id", "role", "tags";
 
   // The contract version the plugin was built against, as `v<N>`. This
-  // schema is contract v15, and a plugin built from it declares "v15".
+  // schema is contract v16, and a plugin built from it declares "v16".
   //
   // Required. A sidecar admits it when it lies between the sidecar's floor
   // and its own version, and otherwise refuses it naming both (W4.1): a
@@ -230,8 +238,39 @@ enum NotCarriedReason {
 message StorageDeclaration {
   // How long it keeps a raw record, in days, from when it received it: the
   // reach of a backfill, and what the deployment keeps the storage for. At
-  // least one.
+  // least one. From contract v16 the default of a version declaring no
+  // kinds; with kinds, each kind's window says it.
   uint32 retention_days = 1;
+
+  // The kinds of raw record it keeps (W4.1, contract v16): each with its
+  // default window and whether it can be archived. Empty keeps the
+  // behaviour before v16, under `retention_days`. At most 16, each name
+  // once.
+  repeated RawRecordKind record_kinds = 2;
+}
+
+// One kind of raw record a plugin at the edge keeps (contract v16;
+// spec/an-edge-plugins-older-records-move-to-the-archive, requirement 1).
+// Its window and what is done past it are its admin's settings, which the
+// SDK declares from it (W6.11).
+message RawRecordKind {
+  // The kind's name in the plugin's code and settings, such as "activity":
+  // 1 to 40 characters, lowercase letters, digits and underscores, beginning
+  // with a letter. Its settings are `<name>_window_days` and
+  // `<name>_past_window`, which no other setting may take.
+  string name = 1;
+
+  // What a person reads, such as "Reported activity". 1 to 40 characters.
+  string label = 2;
+
+  // Its default window, in days from when a record was received: how long
+  // it stays in the plugin's storage until its admin sets another. 1 to
+  // 36,500.
+  uint32 window_days = 3;
+
+  // Whether a unit of it can be moved to an archive. False for state read
+  // and updated in place, such as a FIX session's.
+  bool archivable = 4;
 }
 
 // A plugin's interface, served on loopback and reached only through the
@@ -521,6 +560,27 @@ message HeartbeatRequest {
   // declaration lists as not carried, since it started; each heartbeat
   // replaces the last. A name and a count, never a value.
   repeated NotCarriedSeen not_carried_seen = 4;
+
+  // W4.5, contract v16. For each kind of raw record the declaration names,
+  // what the plugin's storage holds of it now; each heartbeat replaces the
+  // last. At most 16, one per kind; a kind the declaration does not name is
+  // refused.
+  repeated StoredSpan stored = 5;
+}
+
+// What a plugin's storage holds of one kind of raw record (W4.5, contract
+// v16): a count and a span, never a record, an account or a key.
+message StoredSpan {
+  // A kind the version's declaration names.
+  string record_kind = 1;
+
+  // How many records of it. 0 when none, and then no span.
+  uint64 record_count = 2;
+
+  // The span they cover, from when the first was received to when the last
+  // was, in nanoseconds since the epoch; 0 for none.
+  int64 first_received_ns = 3;
+  int64 last_received_ns = 4;
 }
 
 // How often a name a plugin does not carry was seen (W4.5, Q15).
@@ -632,8 +692,9 @@ message AsReported {
 // A reference to the raw record a row was converted from, in the writing
 // plugin's own storage (requirement 7, Q9; decisions/028). Opaque: core and
 // every other plugin carry it and never follow it; a person follows it on
-// the owning plugin's page. When the record has passed its retention,
-// following it says so, and the row stands.
+// the owning plugin's page. A record in a unit the plugin archived
+// resolves to "archived, restorable" (contract v16); one past its window and
+// deleted, following it says so, and the row stands.
 message RawRecordRef {
   // The writing plugin's own instance, which its SDK sets from its
   // registration; the sidecar refuses a reference naming another.
@@ -982,6 +1043,60 @@ message LinkedExternalAccount {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// W4.13 — a move of raw records, contract v16
+// ─────────────────────────────────────────────────────────────────────────────
+
+// One unit of a kind of raw record moved, reported before anything is
+// removed (spec/an-edge-plugins-older-records-move-to-the-archive,
+// requirements 4 and 10). Never a record's content. The instance is the
+// envelope's, and the person, for a move acting for one, the assertion's:
+// neither is a field.
+message RecordMoveRequest {
+  // A kind the version's declaration names. 1 to 40 characters.
+  string record_kind = 1;
+
+  // The plugin's own key for the unit: a day's session, a statement's files,
+  // an account's month of responses. 1 to 512 characters.
+  string unit = 2;
+
+  // How many records the unit holds. 1 to 1,000,000,000.
+  uint64 record_count = 3;
+
+  // The span they cover, from when the first was received to when the last
+  // was, in nanoseconds since the epoch. Never 0; the last never before the
+  // first.
+  int64 first_received_ns = 4;
+  int64 last_received_ns = 5;
+
+  MoveOutcome outcome = 6;
+
+  // The window that moved it, as its setting and value, "activity_window_days
+  // 2555". Empty acting for a person, who is the assertion's. At most 200
+  // characters.
+  string rule = 7;
+}
+
+// What became of a unit.
+enum MoveOutcome {
+  // Not said; refused.
+  MOVE_OUTCOME_UNSPECIFIED = 0;
+  // Moved from storage to the archive, and checked to have landed.
+  MOVE_OUTCOME_ARCHIVED = 1;
+  // Copied back from the archive to the restore area in storage, for a
+  // person who asked.
+  MOVE_OUTCOME_RESTORED = 2;
+  // Removed from the restore area after the restore period; the archive
+  // still holds it.
+  MOVE_OUTCOME_RETURNED = 3;
+  // Deleted, from storage past its window or from the archive by an admin;
+  // refused inside a hold, REFUSAL_REASON_WITHIN_HOLD.
+  MOVE_OUTCOME_DELETED = 4;
+}
+
+// Recorded. The record is the conductor's, read on the plugin's Summary.
+message RecordMoveReply {}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // W4.12 — a plugin files a ticket, and reads what it filed (contract v13)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1242,4 +1357,9 @@ enum RefusalReason {
   // contract v10). Nothing recorded, and the same command again is checked
   // again.
   REFUSAL_REASON_REFERENCE_UNAVAILABLE = 14;
+
+  // FAILED_PRECONDITION (W4.13, contract v16). A deletion of a unit whose
+  // last record was received inside the hold over the instance (W6.25):
+  // nothing recorded, and the unit is kept.
+  REFUSAL_REASON_WITHIN_HOLD = 15;
 }

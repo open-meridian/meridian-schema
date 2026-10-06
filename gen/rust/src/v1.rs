@@ -10,7 +10,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v15, and a plugin built from it declares "v15".
+    /// schema is contract v16, and a plugin built from it declares "v16".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -154,13 +154,45 @@ pub struct NotCarried {
     pub reason: i32,
 }
 /// The storage a plugin at the edge asks for (decisions/028; the plan's Q2).
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StorageDeclaration {
     /// How long it keeps a raw record, in days, from when it received it: the
     /// reach of a backfill, and what the deployment keeps the storage for. At
-    /// least one.
+    /// least one. From contract v16 the default of a version declaring no
+    /// kinds; with kinds, each kind's window says it.
     #[prost(uint32, tag = "1")]
     pub retention_days: u32,
+    /// The kinds of raw record it keeps (W4.1, contract v16): each with its
+    /// default window and whether it can be archived. Empty keeps the
+    /// behaviour before v16, under `retention_days`. At most 16, each name
+    /// once.
+    #[prost(message, repeated, tag = "2")]
+    pub record_kinds: ::prost::alloc::vec::Vec<RawRecordKind>,
+}
+/// One kind of raw record a plugin at the edge keeps (contract v16;
+/// spec/an-edge-plugins-older-records-move-to-the-archive, requirement 1).
+/// Its window and what is done past it are its admin's settings, which the
+/// SDK declares from it (W6.11).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RawRecordKind {
+    /// The kind's name in the plugin's code and settings, such as "activity":
+    /// 1 to 40 characters, lowercase letters, digits and underscores, beginning
+    /// with a letter. Its settings are `<name>_window_days` and
+    /// `<name>_past_window`, which no other setting may take.
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// What a person reads, such as "Reported activity". 1 to 40 characters.
+    #[prost(string, tag = "2")]
+    pub label: ::prost::alloc::string::String,
+    /// Its default window, in days from when a record was received: how long
+    /// it stays in the plugin's storage until its admin sets another. 1 to
+    /// 36,500.
+    #[prost(uint32, tag = "3")]
+    pub window_days: u32,
+    /// Whether a unit of it can be moved to an archive. False for state read
+    /// and updated in place, such as a FIX session's.
+    #[prost(bool, tag = "4")]
+    pub archivable: bool,
 }
 /// A plugin's interface, served on loopback and reached only through the
 /// sidecar's front, which verifies the caller first (decisions/014).
@@ -378,6 +410,29 @@ pub struct HeartbeatRequest {
     /// replaces the last. A name and a count, never a value.
     #[prost(message, repeated, tag = "4")]
     pub not_carried_seen: ::prost::alloc::vec::Vec<NotCarriedSeen>,
+    /// W4.5, contract v16. For each kind of raw record the declaration names,
+    /// what the plugin's storage holds of it now; each heartbeat replaces the
+    /// last. At most 16, one per kind; a kind the declaration does not name is
+    /// refused.
+    #[prost(message, repeated, tag = "5")]
+    pub stored: ::prost::alloc::vec::Vec<StoredSpan>,
+}
+/// What a plugin's storage holds of one kind of raw record (W4.5, contract
+/// v16): a count and a span, never a record, an account or a key.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StoredSpan {
+    /// A kind the version's declaration names.
+    #[prost(string, tag = "1")]
+    pub record_kind: ::prost::alloc::string::String,
+    /// How many records of it. 0 when none, and then no span.
+    #[prost(uint64, tag = "2")]
+    pub record_count: u64,
+    /// The span they cover, from when the first was received to when the last
+    /// was, in nanoseconds since the epoch; 0 for none.
+    #[prost(int64, tag = "3")]
+    pub first_received_ns: i64,
+    #[prost(int64, tag = "4")]
+    pub last_received_ns: i64,
 }
 /// How often a name a plugin does not carry was seen (W4.5, Q15).
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -478,8 +533,9 @@ pub struct AsReported {
 /// A reference to the raw record a row was converted from, in the writing
 /// plugin's own storage (requirement 7, Q9; decisions/028). Opaque: core and
 /// every other plugin carry it and never follow it; a person follows it on
-/// the owning plugin's page. When the record has passed its retention,
-/// following it says so, and the row stands.
+/// the owning plugin's page. A record in a unit the plugin archived
+/// resolves to "archived, restorable" (contract v16); one past its window and
+/// deleted, following it says so, and the row stands.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RawRecordRef {
     /// The writing plugin's own instance, which its SDK sets from its
@@ -809,6 +865,41 @@ pub struct LinkedExternalAccount {
     #[prost(string, tag = "3")]
     pub account_name: ::prost::alloc::string::String,
 }
+/// One unit of a kind of raw record moved, reported before anything is
+/// removed (spec/an-edge-plugins-older-records-move-to-the-archive,
+/// requirements 4 and 10). Never a record's content. The instance is the
+/// envelope's, and the person, for a move acting for one, the assertion's:
+/// neither is a field.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordMoveRequest {
+    /// A kind the version's declaration names. 1 to 40 characters.
+    #[prost(string, tag = "1")]
+    pub record_kind: ::prost::alloc::string::String,
+    /// The plugin's own key for the unit: a day's session, a statement's files,
+    /// an account's month of responses. 1 to 512 characters.
+    #[prost(string, tag = "2")]
+    pub unit: ::prost::alloc::string::String,
+    /// How many records the unit holds. 1 to 1,000,000,000.
+    #[prost(uint64, tag = "3")]
+    pub record_count: u64,
+    /// The span they cover, from when the first was received to when the last
+    /// was, in nanoseconds since the epoch. Never 0; the last never before the
+    /// first.
+    #[prost(int64, tag = "4")]
+    pub first_received_ns: i64,
+    #[prost(int64, tag = "5")]
+    pub last_received_ns: i64,
+    #[prost(enumeration = "MoveOutcome", tag = "6")]
+    pub outcome: i32,
+    /// The window that moved it, as its setting and value, "activity_window_days
+    /// 2555". Empty acting for a person, who is the assertion's. At most 200
+    /// characters.
+    #[prost(string, tag = "7")]
+    pub rule: ::prost::alloc::string::String,
+}
+/// Recorded. The record is the conductor's, read on the plugin's Summary.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RecordMoveReply {}
 /// A problem a person met, filed by the plugin serving them (W4.12; W6.21 for
 /// a person filing on a page or through the deployment's MCP, with the same
 /// fields). Every plugin may file, whatever its roles or none, and only for a
@@ -1214,6 +1305,50 @@ impl ProvenanceKind {
         }
     }
 }
+/// What became of a unit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum MoveOutcome {
+    /// Not said; refused.
+    Unspecified = 0,
+    /// Moved from storage to the archive, and checked to have landed.
+    Archived = 1,
+    /// Copied back from the archive to the restore area in storage, for a
+    /// person who asked.
+    Restored = 2,
+    /// Removed from the restore area after the restore period; the archive
+    /// still holds it.
+    Returned = 3,
+    /// Deleted, from storage past its window or from the archive by an admin;
+    /// refused inside a hold, REFUSAL_REASON_WITHIN_HOLD.
+    Deleted = 4,
+}
+impl MoveOutcome {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "MOVE_OUTCOME_UNSPECIFIED",
+            Self::Archived => "MOVE_OUTCOME_ARCHIVED",
+            Self::Restored => "MOVE_OUTCOME_RESTORED",
+            Self::Returned => "MOVE_OUTCOME_RETURNED",
+            Self::Deleted => "MOVE_OUTCOME_DELETED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "MOVE_OUTCOME_UNSPECIFIED" => Some(Self::Unspecified),
+            "MOVE_OUTCOME_ARCHIVED" => Some(Self::Archived),
+            "MOVE_OUTCOME_RESTORED" => Some(Self::Restored),
+            "MOVE_OUTCOME_RETURNED" => Some(Self::Returned),
+            "MOVE_OUTCOME_DELETED" => Some(Self::Deleted),
+            _ => None,
+        }
+    }
+}
 /// What kind of problem a ticket is. Routed by what it concerns, not by kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -1426,6 +1561,10 @@ pub enum RefusalReason {
     /// contract v10). Nothing recorded, and the same command again is checked
     /// again.
     ReferenceUnavailable = 14,
+    /// FAILED_PRECONDITION (W4.13, contract v16). A deletion of a unit whose
+    /// last record was received inside the hold over the instance (W6.25):
+    /// nothing recorded, and the unit is kept.
+    WithinHold = 15,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1451,6 +1590,7 @@ impl RefusalReason {
             Self::IdentifierHeld => "REFUSAL_REASON_IDENTIFIER_HELD",
             Self::RecordChanged => "REFUSAL_REASON_RECORD_CHANGED",
             Self::ReferenceUnavailable => "REFUSAL_REASON_REFERENCE_UNAVAILABLE",
+            Self::WithinHold => "REFUSAL_REASON_WITHIN_HOLD",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1475,6 +1615,7 @@ impl RefusalReason {
             "REFUSAL_REASON_IDENTIFIER_HELD" => Some(Self::IdentifierHeld),
             "REFUSAL_REASON_RECORD_CHANGED" => Some(Self::RecordChanged),
             "REFUSAL_REASON_REFERENCE_UNAVAILABLE" => Some(Self::ReferenceUnavailable),
+            "REFUSAL_REASON_WITHIN_HOLD" => Some(Self::WithinHold),
             _ => None,
         }
     }
@@ -1768,6 +1909,35 @@ pub mod sidecar_service_client {
                 .insert(GrpcMethod::new("meridian.v1.SidecarService", "FiledTickets"));
             self.inner.unary(req, path, codec).await
         }
+        /// W4.13, contract v16. Report one unit of a kind of raw record archived,
+        /// restored, returned or deleted, before anything is removed. As the
+        /// plugin itself for a window's move, or acting for a person, the call
+        /// carrying their assertion as its `meridian-caller` metadata; the sidecar
+        /// asks the conductor on the bus as itself, for the instance it serves.
+        pub async fn record_move(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordMoveRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordMoveReply>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/RecordMove",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "RecordMove"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -1852,6 +2022,15 @@ pub mod sidecar_service_server {
             tonic::Response<super::ReadFiledTicketsReply>,
             tonic::Status,
         >;
+        /// W4.13, contract v16. Report one unit of a kind of raw record archived,
+        /// restored, returned or deleted, before anything is removed. As the
+        /// plugin itself for a window's move, or acting for a person, the call
+        /// carrying their assertion as its `meridian-caller` metadata; the sidecar
+        /// asks the conductor on the bus as itself, for the instance it serves.
+        async fn record_move(
+            &self,
+            request: tonic::Request<super::RecordMoveRequest>,
+        ) -> std::result::Result<tonic::Response<super::RecordMoveReply>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct SidecarServiceServer<T> {
@@ -2277,6 +2456,51 @@ pub mod sidecar_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = FiledTicketsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/RecordMove" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordMoveSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::UnaryService<super::RecordMoveRequest>
+                    for RecordMoveSvc<T> {
+                        type Response = super::RecordMoveReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordMoveRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::record_move(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordMoveSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

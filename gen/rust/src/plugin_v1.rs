@@ -1515,8 +1515,9 @@ pub struct Identifier {
 /// A reference to the raw record a row was converted from, in the writing
 /// plugin's own storage (requirement 7, Q9; decisions/028). Opaque: core and
 /// every other plugin carry it and never follow it; a person follows it on
-/// the owning plugin's page. When the record has passed its retention,
-/// following it says so, and the row stands.
+/// the owning plugin's page. A record in a unit the plugin archived
+/// resolves to "archived, restorable" (contract v16); one past its window and
+/// deleted, following it says so, and the row stands.
 /// A mirror of meridian.v1.RawRecordRef.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RawRecordRef {

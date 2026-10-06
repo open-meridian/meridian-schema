@@ -192,6 +192,20 @@ pub const NOT_CARRIED_NAME_LENGTH: Length = Length { least: 1, most: 128 };
 /// keeps a raw record
 pub const STORAGE_DECLARATION_RETENTION_DAYS_RANGE: Range = Range { least: 1, most: 36500, capped: false };
 
+/// meridian.v1.StorageDeclaration.record_kinds: names each kind of raw record
+/// the version keeps (W4.1)
+pub const STORAGE_DECLARATION_RECORD_KINDS_COUNT: Count = Count { least: 0, most: 16 };
+
+/// meridian.v1.RawRecordKind.name: names the kind in the plugin's code and
+/// settings
+pub const RAW_RECORD_KIND_NAME_LENGTH: Length = Length { least: 1, most: 40 };
+
+/// meridian.v1.RawRecordKind.label: names the kind for a person
+pub const RAW_RECORD_KIND_LABEL_LENGTH: Length = Length { least: 1, most: 40 };
+
+/// meridian.v1.RawRecordKind.window_days: gives the kind's default window
+pub const RAW_RECORD_KIND_WINDOW_DAYS_RANGE: Range = Range { least: 1, most: 36500, capped: false };
+
 /// meridian.v1.PageDeclaration.roles: says which of the plugin's roles the
 /// page serves
 pub const PAGE_DECLARATION_ROLES_COUNT: Count = Count { least: 0, most: 13 };
@@ -217,6 +231,13 @@ pub const NOT_CARRIED_SEEN_SCHEME_LENGTH: Length = Length { least: 1, most: 64 }
 
 /// meridian.v1.NotCarriedSeen.name: names what was seen
 pub const NOT_CARRIED_SEEN_NAME_LENGTH: Length = Length { least: 1, most: 128 };
+
+/// meridian.v1.HeartbeatRequest.stored: reports what the plugin's storage
+/// holds of each kind of raw record (W4.5)
+pub const HEARTBEAT_REQUEST_STORED_COUNT: Count = Count { least: 0, most: 16 };
+
+/// meridian.v1.StoredSpan.record_kind: names the kind the span is of
+pub const STORED_SPAN_RECORD_KIND_LENGTH: Length = Length { least: 1, most: 40 };
 
 /// meridian.v1.PluginFigure.label: names a figure on the plugin's Summary
 /// tile, under Manage
@@ -262,6 +283,21 @@ pub const FILE_TICKET_REQUEST_REFERENCES_COUNT: Count = Count { least: 0, most: 
 
 /// meridian.v1.TicketReference.value: names the record by value
 pub const TICKET_REFERENCE_VALUE_LENGTH: Length = Length { least: 1, most: 200 };
+
+/// meridian.v1.RecordMoveRequest.record_kind: names the kind of raw record
+/// the unit is of
+pub const RECORD_MOVE_REQUEST_RECORD_KIND_LENGTH: Length = Length { least: 1, most: 40 };
+
+/// meridian.v1.RecordMoveRequest.unit: names the unit moved, in the plugin's
+/// own key
+pub const RECORD_MOVE_REQUEST_UNIT_LENGTH: Length = Length { least: 1, most: 512 };
+
+/// meridian.v1.RecordMoveRequest.record_count: says how many records the unit
+/// holds
+pub const RECORD_MOVE_REQUEST_RECORD_COUNT_RANGE: Range = Range { least: 1, most: 1000000000, capped: false };
+
+/// meridian.v1.RecordMoveRequest.rule: names the window that moved the unit
+pub const RECORD_MOVE_REQUEST_RULE_LENGTH: Length = Length { least: 0, most: 200 };
 
 /// SidecarReceive.limit: bounds what the sidecar holds for a plugin that
 /// reads slowly
