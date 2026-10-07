@@ -411,14 +411,15 @@ pub struct HeartbeatRequest {
     #[prost(message, repeated, tag = "4")]
     pub not_carried_seen: ::prost::alloc::vec::Vec<NotCarriedSeen>,
     /// W4.5, contract v16. For each kind of raw record the declaration names,
-    /// what the plugin's storage holds of it now; each heartbeat replaces the
-    /// last. At most 16, one per kind; a kind the declaration does not name is
-    /// refused.
+    /// what the plugin's storage holds of it now, and the bytes it uses of the
+    /// instance's archive; each heartbeat replaces the last. At most 16, one
+    /// per kind; a kind the declaration does not name is refused.
     #[prost(message, repeated, tag = "5")]
     pub stored: ::prost::alloc::vec::Vec<StoredSpan>,
 }
-/// What a plugin's storage holds of one kind of raw record (W4.5, contract
-/// v16): a count and a span, never a record, an account or a key.
+/// What a plugin keeps of one kind of raw record (W4.5, contract v16): what
+/// its storage holds, a count and a span, and the bytes the kind uses of the
+/// instance's archive; never a record, an account or a key.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StoredSpan {
     /// A kind the version's declaration names.
@@ -433,6 +434,13 @@ pub struct StoredSpan {
     pub first_received_ns: i64,
     #[prost(int64, tag = "4")]
     pub last_received_ns: i64,
+    /// The bytes the kind's records use of the instance's archive, which the
+    /// archive's bound (MERIDIAN_ARCHIVE_MOST_BYTES, W8.3) is counted against:
+    /// what the plugin's index of its moves holds archived, a restored unit
+    /// still counted. 0 where none is archived, or the instance has no
+    /// archive.
+    #[prost(uint64, tag = "5")]
+    pub bytes: u64,
 }
 /// How often a name a plugin does not carry was seen (W4.5, Q15).
 #[derive(Clone, PartialEq, ::prost::Message)]

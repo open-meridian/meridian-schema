@@ -233,7 +233,8 @@ pub const NOT_CARRIED_SEEN_SCHEME_LENGTH: Length = Length { least: 1, most: 64 }
 pub const NOT_CARRIED_SEEN_NAME_LENGTH: Length = Length { least: 1, most: 128 };
 
 /// meridian.v1.HeartbeatRequest.stored: reports what the plugin's storage
-/// holds of each kind of raw record (W4.5)
+/// holds of each kind of raw record, and the bytes each uses of its archive
+/// (W4.5)
 pub const HEARTBEAT_REQUEST_STORED_COUNT: Count = Count { least: 0, most: 16 };
 
 /// meridian.v1.StoredSpan.record_kind: names the kind the span is of

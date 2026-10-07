@@ -562,14 +562,15 @@ message HeartbeatRequest {
   repeated NotCarriedSeen not_carried_seen = 4;
 
   // W4.5, contract v16. For each kind of raw record the declaration names,
-  // what the plugin's storage holds of it now; each heartbeat replaces the
-  // last. At most 16, one per kind; a kind the declaration does not name is
-  // refused.
+  // what the plugin's storage holds of it now, and the bytes it uses of the
+  // instance's archive; each heartbeat replaces the last. At most 16, one
+  // per kind; a kind the declaration does not name is refused.
   repeated StoredSpan stored = 5;
 }
 
-// What a plugin's storage holds of one kind of raw record (W4.5, contract
-// v16): a count and a span, never a record, an account or a key.
+// What a plugin keeps of one kind of raw record (W4.5, contract v16): what
+// its storage holds, a count and a span, and the bytes the kind uses of the
+// instance's archive; never a record, an account or a key.
 message StoredSpan {
   // A kind the version's declaration names.
   string record_kind = 1;
@@ -581,6 +582,13 @@ message StoredSpan {
   // was, in nanoseconds since the epoch; 0 for none.
   int64 first_received_ns = 3;
   int64 last_received_ns = 4;
+
+  // The bytes the kind's records use of the instance's archive, which the
+  // archive's bound (MERIDIAN_ARCHIVE_MOST_BYTES, W8.3) is counted against:
+  // what the plugin's index of its moves holds archived, a restored unit
+  // still counted. 0 where none is archived, or the instance has no
+  // archive.
+  uint64 bytes = 5;
 }
 
 // How often a name a plugin does not carry was seen (W4.5, Q15).
