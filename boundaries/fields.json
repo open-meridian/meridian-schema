@@ -74,6 +74,10 @@
         {
           "message": "meridian.v1.Notice",
           "intent": "one change to a ticket, told to a person in their inbox, naming the ticket and never quoting it"
+        },
+        {
+          "message": "meridian.v1.SettingShown",
+          "intent": "one declared setting as the Settings form and core's settings tool show it to the person reading it: the declaration, and whether they may set it and why not (contract v17)"
         }
       ]
     },
@@ -6413,6 +6417,34 @@
       "filled_by": "dashboard",
       "since": "v13",
       "stability": "preview",
+      "kept_by": "dashboard",
+      "store": "dashboard"
+    },
+    {
+      "name": "meridian.v1.SettingShown.may_set",
+      "type": "boolean",
+      "empty": "false where the setting serves a role the person does not administer through the delegation",
+      "intent": "says whether the person reading may set the setting",
+      "meaning": "true where they hold admin on every role the setting serves, through the delegation where they read through one (decisions/033 point 2), as the Settings form shows it editable; for a secret, that they may clear it, never type it through /mcp",
+      "not_meaning": "whether the value is set, or whether the change would be accepted: the conductor still checks it, and a window below a hold is refused",
+      "filled": "derived",
+      "filled_by": "dashboard",
+      "since": "v17",
+      "stability": "stable",
+      "kept_by": "dashboard",
+      "store": "dashboard"
+    },
+    {
+      "name": "meridian.v1.SettingShown.detail",
+      "type": "text",
+      "empty": "empty whenever may_set is true",
+      "intent": "says why the person may not set the setting",
+      "meaning": "the roles the setting serves, set by an admin of every one, as the form's read-only field says it on hover",
+      "not_meaning": "a refusal of a change: nothing was asked",
+      "filled": "derived",
+      "filled_by": "dashboard",
+      "since": "v17",
+      "stability": "stable",
       "kept_by": "dashboard",
       "store": "dashboard"
     },
