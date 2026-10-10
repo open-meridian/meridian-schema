@@ -139,11 +139,25 @@ pub const SOURCE_PLUGIN_VERSION_LENGTH: Length = Length { least: 0, most: 64 };
 /// meridian.v1.Source.dataset: names the dataset a row belongs to
 pub const SOURCE_DATASET_LENGTH: Length = Length { least: 1, most: 96 };
 
+/// meridian.v1.TradeAttributes.characteristics: carries what a trade's
+/// condition codes meant, in the platform's words
+pub const TRADE_ATTRIBUTES_CHARACTERISTICS_COUNT: Count = Count { least: 0, most: 16 };
+
+/// meridian.v1.Quote.characteristics: says a quote's state in the platform's
+/// words
+pub const QUOTE_CHARACTERISTICS_COUNT: Count = Count { least: 0, most: 4 };
+
 /// meridian.v1.RecordPricesRequest.prices: carries a batch of prices
 pub const RECORD_PRICES_REQUEST_PRICES_COUNT: Count = Count { least: 1, most: 500 };
 
 /// meridian.v1.RecordBarsRequest.bars: carries a batch of bars
 pub const RECORD_BARS_REQUEST_BARS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.RecordTradesRequest.trades: carries a batch of trades
+pub const RECORD_TRADES_REQUEST_TRADES_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.RecordQuotesRequest.quotes: carries a batch of quotes
+pub const RECORD_QUOTES_REQUEST_QUOTES_COUNT: Count = Count { least: 1, most: 500 };
 
 /// meridian.v1.SourceChoice.named: asks for named datasets
 pub const SOURCE_CHOICE_NAMED_COUNT: Count = Count { least: 0, most: 16 };
@@ -159,6 +173,18 @@ pub const LIST_BARS_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 
 
 /// meridian.v1.ListBarsRequest.page_size: bounds a page
 pub const LIST_BARS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ListTradesRequest.subjects: names the entities a read is about
+pub const LIST_TRADES_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListTradesRequest.page_size: bounds a page
+pub const LIST_TRADES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ListQuotesRequest.subjects: names the entities a read is about
+pub const LIST_QUOTES_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListQuotesRequest.page_size: bounds a page
+pub const LIST_QUOTES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
 /// meridian.v1.ObservationsWantedEvent.subjects: names the entities wanted
 pub const OBSERVATIONS_WANTED_EVENT_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };

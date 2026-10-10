@@ -74,10 +74,18 @@ service PluginOperations {
   rpc RecordPrices(RecordPricesParams) returns (RecordPricesResult);
   // W10.4: platform.lake.command.record-bars (command; preview).
   rpc RecordBars(RecordBarsParams) returns (RecordBarsResult);
+  // W10.4: platform.lake.command.record-trades (command; preview).
+  rpc RecordTrades(RecordTradesParams) returns (RecordTradesResult);
+  // W10.4: platform.lake.command.record-quotes (command; preview).
+  rpc RecordQuotes(RecordQuotesParams) returns (RecordQuotesResult);
   // W10.6: platform.lake.query.list-prices (query; preview).
   rpc ListPrices(ListPricesParams) returns (ListPricesResult);
   // W10.6: platform.lake.query.list-bars (query; preview).
   rpc ListBars(ListBarsParams) returns (ListBarsResult);
+  // W10.6: platform.lake.query.list-trades (query; preview).
+  rpc ListTrades(ListTradesParams) returns (ListTradesResult);
+  // W10.6: platform.lake.query.list-quotes (query; preview).
+  rpc ListQuotes(ListQuotesParams) returns (ListQuotesResult);
   // W10.7: platform.lake.command.decline-want (command; preview).
   rpc DeclineWant(DeclineWantParams) returns (DeclineWantResult);
   // W10.9: platform.lake.query.list-datasets (query; preview).
@@ -651,7 +659,12 @@ message ListSyncStatusesResult {
   Watermark as_of = 3;
 }
 
-// Reverse resolution: identifiers to an instrument, as of a date.
+// Reverse resolution: identifiers to an instrument, as of a date. Answered
+// from every date the instrument store holds, without the platform (contract
+// v19): an identifier that left a record answers the record that held it on
+// the date asked. Asked by `reporting` (contract v19), it is read-only:
+// nothing is minted, joined, offered or listed, and nothing matched is a
+// miss, not found.
 // The params of ResolveIdentifier: meridian.v1.ResolveIdentifierRequest, less what the sidecar sets.
 message ResolveIdentifierParams {
   // At least one. Matched strongest-first: a global scheme before a
@@ -744,6 +757,8 @@ message ReportMissingInstrumentParams {
 message ResolveInstrumentParams {
   string instrument_id = 1;
 
+  // Selects the version whose values were in force on the date, never which
+  // record: an instrument ID is never reused (decisions/034). 0 for now.
   int64 as_of_ns = 2;
 }
 
@@ -1414,9 +1429,84 @@ message RecordBarsResult {
   Watermark watermark = 4;
 }
 
+// A batch of trades, recorded whole or refused naming the item and field:
+// 1 to 500 (contract v19).
+// The params of RecordTrades: meridian.v1.RecordTradesRequest, less what the sidecar sets.
+message RecordTradesParams {
+  repeated Trade trades = 1;
+
+  // The want these answer, as it was delivered; empty for rows recorded
+  // unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordTrades: meridian.v1.RecordObservationsReply.
+message RecordTradesResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// A batch of quotes, recorded whole or refused naming the item and field:
+// 1 to 500 (contract v19).
+// The params of RecordQuotes: meridian.v1.RecordQuotesRequest, less what the sidecar sets.
+message RecordQuotesParams {
+  repeated Quote quotes = 1;
+
+  // The want these answer, as it was delivered; empty for rows recorded
+  // unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordQuotes: meridian.v1.RecordObservationsReply.
+message RecordQuotesResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
 // Prices for subjects, at one of: the latest in force at a valid time
 // (`at_ns`, 0 for now); a business date; or a valid-time range, from
-// inclusive to exclusive. Exactly one is given; none is the latest now.
+// inclusive to exclusive. Exactly one is given; none is the latest now. The
+// latest is chosen per subject, dataset, kind, venue and the price's asset
+// (contract v19), so a subject priced in two assets on one venue answers
+// both.
 // The params of ListPrices: meridian.v1.ListPricesRequest, less what the sidecar sets.
 message ListPricesParams {
   // 1 to 500.
@@ -1503,7 +1593,91 @@ message ListBarsResult {
   string next_cursor = 5;
 }
 
-// What a `dgm` cannot serve of a want, per subject, with its reason.
+// Trades for subjects (contract v19): a valid-time range, from inclusive to
+// exclusive, within one day of each dataset as it declares its day; or the
+// rows recorded after a watermark, whatever their valid time, which is how a
+// reader that lost trades catches up, a late or out-of-sequence print
+// included. Exactly one is given.
+// The params of ListTrades: meridian.v1.ListTradesRequest, less what the sidecar sets.
+message ListTradesParams {
+  // 1 to 500.
+  repeated SubjectRef subjects = 1;
+
+  SourceChoice sources = 2;
+
+  int64 valid_from_ns = 3;
+
+  int64 valid_until_ns = 4;
+
+  // The watermark the reader last saw: the rows each dataset partition it
+  // names recorded after its sequence there.
+  Watermark after_watermark = 5;
+
+  // The recorded-time cut-off, 0 for now: what the lake knew then.
+  int64 as_of_ns = 6;
+
+  // At most 500 rows, 100 when 0.
+  uint32 page_size = 7;
+
+  string cursor = 8;
+}
+
+// The result of ListTrades: meridian.v1.ListTradesReply.
+message ListTradesResult {
+  repeated Trade trades = 1;
+
+  repeated Unanswered unanswered = 2;
+
+  repeated DatasetRef datasets = 3;
+
+  Watermark watermark = 4;
+
+  string next_cursor = 5;
+}
+
+// Quotes for subjects (contract v19), at one of: the latest in force at a
+// valid time (`at_ns`, 0 for now), per subject, dataset, venue and the
+// quote's asset; or a valid-time range within one day of each dataset as it
+// declares its day. A reader that lost quotes reads the latest in force.
+// The params of ListQuotes: meridian.v1.ListQuotesRequest, less what the sidecar sets.
+message ListQuotesParams {
+  // 1 to 500.
+  repeated SubjectRef subjects = 1;
+
+  SourceChoice sources = 2;
+
+  int64 at_ns = 3;
+
+  int64 valid_from_ns = 4;
+
+  int64 valid_until_ns = 5;
+
+  // The recorded-time cut-off, 0 for now.
+  int64 as_of_ns = 6;
+
+  // At most 500 rows, 100 when 0.
+  uint32 page_size = 7;
+
+  string cursor = 8;
+}
+
+// The result of ListQuotes: meridian.v1.ListQuotesReply.
+message ListQuotesResult {
+  repeated Quote quotes = 1;
+
+  repeated Unanswered unanswered = 2;
+
+  repeated DatasetRef datasets = 3;
+
+  Watermark watermark = 4;
+
+  string next_cursor = 5;
+}
+
+// What a `dgm` cannot serve of a want, per subject, with its reason. It
+// stands for the date or range the want asked, or for the latest where it
+// asked the latest, and for nothing else (contract v19): a later want of
+// another date is asked again.
 // The params of DeclineWant: meridian.v1.DeclineWantRequest, less what the sidecar sets.
 message DeclineWantParams {
   string want_id = 1;
@@ -1598,6 +1772,10 @@ message Delivery {
     ObservationsWantedEvent observations_wanted = 27;
     // W10.7: platform.lake.event.want-withdrawn.
     WantWithdrawnEvent want_withdrawn = 28;
+    // W10.5: platform.lake.{dataset}.event.trades-recorded.
+    TradesRecordedEvent trades_recorded = 29;
+    // W10.5: platform.lake.{dataset}.event.quotes-recorded.
+    QuotesRecordedEvent quotes_recorded = 30;
   }
 }
 
@@ -1880,6 +2058,17 @@ message Identifier {
   // The namespace a source-scoped identifier belongs to, e.g. "snaptrade".
   // Empty for a global scheme.
   string source = 3;
+
+  // When the identifier named the record it is on (contract v19;
+  // decisions/034): from, inclusive, and until, exclusive, 0 until it left.
+  // An identifier that leaves a record has its window closed at that date,
+  // never deleted, so a resolve as of a date before answers the record that
+  // held it. Filled by the instrument store on what it answers and by the
+  // platform on a pull; a plugin never sets either, and the sidecar sends
+  // both empty.
+  int64 valid_from_ns = 4;
+
+  int64 valid_until_ns = 5;
 }
 
 // A reference to the raw record a row was converted from, in the writing
@@ -2576,9 +2765,15 @@ enum InstrumentType {
   // and aims to keep its value, with the attributes of MoneyMarketFund.
   // Held as a fund, never as cash, even where a custodian sweeps cash into it.
   INSTRUMENT_TYPE_MONEY_MARKET_FUND = 1;
+  // Under event_contract (contract v19): a contract paying a fixed amount if
+  // an event happens and nothing if it does not, with the attributes of
+  // BinaryEventContract. A venue's YES and NO tokens are two instruments,
+  // each one.
+  INSTRUMENT_TYPE_BINARY_EVENT_CONTRACT = 2;
 }
 
-// Why a resolution did not produce exactly one instrument.
+// Why a resolution did not produce exactly one instrument; on a conflict
+// (contract v19), whether a resolve met it.
 // A mirror of meridian.v1.MissReason.
 enum MissReason {
   MISS_REASON_UNSPECIFIED = 0;
@@ -2610,7 +2805,10 @@ message InstrumentRecord {
   // and nothing about whether it is resolved; or the "INS-" ID of a record
   // applied from the platform before contract v10, which it keeps. A global
   // ID the platform answers later joins `identifiers` (scheme
-  // `open_meridian`), never replacing this.
+  // `open_meridian`), never replacing this. Never reused (decisions/034): a
+  // retired, decommissioned or replaced record keeps its ID, and no other
+  // record is ever given it, so a position or an order storing it names one
+  // instrument for as long as it survives.
   string instrument_id = 1;
 
   // The full identifier set. An amend replaces this authoritatively.
@@ -2667,6 +2865,10 @@ message InstrumentRecord {
   // segment's venue where the listing is on one. Empty where it is listed
   // on no venue, or its venue is not yet known.
   string listing_venue_id = 16;
+
+  // A binary event contract's attributes (contract v19); set only on a
+  // record whose type is binary event contract.
+  BinaryEventContract binary_event_contract = 17;
 
   // Retired in the domain message, and never reused.
   reserved 3;
@@ -2739,6 +2941,8 @@ enum InstrumentField {
   // Contract v11.
   INSTRUMENT_FIELD_INSTRUMENT_TYPE = 5;
   INSTRUMENT_FIELD_MONEY_MARKET_FUND = 6;
+  // Contract v19.
+  INSTRUMENT_FIELD_BINARY_EVENT_CONTRACT = 7;
 }
 
 // A value offered for a deployment's record (W3.1, W3.3), shown beside its
@@ -2771,6 +2975,8 @@ message InstrumentValue {
     InstrumentType instrument_type = 6;
     // Contract v11: on a money market fund only, each attribute stated.
     MoneyMarketFund money_market_fund = 7;
+    // Contract v19: on a binary event contract only, its payout stated.
+    BinaryEventContract binary_event_contract = 8;
   }
 
   // Where the value came from, in words: a statement, a prospectus, "ISO
@@ -2838,6 +3044,23 @@ enum LiquidityFeeRegime {
   // No liquidity fee: a government fund that has not chosen one, which
   // neither of the others describes (contract v12).
   LIQUIDITY_FEE_REGIME_NONE = 3;
+}
+
+// A binary event contract's attributes (contract v19; plans/the-lake-prices-
+// the-book, Q38): what it pays and when trading in it closes. Which outcome
+// it pays on stays in its description, the venue's words, until the outcome
+// is an observation (vL1c); the outcome and its settlement are not the
+// record's.
+// A mirror of meridian.v1.BinaryEventContract.
+message BinaryEventContract {
+  // What one contract pays if the event happens, naming its cash instrument:
+  // 1 USD at Kalshi, 1 in the venue's USDC instrument at Polymarket. A
+  // contract's price divided by this is its implied probability, a reader's
+  // computation, never stored.
+  Money payout = 1;
+
+  // When trading in it closes, as the venue states it; 0 when it states none.
+  int64 closes_at_ns = 2;
 }
 
 // The only thing holdings are recorded against. A plugin creates one only by
@@ -3736,7 +3959,7 @@ message ObservationMeta {
 // A mirror of meridian.v1.SubjectRef.
 message SubjectRef {
   // The deployment's own ID for the entity: an instrument's in the lake's
-  // 1a. 1 to 64 characters.
+  // 1a and 1b. 1 to 64 characters.
   string entity_id = 1;
 }
 
@@ -3755,7 +3978,9 @@ message Source {
   string dataset = 3;
 
   // The venue the observation originated on, the venue master's ID; empty
-  // when it is not venue-specific, which is the consolidated view.
+  // when it is not venue-specific, which is the consolidated view. A trade's
+  // is the venue it printed on (contract v19): the market centre a
+  // consolidated dataset's trade names, a FINRA print's reporting facility.
   string venue_id = 4;
 }
 
@@ -3843,6 +4068,156 @@ message Bar {
 
   // Trades counted in the bar; unset when the source gives none.
   optional uint64 trade_count = 8;
+}
+
+// One trade as its source reported it. Valid from its event time at its venue,
+// `valid_until_ns` 0, and no business date: real-time data is keyed by UTC
+// instants. The consolidator's, the reporting facility's and the vendor's
+// times are `source_times`. A correction or a withdrawal is a new version
+// under the same row key.
+// A mirror of meridian.v1.Trade.
+message Trade {
+  ObservationMeta meta = 1;
+
+  // The trade's price per unit of the subject, naming its cash instrument.
+  Money price = 2;
+
+  // The quantity traded, in units of the instrument: more than zero.
+  Decimal quantity = 3;
+
+  // What the trade may count for, and its characteristics, in the platform's
+  // words: converted from the source's condition codes at the edge, never a
+  // vendor's code.
+  TradeAttributes attributes = 4;
+
+  // The side that took liquidity; unspecified when the source does not say,
+  // never guessed from the price's movement.
+  Aggressor aggressor = 5;
+
+  // The source's own sequence number; 0 when it gives none. Not the lake's.
+  uint64 source_sequence = 6;
+
+  // True in a version saying the source withdrew the trade.
+  bool cancelled = 7;
+}
+
+// What a trade may count for (spec/the-lake, "Trade attributes"): written on
+// each trade, so no reader needs a table to compute a bar.
+// A mirror of meridian.v1.TradeAttributes.
+message TradeAttributes {
+  // For the consolidated bar across venues.
+  Eligibility consolidated = 1;
+
+  // For its own venue's bar.
+  Eligibility market_centre = 2;
+
+  // Its characteristics: 0 to 16. None is a regular trade, unless
+  // `meta.unconverted` names a code that did not convert.
+  repeated TradeCharacteristic characteristics = 3;
+}
+
+// Whether a trade may set each statistic of a bar; not whether it did.
+// A mirror of meridian.v1.Eligibility.
+message Eligibility {
+  Eligible high_low = 1;
+
+  Eligible open = 2;
+
+  Eligible close = 3;
+
+  Eligible volume = 4;
+}
+
+// Whether a trade may set a statistic.
+// A mirror of meridian.v1.Eligible.
+enum Eligible {
+  // Not known: a code the `dgm` could not convert. A reader computing a bar
+  // reads it as not eligible, and says so.
+  ELIGIBLE_UNSPECIFIED = 0;
+  ELIGIBLE_ELIGIBLE = 1;
+  ELIGIBLE_NOT_ELIGIBLE = 2;
+}
+
+// A trade's characteristics in the platform's words: a closed list grown by
+// revision, none a vendor's code.
+// A mirror of meridian.v1.TradeCharacteristic.
+enum TradeCharacteristic {
+  // Refused.
+  TRADE_CHARACTERISTIC_UNSPECIFIED = 0;
+  // Printed by the venue's opening auction.
+  TRADE_CHARACTERISTIC_OPENING_AUCTION = 1;
+  // Printed by the venue's closing auction.
+  TRADE_CHARACTERISTIC_CLOSING_AUCTION = 2;
+  // Printed by another auction: a reopening after a halt, an intraday auction.
+  TRADE_CHARACTERISTIC_OTHER_AUCTION = 3;
+  // Smaller than the instrument's round lot.
+  TRADE_CHARACTERISTIC_ODD_LOT = 4;
+  // Outside the venue's regular session.
+  TRADE_CHARACTERISTIC_EXTENDED_HOURS = 5;
+  // Reported out of its time order.
+  TRADE_CHARACTERISTIC_OUT_OF_SEQUENCE = 6;
+  // Reported later than its venue's rules require.
+  TRADE_CHARACTERISTIC_LATE_REPORT = 7;
+  // Priced as an average over several executions.
+  TRADE_CHARACTERISTIC_AVERAGE_PRICE = 8;
+  // Settling other than on the regular cycle: cash, next day, seller's option.
+  TRADE_CHARACTERISTIC_NON_REGULAR_SETTLEMENT = 9;
+  // Part of an order sweeping several venues at once.
+  TRADE_CHARACTERISTIC_INTERMARKET_SWEEP = 10;
+  // Priced from another instrument or a benchmark, not by the market at the
+  // time.
+  TRADE_CHARACTERISTIC_DERIVATIVELY_PRICED = 11;
+  // Priced at a reference price from earlier in the day.
+  TRADE_CHARACTERISTIC_PRIOR_REFERENCE_PRICE = 12;
+  // Executed contingent on another trade.
+  TRADE_CHARACTERISTIC_CONTINGENT = 13;
+  // A cross of two orders by one participant.
+  TRADE_CHARACTERISTIC_CROSS = 14;
+}
+
+// The side that took liquidity.
+// A mirror of meridian.v1.Aggressor.
+enum Aggressor {
+  // Not known.
+  AGGRESSOR_UNSPECIFIED = 0;
+  // The buyer took the offer.
+  AGGRESSOR_BUY = 1;
+  // The seller hit the bid.
+  AGGRESSOR_SELL = 2;
+}
+
+// The best bid and offer, on a venue or consolidated: in force from its valid
+// time until the next quote for the same subject, dataset, venue and asset. Keyed by
+// UTC instants, with no business date. Book depth is not in slice 1.
+// A mirror of meridian.v1.Quote.
+message Quote {
+  ObservationMeta meta = 1;
+
+  // The best price on each side, naming its cash instrument, one asset for
+  // both; unset when that side is empty.
+  optional Money bid = 2;
+
+  optional Money ask = 3;
+
+  // The quantity at each price, in units of the instrument, more than zero;
+  // unset when the source gives none.
+  optional Decimal bid_quantity = 4;
+
+  optional Decimal ask_quantity = 5;
+
+  // The quote's state: 0 to 4. None is firm and trading.
+  repeated QuoteCharacteristic characteristics = 6;
+}
+
+// A quote's state in the platform's words.
+// A mirror of meridian.v1.QuoteCharacteristic.
+enum QuoteCharacteristic {
+  // Refused.
+  QUOTE_CHARACTERISTIC_UNSPECIFIED = 0;
+  // Not firm: a price a participant need not trade at.
+  QUOTE_CHARACTERISTIC_INDICATIVE = 1;
+  // Trading in the subject is halted.
+  QUOTE_CHARACTERISTIC_HALTED = 2;
 }
 
 // Which datasets a read is answered from (the intent's Q4): exactly one of
@@ -4154,7 +4529,7 @@ message ActivityReResolvedEvent {
 
 // A price the lake recorded, on its dataset's subject: one row, with its
 // version and sequence. Delivered latest value first per subject, dataset,
-// kind and venue (conflated).
+// kind, venue and, from contract v19, the price's asset (conflated).
 // A mirror of meridian.v1.PricesRecordedEvent.
 message PricesRecordedEvent {
   Price price = 1;
@@ -4176,8 +4551,9 @@ message ObservationsWantedEvent {
 
   string dataset = 2;
 
-  // The data type, by its message's full name: meridian.v1.Price or
-  // meridian.v1.Bar.
+  // The data type, by its message's full name: meridian.v1.Price,
+  // meridian.v1.Bar, and from contract v19 meridian.v1.Trade or
+  // meridian.v1.Quote.
   string data_type = 3;
 
   // 1 to 500.
@@ -4197,7 +4573,8 @@ message ObservationsWantedEvent {
 
   int64 valid_until_ns = 9;
 
-  // Keep the subjects current until the want is withdrawn (W10.7).
+  // Keep the subjects current until the want is withdrawn (W10.7): by the
+  // vendor's stream where the dataset is streamed, by its schedule otherwise.
   bool standing = 10;
 }
 
@@ -4207,4 +4584,20 @@ message WantWithdrawnEvent {
   string want_id = 1;
 
   string dataset = 2;
+}
+
+// A trade the lake recorded, on its dataset's subject (contract v19). Never
+// conflated: every trade is delivered, at most once, and a reader that lost
+// some catches up from the lake by the watermark it last saw (ListTrades).
+// A mirror of meridian.v1.TradesRecordedEvent.
+message TradesRecordedEvent {
+  Trade trade = 1;
+}
+
+// A quote the lake recorded, on its dataset's subject (contract v19).
+// Delivered latest value first per subject, dataset, venue and the quote's
+// asset (conflated).
+// A mirror of meridian.v1.QuotesRecordedEvent.
+message QuotesRecordedEvent {
+  Quote quote = 1;
 }

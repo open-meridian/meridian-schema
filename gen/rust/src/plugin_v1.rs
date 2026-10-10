@@ -559,7 +559,12 @@ pub struct ListSyncStatusesResult {
     #[prost(message, optional, tag = "3")]
     pub as_of: ::core::option::Option<Watermark>,
 }
-/// Reverse resolution: identifiers to an instrument, as of a date.
+/// Reverse resolution: identifiers to an instrument, as of a date. Answered
+/// from every date the instrument store holds, without the platform (contract
+/// v19): an identifier that left a record answers the record that held it on
+/// the date asked. Asked by `reporting` (contract v19), it is read-only:
+/// nothing is minted, joined, offered or listed, and nothing matched is a
+/// miss, not found.
 /// The params of ResolveIdentifier: meridian.v1.ResolveIdentifierRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResolveIdentifierParams {
@@ -648,6 +653,8 @@ pub struct ReportMissingInstrumentParams {
 pub struct ResolveInstrumentParams {
     #[prost(string, tag = "1")]
     pub instrument_id: ::prost::alloc::string::String,
+    /// Selects the version whose values were in force on the date, never which
+    /// record: an instrument ID is never reused (decisions/034). 0 for now.
     #[prost(int64, tag = "2")]
     pub as_of_ns: i64,
 }
@@ -1359,9 +1366,88 @@ pub struct RecordBarsResult {
     #[prost(message, optional, tag = "4")]
     pub watermark: ::core::option::Option<Watermark>,
 }
+/// A batch of trades, recorded whole or refused naming the item and field:
+/// 1 to 500 (contract v19).
+/// The params of RecordTrades: meridian.v1.RecordTradesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordTradesParams {
+    #[prost(message, repeated, tag = "1")]
+    pub trades: ::prost::alloc::vec::Vec<Trade>,
+    /// The want these answer, as it was delivered; empty for rows recorded
+    /// unasked.
+    #[prost(string, tag = "2")]
+    pub want_id: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// What a batch did, once it committed.
+/// The result of RecordTrades: meridian.v1.RecordObservationsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordTradesResult {
+    /// Rows recorded for the first time.
+    #[prost(uint32, tag = "1")]
+    pub recorded: u32,
+    /// Rows recorded as a new version of a row key held.
+    #[prost(uint32, tag = "2")]
+    pub restated: u32,
+    /// Rows identical to the version in force, which changed nothing.
+    #[prost(uint32, tag = "3")]
+    pub unchanged: u32,
+    /// The dataset's sequence once the batch committed.
+    #[prost(message, optional, tag = "4")]
+    pub watermark: ::core::option::Option<Watermark>,
+}
+/// A batch of quotes, recorded whole or refused naming the item and field:
+/// 1 to 500 (contract v19).
+/// The params of RecordQuotes: meridian.v1.RecordQuotesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordQuotesParams {
+    #[prost(message, repeated, tag = "1")]
+    pub quotes: ::prost::alloc::vec::Vec<Quote>,
+    /// The want these answer, as it was delivered; empty for rows recorded
+    /// unasked.
+    #[prost(string, tag = "2")]
+    pub want_id: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// What a batch did, once it committed.
+/// The result of RecordQuotes: meridian.v1.RecordObservationsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordQuotesResult {
+    /// Rows recorded for the first time.
+    #[prost(uint32, tag = "1")]
+    pub recorded: u32,
+    /// Rows recorded as a new version of a row key held.
+    #[prost(uint32, tag = "2")]
+    pub restated: u32,
+    /// Rows identical to the version in force, which changed nothing.
+    #[prost(uint32, tag = "3")]
+    pub unchanged: u32,
+    /// The dataset's sequence once the batch committed.
+    #[prost(message, optional, tag = "4")]
+    pub watermark: ::core::option::Option<Watermark>,
+}
 /// Prices for subjects, at one of: the latest in force at a valid time
 /// (`at_ns`, 0 for now); a business date; or a valid-time range, from
-/// inclusive to exclusive. Exactly one is given; none is the latest now.
+/// inclusive to exclusive. Exactly one is given; none is the latest now. The
+/// latest is chosen per subject, dataset, kind, venue and the price's asset
+/// (contract v19), so a subject priced in two assets on one venue answers
+/// both.
 /// The params of ListPrices: meridian.v1.ListPricesRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListPricesParams {
@@ -1452,7 +1538,95 @@ pub struct ListBarsResult {
     #[prost(string, tag = "5")]
     pub next_cursor: ::prost::alloc::string::String,
 }
-/// What a `dgm` cannot serve of a want, per subject, with its reason.
+/// Trades for subjects (contract v19): a valid-time range, from inclusive to
+/// exclusive, within one day of each dataset as it declares its day; or the
+/// rows recorded after a watermark, whatever their valid time, which is how a
+/// reader that lost trades catches up, a late or out-of-sequence print
+/// included. Exactly one is given.
+/// The params of ListTrades: meridian.v1.ListTradesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListTradesParams {
+    /// 1 to 500.
+    #[prost(message, repeated, tag = "1")]
+    pub subjects: ::prost::alloc::vec::Vec<SubjectRef>,
+    #[prost(message, optional, tag = "2")]
+    pub sources: ::core::option::Option<SourceChoice>,
+    #[prost(int64, tag = "3")]
+    pub valid_from_ns: i64,
+    #[prost(int64, tag = "4")]
+    pub valid_until_ns: i64,
+    /// The watermark the reader last saw: the rows each dataset partition it
+    /// names recorded after its sequence there.
+    #[prost(message, optional, tag = "5")]
+    pub after_watermark: ::core::option::Option<Watermark>,
+    /// The recorded-time cut-off, 0 for now: what the lake knew then.
+    #[prost(int64, tag = "6")]
+    pub as_of_ns: i64,
+    /// At most 500 rows, 100 when 0.
+    #[prost(uint32, tag = "7")]
+    pub page_size: u32,
+    #[prost(string, tag = "8")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListTrades: meridian.v1.ListTradesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListTradesResult {
+    #[prost(message, repeated, tag = "1")]
+    pub trades: ::prost::alloc::vec::Vec<Trade>,
+    #[prost(message, repeated, tag = "2")]
+    pub unanswered: ::prost::alloc::vec::Vec<Unanswered>,
+    #[prost(message, repeated, tag = "3")]
+    pub datasets: ::prost::alloc::vec::Vec<DatasetRef>,
+    #[prost(message, optional, tag = "4")]
+    pub watermark: ::core::option::Option<Watermark>,
+    #[prost(string, tag = "5")]
+    pub next_cursor: ::prost::alloc::string::String,
+}
+/// Quotes for subjects (contract v19), at one of: the latest in force at a
+/// valid time (`at_ns`, 0 for now), per subject, dataset, venue and the
+/// quote's asset; or a valid-time range within one day of each dataset as it
+/// declares its day. A reader that lost quotes reads the latest in force.
+/// The params of ListQuotes: meridian.v1.ListQuotesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListQuotesParams {
+    /// 1 to 500.
+    #[prost(message, repeated, tag = "1")]
+    pub subjects: ::prost::alloc::vec::Vec<SubjectRef>,
+    #[prost(message, optional, tag = "2")]
+    pub sources: ::core::option::Option<SourceChoice>,
+    #[prost(int64, tag = "3")]
+    pub at_ns: i64,
+    #[prost(int64, tag = "4")]
+    pub valid_from_ns: i64,
+    #[prost(int64, tag = "5")]
+    pub valid_until_ns: i64,
+    /// The recorded-time cut-off, 0 for now.
+    #[prost(int64, tag = "6")]
+    pub as_of_ns: i64,
+    /// At most 500 rows, 100 when 0.
+    #[prost(uint32, tag = "7")]
+    pub page_size: u32,
+    #[prost(string, tag = "8")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListQuotes: meridian.v1.ListQuotesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListQuotesResult {
+    #[prost(message, repeated, tag = "1")]
+    pub quotes: ::prost::alloc::vec::Vec<Quote>,
+    #[prost(message, repeated, tag = "2")]
+    pub unanswered: ::prost::alloc::vec::Vec<Unanswered>,
+    #[prost(message, repeated, tag = "3")]
+    pub datasets: ::prost::alloc::vec::Vec<DatasetRef>,
+    #[prost(message, optional, tag = "4")]
+    pub watermark: ::core::option::Option<Watermark>,
+    #[prost(string, tag = "5")]
+    pub next_cursor: ::prost::alloc::string::String,
+}
+/// What a `dgm` cannot serve of a want, per subject, with its reason. It
+/// stands for the date or range the want asked, or for the latest where it
+/// asked the latest, and for nothing else (contract v19): a later want of
+/// another date is asked again.
 /// The params of DeclineWant: meridian.v1.DeclineWantRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeclineWantParams {
@@ -1520,7 +1694,7 @@ pub struct Delivery {
     pub meta: ::core::option::Option<DeliveryMeta>,
     #[prost(
         oneof = "delivery::Item",
-        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28"
+        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30"
     )]
     pub item: ::core::option::Option<delivery::Item>,
 }
@@ -1571,6 +1745,12 @@ pub mod delivery {
         /// W10.7: platform.lake.event.want-withdrawn.
         #[prost(message, tag = "28")]
         WantWithdrawn(super::WantWithdrawnEvent),
+        /// W10.5: platform.lake.{dataset}.event.trades-recorded.
+        #[prost(message, tag = "29")]
+        TradesRecorded(super::TradesRecordedEvent),
+        /// W10.5: platform.lake.{dataset}.event.quotes-recorded.
+        #[prost(message, tag = "30")]
+        QuotesRecorded(super::QuotesRecordedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -1809,6 +1989,17 @@ pub struct Identifier {
     /// Empty for a global scheme.
     #[prost(string, tag = "3")]
     pub source: ::prost::alloc::string::String,
+    /// When the identifier named the record it is on (contract v19;
+    /// decisions/034): from, inclusive, and until, exclusive, 0 until it left.
+    /// An identifier that leaves a record has its window closed at that date,
+    /// never deleted, so a resolve as of a date before answers the record that
+    /// held it. Filled by the instrument store on what it answers and by the
+    /// platform on a pull; a plugin never sets either, and the sidecar sends
+    /// both empty.
+    #[prost(int64, tag = "4")]
+    pub valid_from_ns: i64,
+    #[prost(int64, tag = "5")]
+    pub valid_until_ns: i64,
 }
 /// A reference to the raw record a row was converted from, in the writing
 /// plugin's own storage (requirement 7, Q9; decisions/028). Opaque: core and
@@ -2378,7 +2569,10 @@ pub struct InstrumentRecord {
     /// and nothing about whether it is resolved; or the "INS-" ID of a record
     /// applied from the platform before contract v10, which it keeps. A global
     /// ID the platform answers later joins `identifiers` (scheme
-    /// `open_meridian`), never replacing this.
+    /// `open_meridian`), never replacing this. Never reused (decisions/034): a
+    /// retired, decommissioned or replaced record keeps its ID, and no other
+    /// record is ever given it, so a position or an order storing it names one
+    /// instrument for as long as it survives.
     #[prost(string, tag = "1")]
     pub instrument_id: ::prost::alloc::string::String,
     /// The full identifier set. An amend replaces this authoritatively.
@@ -2436,6 +2630,10 @@ pub struct InstrumentRecord {
     /// on no venue, or its venue is not yet known.
     #[prost(string, tag = "16")]
     pub listing_venue_id: ::prost::alloc::string::String,
+    /// A binary event contract's attributes (contract v19); set only on a
+    /// record whose type is binary event contract.
+    #[prost(message, optional, tag = "17")]
+    pub binary_event_contract: ::core::option::Option<BinaryEventContract>,
 }
 /// Where a value in force on a deployment's record came from (W3,
 /// requirements 1 and 3).
@@ -2503,7 +2701,7 @@ pub struct InstrumentValue {
     /// person sets.
     #[prost(string, tag = "5")]
     pub source: ::prost::alloc::string::String,
-    #[prost(oneof = "instrument_value::Value", tags = "1, 2, 3, 4, 6, 7")]
+    #[prost(oneof = "instrument_value::Value", tags = "1, 2, 3, 4, 6, 7, 8")]
     pub value: ::core::option::Option<instrument_value::Value>,
 }
 /// Nested message and enum types in `InstrumentValue`.
@@ -2527,6 +2725,9 @@ pub mod instrument_value {
         /// Contract v11: on a money market fund only, each attribute stated.
         #[prost(message, tag = "7")]
         MoneyMarketFund(super::MoneyMarketFund),
+        /// Contract v19: on a binary event contract only, its payout stated.
+        #[prost(message, tag = "8")]
+        BinaryEventContract(super::BinaryEventContract),
     }
 }
 /// A money market fund's attributes, from SEC rule 2a-7 as amended in 2023
@@ -2544,6 +2745,24 @@ pub struct MoneyMarketFund {
     pub nav: i32,
     #[prost(enumeration = "LiquidityFeeRegime", tag = "4")]
     pub liquidity_fee: i32,
+}
+/// A binary event contract's attributes (contract v19; plans/the-lake-prices-
+/// the-book, Q38): what it pays and when trading in it closes. Which outcome
+/// it pays on stays in its description, the venue's words, until the outcome
+/// is an observation (vL1c); the outcome and its settlement are not the
+/// record's.
+/// A mirror of meridian.v1.BinaryEventContract.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BinaryEventContract {
+    /// What one contract pays if the event happens, naming its cash instrument:
+    /// 1 USD at Kalshi, 1 in the venue's USDC instrument at Polymarket. A
+    /// contract's price divided by this is its implied probability, a reader's
+    /// computation, never stored.
+    #[prost(message, optional, tag = "1")]
+    pub payout: ::core::option::Option<Money>,
+    /// When trading in it closes, as the venue states it; 0 when it states none.
+    #[prost(int64, tag = "2")]
+    pub closes_at_ns: i64,
 }
 /// The only thing holdings are recorded against. A plugin creates one only by
 /// linking an external account to a new one, acting for a deployment admin in
@@ -3402,7 +3621,7 @@ pub struct ObservationMeta {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SubjectRef {
     /// The deployment's own ID for the entity: an instrument's in the lake's
-    /// 1a. 1 to 64 characters.
+    /// 1a and 1b. 1 to 64 characters.
     #[prost(string, tag = "1")]
     pub entity_id: ::prost::alloc::string::String,
 }
@@ -3422,7 +3641,9 @@ pub struct Source {
     #[prost(string, tag = "3")]
     pub dataset: ::prost::alloc::string::String,
     /// The venue the observation originated on, the venue master's ID; empty
-    /// when it is not venue-specific, which is the consolidated view.
+    /// when it is not venue-specific, which is the consolidated view. A trade's
+    /// is the venue it printed on (contract v19): the market centre a
+    /// consolidated dataset's trade names, a FINRA print's reporting facility.
     #[prost(string, tag = "4")]
     pub venue_id: ::prost::alloc::string::String,
 }
@@ -3464,6 +3685,91 @@ pub struct Bar {
     /// Trades counted in the bar; unset when the source gives none.
     #[prost(uint64, optional, tag = "8")]
     pub trade_count: ::core::option::Option<u64>,
+}
+/// One trade as its source reported it. Valid from its event time at its venue,
+/// `valid_until_ns` 0, and no business date: real-time data is keyed by UTC
+/// instants. The consolidator's, the reporting facility's and the vendor's
+/// times are `source_times`. A correction or a withdrawal is a new version
+/// under the same row key.
+/// A mirror of meridian.v1.Trade.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Trade {
+    #[prost(message, optional, tag = "1")]
+    pub meta: ::core::option::Option<ObservationMeta>,
+    /// The trade's price per unit of the subject, naming its cash instrument.
+    #[prost(message, optional, tag = "2")]
+    pub price: ::core::option::Option<Money>,
+    /// The quantity traded, in units of the instrument: more than zero.
+    #[prost(message, optional, tag = "3")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// What the trade may count for, and its characteristics, in the platform's
+    /// words: converted from the source's condition codes at the edge, never a
+    /// vendor's code.
+    #[prost(message, optional, tag = "4")]
+    pub attributes: ::core::option::Option<TradeAttributes>,
+    /// The side that took liquidity; unspecified when the source does not say,
+    /// never guessed from the price's movement.
+    #[prost(enumeration = "Aggressor", tag = "5")]
+    pub aggressor: i32,
+    /// The source's own sequence number; 0 when it gives none. Not the lake's.
+    #[prost(uint64, tag = "6")]
+    pub source_sequence: u64,
+    /// True in a version saying the source withdrew the trade.
+    #[prost(bool, tag = "7")]
+    pub cancelled: bool,
+}
+/// What a trade may count for (spec/the-lake, "Trade attributes"): written on
+/// each trade, so no reader needs a table to compute a bar.
+/// A mirror of meridian.v1.TradeAttributes.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TradeAttributes {
+    /// For the consolidated bar across venues.
+    #[prost(message, optional, tag = "1")]
+    pub consolidated: ::core::option::Option<Eligibility>,
+    /// For its own venue's bar.
+    #[prost(message, optional, tag = "2")]
+    pub market_centre: ::core::option::Option<Eligibility>,
+    /// Its characteristics: 0 to 16. None is a regular trade, unless
+    /// `meta.unconverted` names a code that did not convert.
+    #[prost(enumeration = "TradeCharacteristic", repeated, tag = "3")]
+    pub characteristics: ::prost::alloc::vec::Vec<i32>,
+}
+/// Whether a trade may set each statistic of a bar; not whether it did.
+/// A mirror of meridian.v1.Eligibility.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct Eligibility {
+    #[prost(enumeration = "Eligible", tag = "1")]
+    pub high_low: i32,
+    #[prost(enumeration = "Eligible", tag = "2")]
+    pub open: i32,
+    #[prost(enumeration = "Eligible", tag = "3")]
+    pub close: i32,
+    #[prost(enumeration = "Eligible", tag = "4")]
+    pub volume: i32,
+}
+/// The best bid and offer, on a venue or consolidated: in force from its valid
+/// time until the next quote for the same subject, dataset, venue and asset. Keyed by
+/// UTC instants, with no business date. Book depth is not in slice 1.
+/// A mirror of meridian.v1.Quote.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Quote {
+    #[prost(message, optional, tag = "1")]
+    pub meta: ::core::option::Option<ObservationMeta>,
+    /// The best price on each side, naming its cash instrument, one asset for
+    /// both; unset when that side is empty.
+    #[prost(message, optional, tag = "2")]
+    pub bid: ::core::option::Option<Money>,
+    #[prost(message, optional, tag = "3")]
+    pub ask: ::core::option::Option<Money>,
+    /// The quantity at each price, in units of the instrument, more than zero;
+    /// unset when the source gives none.
+    #[prost(message, optional, tag = "4")]
+    pub bid_quantity: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "5")]
+    pub ask_quantity: ::core::option::Option<Decimal>,
+    /// The quote's state: 0 to 4. None is firm and trading.
+    #[prost(enumeration = "QuoteCharacteristic", repeated, tag = "6")]
+    pub characteristics: ::prost::alloc::vec::Vec<i32>,
 }
 /// Which datasets a read is answered from (the intent's Q4): exactly one of
 /// the deployment's default, named datasets, or every entitled dataset side by
@@ -3747,7 +4053,7 @@ pub struct ActivityReResolvedEvent {
 }
 /// A price the lake recorded, on its dataset's subject: one row, with its
 /// version and sequence. Delivered latest value first per subject, dataset,
-/// kind and venue (conflated).
+/// kind, venue and, from contract v19, the price's asset (conflated).
 /// A mirror of meridian.v1.PricesRecordedEvent.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PricesRecordedEvent {
@@ -3772,8 +4078,9 @@ pub struct ObservationsWantedEvent {
     pub want_id: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub dataset: ::prost::alloc::string::String,
-    /// The data type, by its message's full name: meridian.v1.Price or
-    /// meridian.v1.Bar.
+    /// The data type, by its message's full name: meridian.v1.Price,
+    /// meridian.v1.Bar, and from contract v19 meridian.v1.Trade or
+    /// meridian.v1.Quote.
     #[prost(string, tag = "3")]
     pub data_type: ::prost::alloc::string::String,
     /// 1 to 500.
@@ -3793,7 +4100,8 @@ pub struct ObservationsWantedEvent {
     pub valid_from_ns: i64,
     #[prost(int64, tag = "9")]
     pub valid_until_ns: i64,
-    /// Keep the subjects current until the want is withdrawn (W10.7).
+    /// Keep the subjects current until the want is withdrawn (W10.7): by the
+    /// vendor's stream where the dataset is streamed, by its schedule otherwise.
     #[prost(bool, tag = "10")]
     pub standing: bool,
 }
@@ -3805,6 +4113,24 @@ pub struct WantWithdrawnEvent {
     pub want_id: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub dataset: ::prost::alloc::string::String,
+}
+/// A trade the lake recorded, on its dataset's subject (contract v19). Never
+/// conflated: every trade is delivered, at most once, and a reader that lost
+/// some catches up from the lake by the watermark it last saw (ListTrades).
+/// A mirror of meridian.v1.TradesRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TradesRecordedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub trade: ::core::option::Option<Trade>,
+}
+/// A quote the lake recorded, on its dataset's subject (contract v19).
+/// Delivered latest value first per subject, dataset, venue and the quote's
+/// asset (conflated).
+/// A mirror of meridian.v1.QuotesRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QuotesRecordedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub quote: ::core::option::Option<Quote>,
 }
 /// An account's kind (contract v11): one coarse kind, the platform's own
 /// words, never a venue's.
@@ -4298,6 +4624,11 @@ pub enum InstrumentType {
     /// and aims to keep its value, with the attributes of MoneyMarketFund.
     /// Held as a fund, never as cash, even where a custodian sweeps cash into it.
     MoneyMarketFund = 1,
+    /// Under event_contract (contract v19): a contract paying a fixed amount if
+    /// an event happens and nothing if it does not, with the attributes of
+    /// BinaryEventContract. A venue's YES and NO tokens are two instruments,
+    /// each one.
+    BinaryEventContract = 2,
 }
 impl InstrumentType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4308,6 +4639,7 @@ impl InstrumentType {
         match self {
             Self::Unspecified => "INSTRUMENT_TYPE_UNSPECIFIED",
             Self::MoneyMarketFund => "INSTRUMENT_TYPE_MONEY_MARKET_FUND",
+            Self::BinaryEventContract => "INSTRUMENT_TYPE_BINARY_EVENT_CONTRACT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4315,11 +4647,13 @@ impl InstrumentType {
         match value {
             "INSTRUMENT_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
             "INSTRUMENT_TYPE_MONEY_MARKET_FUND" => Some(Self::MoneyMarketFund),
+            "INSTRUMENT_TYPE_BINARY_EVENT_CONTRACT" => Some(Self::BinaryEventContract),
             _ => None,
         }
     }
 }
-/// Why a resolution did not produce exactly one instrument.
+/// Why a resolution did not produce exactly one instrument; on a conflict
+/// (contract v19), whether a resolve met it.
 /// A mirror of meridian.v1.MissReason.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -4407,6 +4741,8 @@ pub enum InstrumentField {
     /// Contract v11.
     InstrumentType = 5,
     MoneyMarketFund = 6,
+    /// Contract v19.
+    BinaryEventContract = 7,
 }
 impl InstrumentField {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4422,6 +4758,7 @@ impl InstrumentField {
             Self::Identifier => "INSTRUMENT_FIELD_IDENTIFIER",
             Self::InstrumentType => "INSTRUMENT_FIELD_INSTRUMENT_TYPE",
             Self::MoneyMarketFund => "INSTRUMENT_FIELD_MONEY_MARKET_FUND",
+            Self::BinaryEventContract => "INSTRUMENT_FIELD_BINARY_EVENT_CONTRACT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4434,6 +4771,7 @@ impl InstrumentField {
             "INSTRUMENT_FIELD_IDENTIFIER" => Some(Self::Identifier),
             "INSTRUMENT_FIELD_INSTRUMENT_TYPE" => Some(Self::InstrumentType),
             "INSTRUMENT_FIELD_MONEY_MARKET_FUND" => Some(Self::MoneyMarketFund),
+            "INSTRUMENT_FIELD_BINARY_EVENT_CONTRACT" => Some(Self::BinaryEventContract),
             _ => None,
         }
     }
@@ -5125,6 +5463,195 @@ impl PriceBasis {
         match value {
             "PRICE_BASIS_UNSPECIFIED" => Some(Self::Unspecified),
             "PRICE_BASIS_PER_UNIT" => Some(Self::PerUnit),
+            _ => None,
+        }
+    }
+}
+/// Whether a trade may set a statistic.
+/// A mirror of meridian.v1.Eligible.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Eligible {
+    /// Not known: a code the `dgm` could not convert. A reader computing a bar
+    /// reads it as not eligible, and says so.
+    Unspecified = 0,
+    Eligible = 1,
+    NotEligible = 2,
+}
+impl Eligible {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ELIGIBLE_UNSPECIFIED",
+            Self::Eligible => "ELIGIBLE_ELIGIBLE",
+            Self::NotEligible => "ELIGIBLE_NOT_ELIGIBLE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ELIGIBLE_UNSPECIFIED" => Some(Self::Unspecified),
+            "ELIGIBLE_ELIGIBLE" => Some(Self::Eligible),
+            "ELIGIBLE_NOT_ELIGIBLE" => Some(Self::NotEligible),
+            _ => None,
+        }
+    }
+}
+/// A trade's characteristics in the platform's words: a closed list grown by
+/// revision, none a vendor's code.
+/// A mirror of meridian.v1.TradeCharacteristic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TradeCharacteristic {
+    /// Refused.
+    Unspecified = 0,
+    /// Printed by the venue's opening auction.
+    OpeningAuction = 1,
+    /// Printed by the venue's closing auction.
+    ClosingAuction = 2,
+    /// Printed by another auction: a reopening after a halt, an intraday auction.
+    OtherAuction = 3,
+    /// Smaller than the instrument's round lot.
+    OddLot = 4,
+    /// Outside the venue's regular session.
+    ExtendedHours = 5,
+    /// Reported out of its time order.
+    OutOfSequence = 6,
+    /// Reported later than its venue's rules require.
+    LateReport = 7,
+    /// Priced as an average over several executions.
+    AveragePrice = 8,
+    /// Settling other than on the regular cycle: cash, next day, seller's option.
+    NonRegularSettlement = 9,
+    /// Part of an order sweeping several venues at once.
+    IntermarketSweep = 10,
+    /// Priced from another instrument or a benchmark, not by the market at the
+    /// time.
+    DerivativelyPriced = 11,
+    /// Priced at a reference price from earlier in the day.
+    PriorReferencePrice = 12,
+    /// Executed contingent on another trade.
+    Contingent = 13,
+    /// A cross of two orders by one participant.
+    Cross = 14,
+}
+impl TradeCharacteristic {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "TRADE_CHARACTERISTIC_UNSPECIFIED",
+            Self::OpeningAuction => "TRADE_CHARACTERISTIC_OPENING_AUCTION",
+            Self::ClosingAuction => "TRADE_CHARACTERISTIC_CLOSING_AUCTION",
+            Self::OtherAuction => "TRADE_CHARACTERISTIC_OTHER_AUCTION",
+            Self::OddLot => "TRADE_CHARACTERISTIC_ODD_LOT",
+            Self::ExtendedHours => "TRADE_CHARACTERISTIC_EXTENDED_HOURS",
+            Self::OutOfSequence => "TRADE_CHARACTERISTIC_OUT_OF_SEQUENCE",
+            Self::LateReport => "TRADE_CHARACTERISTIC_LATE_REPORT",
+            Self::AveragePrice => "TRADE_CHARACTERISTIC_AVERAGE_PRICE",
+            Self::NonRegularSettlement => "TRADE_CHARACTERISTIC_NON_REGULAR_SETTLEMENT",
+            Self::IntermarketSweep => "TRADE_CHARACTERISTIC_INTERMARKET_SWEEP",
+            Self::DerivativelyPriced => "TRADE_CHARACTERISTIC_DERIVATIVELY_PRICED",
+            Self::PriorReferencePrice => "TRADE_CHARACTERISTIC_PRIOR_REFERENCE_PRICE",
+            Self::Contingent => "TRADE_CHARACTERISTIC_CONTINGENT",
+            Self::Cross => "TRADE_CHARACTERISTIC_CROSS",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TRADE_CHARACTERISTIC_UNSPECIFIED" => Some(Self::Unspecified),
+            "TRADE_CHARACTERISTIC_OPENING_AUCTION" => Some(Self::OpeningAuction),
+            "TRADE_CHARACTERISTIC_CLOSING_AUCTION" => Some(Self::ClosingAuction),
+            "TRADE_CHARACTERISTIC_OTHER_AUCTION" => Some(Self::OtherAuction),
+            "TRADE_CHARACTERISTIC_ODD_LOT" => Some(Self::OddLot),
+            "TRADE_CHARACTERISTIC_EXTENDED_HOURS" => Some(Self::ExtendedHours),
+            "TRADE_CHARACTERISTIC_OUT_OF_SEQUENCE" => Some(Self::OutOfSequence),
+            "TRADE_CHARACTERISTIC_LATE_REPORT" => Some(Self::LateReport),
+            "TRADE_CHARACTERISTIC_AVERAGE_PRICE" => Some(Self::AveragePrice),
+            "TRADE_CHARACTERISTIC_NON_REGULAR_SETTLEMENT" => {
+                Some(Self::NonRegularSettlement)
+            }
+            "TRADE_CHARACTERISTIC_INTERMARKET_SWEEP" => Some(Self::IntermarketSweep),
+            "TRADE_CHARACTERISTIC_DERIVATIVELY_PRICED" => Some(Self::DerivativelyPriced),
+            "TRADE_CHARACTERISTIC_PRIOR_REFERENCE_PRICE" => {
+                Some(Self::PriorReferencePrice)
+            }
+            "TRADE_CHARACTERISTIC_CONTINGENT" => Some(Self::Contingent),
+            "TRADE_CHARACTERISTIC_CROSS" => Some(Self::Cross),
+            _ => None,
+        }
+    }
+}
+/// The side that took liquidity.
+/// A mirror of meridian.v1.Aggressor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Aggressor {
+    /// Not known.
+    Unspecified = 0,
+    /// The buyer took the offer.
+    Buy = 1,
+    /// The seller hit the bid.
+    Sell = 2,
+}
+impl Aggressor {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "AGGRESSOR_UNSPECIFIED",
+            Self::Buy => "AGGRESSOR_BUY",
+            Self::Sell => "AGGRESSOR_SELL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "AGGRESSOR_UNSPECIFIED" => Some(Self::Unspecified),
+            "AGGRESSOR_BUY" => Some(Self::Buy),
+            "AGGRESSOR_SELL" => Some(Self::Sell),
+            _ => None,
+        }
+    }
+}
+/// A quote's state in the platform's words.
+/// A mirror of meridian.v1.QuoteCharacteristic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum QuoteCharacteristic {
+    /// Refused.
+    Unspecified = 0,
+    /// Not firm: a price a participant need not trade at.
+    Indicative = 1,
+    /// Trading in the subject is halted.
+    Halted = 2,
+}
+impl QuoteCharacteristic {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "QUOTE_CHARACTERISTIC_UNSPECIFIED",
+            Self::Indicative => "QUOTE_CHARACTERISTIC_INDICATIVE",
+            Self::Halted => "QUOTE_CHARACTERISTIC_HALTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "QUOTE_CHARACTERISTIC_UNSPECIFIED" => Some(Self::Unspecified),
+            "QUOTE_CHARACTERISTIC_INDICATIVE" => Some(Self::Indicative),
+            "QUOTE_CHARACTERISTIC_HALTED" => Some(Self::Halted),
             _ => None,
         }
     }
@@ -6189,6 +6716,66 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W10.4: platform.lake.command.record-trades (command; preview).
+        pub async fn record_trades(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordTradesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordTradesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordTrades",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "RecordTrades",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W10.4: platform.lake.command.record-quotes (command; preview).
+        pub async fn record_quotes(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordQuotesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordQuotesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordQuotes",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "RecordQuotes",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W10.6: platform.lake.query.list-prices (query; preview).
         pub async fn list_prices(
             &mut self,
@@ -6237,6 +6824,60 @@ pub mod plugin_operations_client {
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new("meridian.plugin.v1.PluginOperations", "ListBars"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W10.6: platform.lake.query.list-trades (query; preview).
+        pub async fn list_trades(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListTradesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListTradesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListTrades",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "ListTrades"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W10.6: platform.lake.query.list-quotes (query; preview).
+        pub async fn list_quotes(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListQuotesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListQuotesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListQuotes",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "ListQuotes"),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -6567,6 +7208,22 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordBarsResult>,
             tonic::Status,
         >;
+        /// W10.4: platform.lake.command.record-trades (command; preview).
+        async fn record_trades(
+            &self,
+            request: tonic::Request<super::RecordTradesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordTradesResult>,
+            tonic::Status,
+        >;
+        /// W10.4: platform.lake.command.record-quotes (command; preview).
+        async fn record_quotes(
+            &self,
+            request: tonic::Request<super::RecordQuotesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordQuotesResult>,
+            tonic::Status,
+        >;
         /// W10.6: platform.lake.query.list-prices (query; preview).
         async fn list_prices(
             &self,
@@ -6580,6 +7237,22 @@ pub mod plugin_operations_server {
             &self,
             request: tonic::Request<super::ListBarsParams>,
         ) -> std::result::Result<tonic::Response<super::ListBarsResult>, tonic::Status>;
+        /// W10.6: platform.lake.query.list-trades (query; preview).
+        async fn list_trades(
+            &self,
+            request: tonic::Request<super::ListTradesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListTradesResult>,
+            tonic::Status,
+        >;
+        /// W10.6: platform.lake.query.list-quotes (query; preview).
+        async fn list_quotes(
+            &self,
+            request: tonic::Request<super::ListQuotesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListQuotesResult>,
+            tonic::Status,
+        >;
         /// W10.7: platform.lake.command.decline-want (command; preview).
         async fn decline_want(
             &self,
@@ -8102,6 +8775,98 @@ pub mod plugin_operations_server {
                     };
                     Box::pin(fut)
                 }
+                "/meridian.plugin.v1.PluginOperations/RecordTrades" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordTradesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordTradesParams>
+                    for RecordTradesSvc<T> {
+                        type Response = super::RecordTradesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordTradesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_trades(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordTradesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RecordQuotes" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordQuotesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordQuotesParams>
+                    for RecordQuotesSvc<T> {
+                        type Response = super::RecordQuotesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordQuotesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_quotes(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordQuotesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/meridian.plugin.v1.PluginOperations/ListPrices" => {
                     #[allow(non_camel_case_types)]
                     struct ListPricesSvc<T: PluginOperations>(pub Arc<T>);
@@ -8177,6 +8942,96 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListBarsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListTrades" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListTradesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListTradesParams>
+                    for ListTradesSvc<T> {
+                        type Response = super::ListTradesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListTradesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_trades(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListTradesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListQuotes" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListQuotesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListQuotesParams>
+                    for ListQuotesSvc<T> {
+                        type Response = super::ListQuotesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListQuotesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_quotes(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListQuotesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
