@@ -458,17 +458,12 @@
           "ResolveInstrument",
           "ListPositions",
           "ListBreaks",
-          "ListAccountAttributes",
-          "ListTrades",
-          "ListQuotes",
-          "ListDatasets"
+          "ListAccountAttributes"
         ],
         "hears": [
           "PositionChanged",
           "BreakChanged",
-          "AccountAttributeChanged",
-          "TradesRecorded",
-          "QuotesRecorded"
+          "AccountAttributeChanged"
         ]
       }
     },
@@ -597,8 +592,6 @@
           "ListAccountAttributes",
           "ListPrices",
           "ListBars",
-          "ListTrades",
-          "ListQuotes",
           "ListDatasets"
         ],
         "hears": [
@@ -607,9 +600,7 @@
           "AccountFiguresRecorded",
           "AccountAttributeChanged",
           "PricesRecorded",
-          "BarsRecorded",
-          "TradesRecorded",
-          "QuotesRecorded"
+          "BarsRecorded"
         ]
       }
     },
@@ -1046,7 +1037,6 @@
         "reads": [
           "compliance",
           "ems",
-          "oms",
           "portfolio",
           "reporting",
           "signal"
@@ -1096,8 +1086,6 @@
       "roles": {
         "reads": [
           "ems",
-          "oms",
-          "portfolio",
           "signal"
         ]
       },
@@ -1138,8 +1126,6 @@
       "roles": {
         "reads": [
           "ems",
-          "oms",
-          "portfolio",
           "signal"
         ]
       },
@@ -1200,8 +1186,6 @@
       "roles": {
         "hears": [
           "ems",
-          "oms",
-          "portfolio",
           "signal"
         ]
       },
@@ -1523,8 +1507,6 @@
       "roles": {
         "hears": [
           "ems",
-          "oms",
-          "portfolio",
           "signal"
         ]
       },
