@@ -102,8 +102,80 @@ pub const LINK_EXTERNAL_ACCOUNT_REQUEST_NEW_ACCOUNT_NOTE_LENGTH: Length = Length
 /// launched with
 pub const KNOWN_PLUGIN_ROLES_ROLES_COUNT: Count = Count { least: 0, most: 13 };
 
+/// meridian.v1.SetDatasetEntitlementRequest.fields: narrows the entitlement
+/// to some fields
+pub const SET_DATASET_ENTITLEMENT_REQUEST_FIELDS_COUNT: Count = Count { least: 0, most: 64 };
+
 /// meridian.v1.TicketNote.note: carries the note's text
 pub const TICKET_NOTE_NOTE_LENGTH: Length = Length { least: 1, most: 4000 };
+
+/// meridian.v1.VenueRecord.country_code: says where the venue operates
+pub const VENUE_RECORD_COUNTRY_CODE_LENGTH: Length = Length { least: 2, most: 2 };
+
+/// meridian.v1.VenueRecord.time_zone: says the venue's local time
+pub const VENUE_RECORD_TIME_ZONE_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.ObservationMeta.row_key: names one observation, so recording
+/// it again changes nothing
+pub const OBSERVATION_META_ROW_KEY_LENGTH: Length = Length { least: 1, most: 128 };
+
+/// meridian.v1.ObservationMeta.subjects: names the entities a row is about
+pub const OBSERVATION_META_SUBJECTS_COUNT: Count = Count { least: 1, most: 8 };
+
+/// meridian.v1.ObservationMeta.source_times: keeps the source's own clocks
+/// beside the valid time
+pub const OBSERVATION_META_SOURCE_TIMES_COUNT: Count = Count { least: 0, most: 6 };
+
+/// meridian.v1.ObservationMeta.unconverted: carries each vendor value that
+/// failed conversion, beside the field left not known
+pub const OBSERVATION_META_UNCONVERTED_COUNT: Count = Count { least: 0, most: 16 };
+
+/// meridian.v1.SubjectRef.entity_id: names one entity a row is about
+pub const SUBJECT_REF_ENTITY_ID_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.Source.plugin_version: makes a parser's fix traceable
+pub const SOURCE_PLUGIN_VERSION_LENGTH: Length = Length { least: 0, most: 64 };
+
+/// meridian.v1.Source.dataset: names the dataset a row belongs to
+pub const SOURCE_DATASET_LENGTH: Length = Length { least: 1, most: 96 };
+
+/// meridian.v1.RecordPricesRequest.prices: carries a batch of prices
+pub const RECORD_PRICES_REQUEST_PRICES_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.RecordBarsRequest.bars: carries a batch of bars
+pub const RECORD_BARS_REQUEST_BARS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.SourceChoice.named: asks for named datasets
+pub const SOURCE_CHOICE_NAMED_COUNT: Count = Count { least: 0, most: 16 };
+
+/// meridian.v1.ListPricesRequest.subjects: names the entities a read is about
+pub const LIST_PRICES_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListPricesRequest.page_size: bounds a page
+pub const LIST_PRICES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ListBarsRequest.subjects: names the entities a read is about
+pub const LIST_BARS_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListBarsRequest.page_size: bounds a page
+pub const LIST_BARS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ObservationsWantedEvent.subjects: names the entities wanted
+pub const OBSERVATIONS_WANTED_EVENT_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.DeclineWantRequest.subjects: names the subjects declined
+pub const DECLINE_WANT_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.DatasetEntitlement.fields: narrows an entitlement to some
+/// fields
+pub const DATASET_ENTITLEMENT_FIELDS_COUNT: Count = Count { least: 0, most: 64 };
+
+/// meridian.v1.SourcePriority.datasets: orders the datasets a default read
+/// takes
+pub const SOURCE_PRIORITY_DATASETS_COUNT: Count = Count { least: 0, most: 16 };
+
+/// meridian.v1.SetSourcePriorityRequest.datasets: replaces the order whole
+pub const SET_SOURCE_PRIORITY_REQUEST_DATASETS_COUNT: Count = Count { least: 0, most: 16 };
 
 /// meridian.v1.AsReported.scheme: says whose vocabulary a value as reported
 /// is in
@@ -176,6 +248,41 @@ pub const PLUGIN_DECLARATION_SECRET_SETTINGS_COUNT: Count = Count { least: 0, mo
 /// meridian.v1.PluginDeclaration.not_carried: names what the version receives
 /// from its source and does not carry (Q15)
 pub const PLUGIN_DECLARATION_NOT_CARRIED_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.Catalogue.datasets: lists the datasets a dgm serves
+pub const CATALOGUE_DATASETS_COUNT: Count = Count { least: 0, most: 32 };
+
+/// meridian.v1.DatasetDeclaration.key: names a dataset within its plugin
+pub const DATASET_DECLARATION_KEY_LENGTH: Length = Length { least: 1, most: 40 };
+
+/// meridian.v1.DatasetDeclaration.vendor: says who originated the data
+pub const DATASET_DECLARATION_VENDOR_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.DatasetDeclaration.aggregator: says who carries the data when
+/// an aggregator does
+pub const DATASET_DECLARATION_AGGREGATOR_LENGTH: Length = Length { least: 0, most: 64 };
+
+/// meridian.v1.DatasetDeclaration.data_types: says what a dataset holds
+pub const DATASET_DECLARATION_DATA_TYPES_COUNT: Count = Count { least: 1, most: 32 };
+
+/// meridian.v1.DatasetDeclaration.modes: says how a dataset's rows can arrive
+pub const DATASET_DECLARATION_MODES_COUNT: Count = Count { least: 1, most: 3 };
+
+/// meridian.v1.DatasetDeclaration.day_time_zone: says the time zone a daily
+/// value's business date is in
+pub const DATASET_DECLARATION_DAY_TIME_ZONE_LENGTH: Length = Length { least: 0, most: 64 };
+
+/// meridian.v1.DatasetDeclaration.day_end_minute: says when a dataset's
+/// business day ends
+pub const DATASET_DECLARATION_DAY_END_MINUTE_RANGE: Range = Range { least: 0, most: 1439, capped: false };
+
+/// meridian.v1.DatasetLicence.retention_days: says how long the lake keeps a
+/// row
+pub const DATASET_LICENCE_RETENTION_DAYS_RANGE: Range = Range { least: 0, most: 36500, capped: false };
+
+/// meridian.v1.DatasetLicence.default_fields: says the fields readable by
+/// default
+pub const DATASET_LICENCE_DEFAULT_FIELDS_COUNT: Count = Count { least: 0, most: 64 };
 
 /// meridian.v1.NotCarried.role: names the role the plugin receives the name
 /// in
@@ -303,6 +410,10 @@ pub const RECORD_MOVE_REQUEST_RULE_LENGTH: Length = Length { least: 0, most: 200
 /// SidecarReceive.limit: bounds what the sidecar holds for a plugin that
 /// reads slowly
 pub const SIDECAR_RECEIVE_LIMIT_RANGE: Range = Range { least: 0, most: 1024, capped: true };
+
+/// meridian.plugin.v1.ReceiveRequest.subjects: names the subjects a plugin
+/// wants of the conflated rows
+pub const RECEIVE_REQUEST_SUBJECTS_COUNT: Count = Count { least: 0, most: 500 };
 
 /// meridian.v1.RecordHoldingsStatementRequest.provenance: says where each
 /// value the plugin closed rather than read came from

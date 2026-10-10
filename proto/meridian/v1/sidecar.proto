@@ -9,8 +9,9 @@
 //
 // This service is a plugin's lifecycle and what it learns from the deployment:
 // registering, liveness, leaving, its settings, who may use it, its account
-// scope, the tickets it files for a person (contract v13), and at the edge
-// the moves of its raw records (contract v16). Its access to
+// scope, the tickets it files for a person (contract v13), at the edge
+// the moves of its raw records (contract v16), and a `dgm`'s catalogue of
+// datasets in its declaration (contract v18). Its access to
 // the bus is not here. Since contract v2 that is the typed
 // operations of meridian.plugin.v1, one per matrix row a role may take and
 // generated from the matrix; the generic publish, subscribe and call are gone,
@@ -80,7 +81,7 @@ message RegisterRequest {
   reserved "instance_id", "role", "tags";
 
   // The contract version the plugin was built against, as `v<N>`. This
-  // schema is contract v16, and a plugin built from it declares "v16".
+  // schema is contract v18, and a plugin built from it declares "v18".
   //
   // Required. A sidecar admits it when it lies between the sidecar's floor
   // and its own version, and otherwise refuses it naming both (W4.1): a
@@ -205,6 +206,117 @@ message PluginDeclaration {
   // The storage it asks for, for its raw records (decisions/028): only on a
   // version holding an edge role, refused otherwise. Unset asks for none.
   StorageDeclaration storage = 3;
+
+  // The datasets it serves the lake (W8.1, W10.4; contract v18): only on a
+  // version holding `dgm`, refused otherwise. Unset serves none.
+  Catalogue catalogue = 4;
+}
+
+// A `dgm`'s catalogue: the datasets it serves the lake (spec/the-lake, "The
+// catalogue"; step 6, requirement 26). The lake's, not a declaration of
+// support: what each dataset holds, how it arrives and on what terms. No
+// value, account or credential is ever in it. At most 32 datasets, each key
+// once.
+message Catalogue {
+  repeated DatasetDeclaration datasets = 1;
+}
+
+// One dataset a `dgm` serves. Its identity in a deployment is the instance
+// and its key (spec/the-lake, Q19).
+message DatasetDeclaration {
+  // The dataset's name within the plugin: 1 to 40 characters, lowercase
+  // letters, digits and underscores, beginning with a letter. The dataset's
+  // ID in a deployment is the instance, a colon, and this.
+  string key = 1;
+
+  // Who originated the data, and who carries it when an aggregator does:
+  // data, not vocabulary. The vendor 1 to 64 characters; the aggregator 0 to
+  // 64, empty when reached directly.
+  string vendor = 2;
+  string aggregator = 3;
+
+  // The lake's data types it serves and the optional fields it fills, each
+  // by its dictionary entry: a type by its message (meridian.v1.Price), a
+  // field by its entry (meridian.v1.Bar.vwap). 1 to 32.
+  repeated string data_types = 4;
+
+  // How its rows can arrive, among which the deployment chooses: 1 to 3,
+  // each once.
+  repeated ObservationMode modes = 5;
+
+  // How often it updates, in seconds: what says it is silent. 0 for a
+  // dataset that updates only when asked.
+  uint32 cadence = 6;
+
+  // How far back it reaches, in days; 0 when it states none.
+  uint32 history = 7;
+
+  // The terms its vendor's standard terms impose, which the deployment's
+  // licence confirms or replaces (spec/the-lake, Q8). Its dataset and who
+  // set it are empty here.
+  DatasetLicence licence_default = 8;
+
+  // The day a daily value's business date is in (plans/the-lake-prices-the-
+  // book, Q5 and Q28): an IANA time zone, and the minute after local midnight
+  // the day ends, 0 for midnight. What says which candle or session counts
+  // as a business date, and when it is final; never a holiday calendar.
+  string day_time_zone = 9;
+  uint32 day_end_minute = 10;
+
+  // The venue the dataset is, the venue master's ID; empty for a dataset
+  // that is not one venue's, which is the consolidated view. A row naming
+  // no venue is the dataset's view.
+  string venue_id = 11;
+}
+
+// How a dataset's rows arrive (the lake intent's Q9 and Q10).
+enum ObservationMode {
+  // Refused.
+  OBSERVATION_MODE_UNSPECIFIED = 0;
+  // Fetched when a reader's read is wanted (W10.7).
+  OBSERVATION_MODE_PULL = 1;
+  // Recorded on the source's own timetable, unasked.
+  OBSERVATION_MODE_PUSH = 2;
+  // Kept current from the source's stream while a standing want stands.
+  OBSERVATION_MODE_STREAM = 3;
+}
+
+// A dataset's licence: its catalogue's default terms (unset dataset and
+// author), or the deployment's licence a deployment admin set, which is what
+// is enforced (W10.1, spec/the-lake, Q8). Records what the admin entered;
+// it says nothing about whether a deployment meets a vendor's terms.
+message DatasetLicence {
+  // The dataset; empty in a catalogue's default.
+  string dataset = 1;
+
+  // Whether the lake may keep its rows; false serves them, not kept.
+  bool kept = 2;
+
+  // How long the lake keeps a row, in days from when it was recorded; 0
+  // keeps it as long as the licence allows, with no limit set. At most
+  // 36,500.
+  uint32 retention_days = 3;
+
+  // Whether data derived from it may be made, and shown.
+  bool derived_use = 4;
+  bool display = 5;
+
+  // The fields readable by default, by their dictionary entries; empty for
+  // every field. At most 64.
+  repeated string default_fields = 6;
+
+  // Whether its terms are one person's (Q16): the Data sources page warns
+  // when more than one person holds read on a plugin entitled to it.
+  bool personal_use = 7;
+
+  // Who set it and when, the delegation and client a person acted through,
+  // and why, as the dashboard stamped and kept them: empty in a catalogue's
+  // default.
+  string updated_by = 8;
+  int64 updated_at_ns = 9;
+  string acting_through_delegation = 10;
+  string client_name = 11;
+  string note = 12;
 }
 
 // One vendor field, or one code of a vendor's code set, a plugin receives

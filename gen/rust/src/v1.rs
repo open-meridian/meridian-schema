@@ -10,7 +10,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v16, and a plugin built from it declares "v16".
+    /// schema is contract v18, and a plugin built from it declares "v18".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -134,6 +134,115 @@ pub struct PluginDeclaration {
     /// version holding an edge role, refused otherwise. Unset asks for none.
     #[prost(message, optional, tag = "3")]
     pub storage: ::core::option::Option<StorageDeclaration>,
+    /// The datasets it serves the lake (W8.1, W10.4; contract v18): only on a
+    /// version holding `dgm`, refused otherwise. Unset serves none.
+    #[prost(message, optional, tag = "4")]
+    pub catalogue: ::core::option::Option<Catalogue>,
+}
+/// A `dgm`'s catalogue: the datasets it serves the lake (spec/the-lake, "The
+/// catalogue"; step 6, requirement 26). The lake's, not a declaration of
+/// support: what each dataset holds, how it arrives and on what terms. No
+/// value, account or credential is ever in it. At most 32 datasets, each key
+/// once.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Catalogue {
+    #[prost(message, repeated, tag = "1")]
+    pub datasets: ::prost::alloc::vec::Vec<DatasetDeclaration>,
+}
+/// One dataset a `dgm` serves. Its identity in a deployment is the instance
+/// and its key (spec/the-lake, Q19).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DatasetDeclaration {
+    /// The dataset's name within the plugin: 1 to 40 characters, lowercase
+    /// letters, digits and underscores, beginning with a letter. The dataset's
+    /// ID in a deployment is the instance, a colon, and this.
+    #[prost(string, tag = "1")]
+    pub key: ::prost::alloc::string::String,
+    /// Who originated the data, and who carries it when an aggregator does:
+    /// data, not vocabulary. The vendor 1 to 64 characters; the aggregator 0 to
+    /// 64, empty when reached directly.
+    #[prost(string, tag = "2")]
+    pub vendor: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub aggregator: ::prost::alloc::string::String,
+    /// The lake's data types it serves and the optional fields it fills, each
+    /// by its dictionary entry: a type by its message (meridian.v1.Price), a
+    /// field by its entry (meridian.v1.Bar.vwap). 1 to 32.
+    #[prost(string, repeated, tag = "4")]
+    pub data_types: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// How its rows can arrive, among which the deployment chooses: 1 to 3,
+    /// each once.
+    #[prost(enumeration = "ObservationMode", repeated, tag = "5")]
+    pub modes: ::prost::alloc::vec::Vec<i32>,
+    /// How often it updates, in seconds: what says it is silent. 0 for a
+    /// dataset that updates only when asked.
+    #[prost(uint32, tag = "6")]
+    pub cadence: u32,
+    /// How far back it reaches, in days; 0 when it states none.
+    #[prost(uint32, tag = "7")]
+    pub history: u32,
+    /// The terms its vendor's standard terms impose, which the deployment's
+    /// licence confirms or replaces (spec/the-lake, Q8). Its dataset and who
+    /// set it are empty here.
+    #[prost(message, optional, tag = "8")]
+    pub licence_default: ::core::option::Option<DatasetLicence>,
+    /// The day a daily value's business date is in (plans/the-lake-prices-the-
+    /// book, Q5 and Q28): an IANA time zone, and the minute after local midnight
+    /// the day ends, 0 for midnight. What says which candle or session counts
+    /// as a business date, and when it is final; never a holiday calendar.
+    #[prost(string, tag = "9")]
+    pub day_time_zone: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "10")]
+    pub day_end_minute: u32,
+    /// The venue the dataset is, the venue master's ID; empty for a dataset
+    /// that is not one venue's, which is the consolidated view. A row naming
+    /// no venue is the dataset's view.
+    #[prost(string, tag = "11")]
+    pub venue_id: ::prost::alloc::string::String,
+}
+/// A dataset's licence: its catalogue's default terms (unset dataset and
+/// author), or the deployment's licence a deployment admin set, which is what
+/// is enforced (W10.1, spec/the-lake, Q8). Records what the admin entered;
+/// it says nothing about whether a deployment meets a vendor's terms.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DatasetLicence {
+    /// The dataset; empty in a catalogue's default.
+    #[prost(string, tag = "1")]
+    pub dataset: ::prost::alloc::string::String,
+    /// Whether the lake may keep its rows; false serves them, not kept.
+    #[prost(bool, tag = "2")]
+    pub kept: bool,
+    /// How long the lake keeps a row, in days from when it was recorded; 0
+    /// keeps it as long as the licence allows, with no limit set. At most
+    /// 36,500.
+    #[prost(uint32, tag = "3")]
+    pub retention_days: u32,
+    /// Whether data derived from it may be made, and shown.
+    #[prost(bool, tag = "4")]
+    pub derived_use: bool,
+    #[prost(bool, tag = "5")]
+    pub display: bool,
+    /// The fields readable by default, by their dictionary entries; empty for
+    /// every field. At most 64.
+    #[prost(string, repeated, tag = "6")]
+    pub default_fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether its terms are one person's (Q16): the Data sources page warns
+    /// when more than one person holds read on a plugin entitled to it.
+    #[prost(bool, tag = "7")]
+    pub personal_use: bool,
+    /// Who set it and when, the delegation and client a person acted through,
+    /// and why, as the dashboard stamped and kept them: empty in a catalogue's
+    /// default.
+    #[prost(string, tag = "8")]
+    pub updated_by: ::prost::alloc::string::String,
+    #[prost(int64, tag = "9")]
+    pub updated_at_ns: i64,
+    #[prost(string, tag = "10")]
+    pub acting_through_delegation: ::prost::alloc::string::String,
+    #[prost(string, tag = "11")]
+    pub client_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "12")]
+    pub note: ::prost::alloc::string::String,
 }
 /// One vendor field, or one code of a vendor's code set, a plugin receives
 /// and does not carry (Q15).
@@ -1058,6 +1167,43 @@ pub struct Refusal {
     /// names the fields it refused.
     #[prost(string, repeated, tag = "2")]
     pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// How a dataset's rows arrive (the lake intent's Q9 and Q10).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ObservationMode {
+    /// Refused.
+    Unspecified = 0,
+    /// Fetched when a reader's read is wanted (W10.7).
+    Pull = 1,
+    /// Recorded on the source's own timetable, unasked.
+    Push = 2,
+    /// Kept current from the source's stream while a standing want stands.
+    Stream = 3,
+}
+impl ObservationMode {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "OBSERVATION_MODE_UNSPECIFIED",
+            Self::Pull => "OBSERVATION_MODE_PULL",
+            Self::Push => "OBSERVATION_MODE_PUSH",
+            Self::Stream => "OBSERVATION_MODE_STREAM",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "OBSERVATION_MODE_UNSPECIFIED" => Some(Self::Unspecified),
+            "OBSERVATION_MODE_PULL" => Some(Self::Pull),
+            "OBSERVATION_MODE_PUSH" => Some(Self::Push),
+            "OBSERVATION_MODE_STREAM" => Some(Self::Stream),
+            _ => None,
+        }
+    }
 }
 /// Why a name is not carried.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
