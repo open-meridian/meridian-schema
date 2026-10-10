@@ -1460,6 +1460,79 @@
       ]
     },
     {
+      "role": "oms",
+      "since": "v19",
+      "says": "An oms plugin passing every case learns the datasets it may read, reads trades over a range and the latest quotes from the deployment's default sources unless it names others, hears every trade and the latest quotes the lake records after, narrowed to the subjects it asked for, and catches up the trades it lost after the watermark it last saw; it records nothing in the lake.\n",
+      "cases": [
+        {
+          "name": "reads-the-datasets-it-may-read",
+          "given": "an oms plugin starts in a deployment where it is entitled to datasets",
+          "expect": [
+            {
+              "row": "ListDatasets"
+            }
+          ]
+        },
+        {
+          "name": "reads-trades-over-a-range",
+          "given": "the plugin needs the trades of its subjects over a range within a day",
+          "expect": [
+            {
+              "row": "ListTrades",
+              "fields": {
+                "subjects": "<set>",
+                "valid_from_ns": "<set>",
+                "valid_until_ns": "<set>"
+              }
+            }
+          ]
+        },
+        {
+          "name": "hears-a-trade-recorded",
+          "given": "the lake records a trade for a subject the plugin asked for",
+          "expect": [
+            {
+              "row": "TradesRecorded"
+            }
+          ]
+        },
+        {
+          "name": "catches-up-trades-after-a-watermark",
+          "given": "the plugin lost trades and reads those recorded after the watermark it last saw",
+          "expect": [
+            {
+              "row": "ListTrades",
+              "fields": {
+                "subjects": "<set>",
+                "after_watermark": "<set>"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reads-the-latest-quotes",
+          "given": "the plugin needs the latest quotes of its subjects",
+          "expect": [
+            {
+              "row": "ListQuotes",
+              "fields": {
+                "subjects": "<set>"
+              }
+            }
+          ]
+        },
+        {
+          "name": "hears-a-quote-recorded",
+          "given": "the lake records a quote for a subject the plugin asked for",
+          "expect": [
+            {
+              "row": "QuotesRecorded"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "role": "operations",
       "since": "v14",
       "says": "An operations plugin passing every case reads the account's activity when it reconciles, hears each activity recorded, and offers the activity that explains a break as its candidate cause, linked by value, under the category that fits; it books nothing from activity and confirms nothing without a person.\n",
@@ -1587,7 +1660,7 @@
     {
       "role": "portfolio",
       "since": "v18",
-      "says": "A portfolio plugin passing every case learns the datasets it may read, reads prices and bars by subject, a business date or a range, from the deployment's default sources unless it names others, and hears what the lake records after, narrowed to the subjects it asked for; it records nothing in the lake.\n",
+      "says": "A portfolio plugin passing every case learns the datasets it may read, reads prices and bars by subject, a business date or a range, from the deployment's default sources unless it names others, and hears what the lake records after, narrowed to the subjects it asked for; from v19 it reads trades over a range and the latest quotes, hears every trade and the latest quotes recorded after, and catches up the trades it lost after the watermark it last saw; it records nothing in the lake.\n",
       "cases": [
         {
           "name": "reads-the-datasets-it-may-read",
@@ -1643,6 +1716,68 @@
           "expect": [
             {
               "row": "BarsRecorded"
+            }
+          ]
+        },
+        {
+          "name": "reads-trades-over-a-range",
+          "since": "v19",
+          "given": "the plugin needs the trades of its subjects over a range within a day",
+          "expect": [
+            {
+              "row": "ListTrades",
+              "fields": {
+                "subjects": "<set>",
+                "valid_from_ns": "<set>",
+                "valid_until_ns": "<set>"
+              }
+            }
+          ]
+        },
+        {
+          "name": "hears-a-trade-recorded",
+          "since": "v19",
+          "given": "the lake records a trade for a subject the plugin asked for",
+          "expect": [
+            {
+              "row": "TradesRecorded"
+            }
+          ]
+        },
+        {
+          "name": "catches-up-trades-after-a-watermark",
+          "since": "v19",
+          "given": "the plugin lost trades and reads those recorded after the watermark it last saw",
+          "expect": [
+            {
+              "row": "ListTrades",
+              "fields": {
+                "subjects": "<set>",
+                "after_watermark": "<set>"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reads-the-latest-quotes",
+          "since": "v19",
+          "given": "the plugin needs the latest quotes of its subjects",
+          "expect": [
+            {
+              "row": "ListQuotes",
+              "fields": {
+                "subjects": "<set>"
+              }
+            }
+          ]
+        },
+        {
+          "name": "hears-a-quote-recorded",
+          "since": "v19",
+          "given": "the lake records a quote for a subject the plugin asked for",
+          "expect": [
+            {
+              "row": "QuotesRecorded"
             }
           ]
         }
