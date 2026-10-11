@@ -106,8 +106,15 @@ pub const KNOWN_PLUGIN_ROLES_ROLES_COUNT: Count = Count { least: 0, most: 13 };
 /// to some fields
 pub const SET_DATASET_ENTITLEMENT_REQUEST_FIELDS_COUNT: Count = Count { least: 0, most: 64 };
 
+/// meridian.v1.SettingLastChange.hint: helps a person tell which secret is
+/// set
+pub const SETTING_LAST_CHANGE_HINT_LENGTH: Length = Length { least: 0, most: 4 };
+
 /// meridian.v1.TicketNote.note: carries the note's text
 pub const TICKET_NOTE_NOTE_LENGTH: Length = Length { least: 1, most: 4000 };
+
+/// meridian.v1.AgentsMayChange.note: says why the level or gate was changed
+pub const AGENTS_MAY_CHANGE_NOTE_LENGTH: Length = Length { least: 0, most: 2000 };
 
 /// meridian.v1.VenueRecord.country_code: says where the venue operates
 pub const VENUE_RECORD_COUNTRY_CODE_LENGTH: Length = Length { least: 2, most: 2 };
@@ -275,7 +282,7 @@ pub const PLUGIN_DECLARATION_SECRET_SETTINGS_COUNT: Count = Count { least: 0, mo
 /// from its source and does not carry (Q15)
 pub const PLUGIN_DECLARATION_NOT_CARRIED_COUNT: Count = Count { least: 0, most: 500 };
 
-/// meridian.v1.Catalogue.datasets: lists the datasets a dgm serves
+/// meridian.v1.Catalogue.datasets: lists the datasets a data plugin serves
 pub const CATALOGUE_DATASETS_COUNT: Count = Count { least: 0, most: 32 };
 
 /// meridian.v1.DatasetDeclaration.key: names a dataset within its plugin
@@ -440,6 +447,41 @@ pub const SIDECAR_RECEIVE_LIMIT_RANGE: Range = Range { least: 0, most: 1024, cap
 /// meridian.plugin.v1.ReceiveRequest.subjects: names the subjects a plugin
 /// wants of the conflated rows
 pub const RECEIVE_REQUEST_SUBJECTS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.ToolDeclaration.checked_by: names the read tool that checks an
+/// act without changing anything (W6.26)
+pub const TOOL_DECLARATION_CHECKED_BY_LENGTH: Length = Length { least: 0, most: 61 };
+
+/// meridian.v1.ToolDeclaration.accounts: names where in an act's input the
+/// accounts it touches are
+pub const TOOL_DECLARATION_ACCOUNTS_COUNT: Count = Count { least: 0, most: 8 };
+
+/// meridian.v1.ToolDeclaration.made_on: names the page where a person makes
+/// an act's change (W6.27)
+pub const TOOL_DECLARATION_MADE_ON_LENGTH: Length = Length { least: 0, most: 512 };
+
+/// meridian.v1.CallerClaims.own_settings: hands the plugin the person's own
+/// values of its per-person settings (W6.31)
+pub const CALLER_CLAIMS_OWN_SETTINGS_COUNT: Count = Count { least: 0, most: 64 };
+
+/// meridian.v1.PreparedCall.arguments_json: carries the act's arguments as
+/// prepared
+pub const PREPARED_CALL_ARGUMENTS_JSON_LENGTH: Length = Length { least: 2, most: 1048576 };
+
+/// meridian.v1.PreparedCall.reason: says why it was prepared
+pub const PREPARED_CALL_REASON_LENGTH: Length = Length { least: 0, most: 4000 };
+
+/// meridian.v1.SetOwnSettingsRequest.values: carries the person's own values
+/// to save (W6.31)
+pub const SET_OWN_SETTINGS_REQUEST_VALUES_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.SetOwnSettingsReply.values: answers the person's own values as
+/// they stand
+pub const SET_OWN_SETTINGS_REPLY_VALUES_COUNT: Count = Count { least: 0, most: 64 };
+
+/// meridian.v1.CallerClaims.second_pair_of_eyes: tells a plugin which of its
+/// acts need a second person, so its pages show it (W6.29)
+pub const CALLER_CLAIMS_SECOND_PAIR_OF_EYES_COUNT: Count = Count { least: 0, most: 200 };
 
 /// meridian.v1.RecordHoldingsStatementRequest.provenance: says where each
 /// value the plugin closed rather than read came from

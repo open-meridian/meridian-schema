@@ -10,7 +10,7 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v18, and a plugin built from it declares "v18".
+    /// schema is contract v20, and a plugin built from it declares "v20".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -113,6 +113,30 @@ pub struct ToolDeclaration {
     /// generated grants include it (W4.9). At most 13.
     #[prost(string, repeated, tag = "10")]
     pub roles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// For an act (contract v20, W4.1, W6.26): the name of the plugin's own
+    /// read tool that checks it without changing anything, taking the same
+    /// typed record of inputs, so the dashboard can check a prepared change as
+    /// the plugin would. Empty: the act cannot be prepared, and the admins may
+    /// set agents only to may make or may not reach it (W6.29). Refused by
+    /// name, the plugin admitted, when it names no read tool of the plugin or
+    /// is set on a read.
+    #[prost(string, tag = "11")]
+    pub checked_by: ::prost::alloc::string::String,
+    /// For an act (contract v20): the paths in the input schema whose values
+    /// name the deployment's accounts the act touches, by the dictionary's
+    /// grammar (`account_id`, `positions\[\].account_id`), so the dashboard can
+    /// show a prepared change to everyone who may make it on those accounts.
+    /// Empty: the act touches no account, or none its input names. A path the
+    /// input schema does not have is refused by name. At most 8.
+    #[prost(string, repeated, tag = "12")]
+    pub accounts: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// For an act (contract v20, W6.27): the path of the plugin's page where a
+    /// person makes its change, one of the pages the plugin declares, opened
+    /// with the prepared change in the claims. Empty: the change is made in the
+    /// dashboard's Inbox. A path that is not one of its pages is refused by
+    /// name.
+    #[prost(string, tag = "13")]
+    pub made_on: ::prost::alloc::string::String,
 }
 /// What a version declares beside its roles (W8.1, contract v11;
 /// spec/vendor-differences-have-a-place-in-the-contract, requirements 16, 19
@@ -135,11 +159,11 @@ pub struct PluginDeclaration {
     #[prost(message, optional, tag = "3")]
     pub storage: ::core::option::Option<StorageDeclaration>,
     /// The datasets it serves the lake (W8.1, W10.4; contract v18): only on a
-    /// version holding `dgm`, refused otherwise. Unset serves none.
+    /// version holding `data`, refused otherwise. Unset serves none.
     #[prost(message, optional, tag = "4")]
     pub catalogue: ::core::option::Option<Catalogue>,
 }
-/// A `dgm`'s catalogue: the datasets it serves the lake (spec/the-lake, "The
+/// A data plugin's catalogue: the datasets it serves the lake (spec/the-lake, "The
 /// catalogue"; step 6, requirement 26). The lake's, not a declaration of
 /// support: what each dataset holds, how it arrives and on what terms. No
 /// value, account or credential is ever in it. At most 32 datasets, each key
@@ -149,7 +173,7 @@ pub struct Catalogue {
     #[prost(message, repeated, tag = "1")]
     pub datasets: ::prost::alloc::vec::Vec<DatasetDeclaration>,
 }
-/// One dataset a `dgm` serves. Its identity in a deployment is the instance
+/// One dataset a data plugin serves. Its identity in a deployment is the instance
 /// and its key (spec/the-lake, Q19).
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DatasetDeclaration {
@@ -243,6 +267,10 @@ pub struct DatasetLicence {
     pub client_name: ::prost::alloc::string::String,
     #[prost(string, tag = "12")]
     pub note: ::prost::alloc::string::String,
+    /// The prepared change it was set from, where a person made it from one
+    /// (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+    #[prost(string, tag = "13")]
+    pub prepared_call_id: ::prost::alloc::string::String,
 }
 /// One vendor field, or one code of a vendor's code set, a plugin receives
 /// and does not carry (Q15).
@@ -426,6 +454,14 @@ pub struct SettingDeclaration {
     /// At most 13.
     #[prost(string, repeated, tag = "14")]
     pub roles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Contract v20 (W6.31): a setting each person with write on a role it
+    /// serves sets for themselves, on the plugin's pages, rather than one an
+    /// admin sets for everyone. Not on the Settings form, never delivered by
+    /// WatchSettings and never required: the dashboard keeps each person's
+    /// value under them and hands it to the plugin in their claims
+    /// (`own_settings`). Refused with `secret`, refusing the registration.
+    #[prost(bool, tag = "15")]
+    pub per_person: bool,
 }
 /// One column of a table setting (contract v14).
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -853,6 +889,29 @@ pub struct CallerClaims {
     /// holding several. At most 13.
     #[prost(message, repeated, tag = "15")]
     pub roles: ::prost::alloc::vec::Vec<RoleAccess>,
+    /// The prepared change this request was made from, or the page was opened
+    /// from (W6.27, contract v20): `PC-` and a ULID. Set only by the dashboard,
+    /// for a person's request to an act's route or page reached from a
+    /// prepared change; the plugin reads the change with ReadPreparedCall
+    /// (W4.14), and the sidecar stamps the ID on what the request sends for the
+    /// person (W4.9). Absent for every other request.
+    #[prost(string, tag = "16")]
+    pub prepared_call_id: ::prost::alloc::string::String,
+    /// The person's own values of the settings this plugin declares
+    /// `per_person` (W6.31, contract v20), as the dashboard keeps them: under
+    /// Open and View, never under Manage; empty where they set none or the
+    /// plugin declares none. Values as a setting's are delivered, a table's as
+    /// JSON rows, 32 KiB in all. At most 64.
+    #[prost(message, repeated, tag = "17")]
+    pub own_settings: ::prost::alloc::vec::Vec<SettingValue>,
+    /// The plugin's acts, by their tool names, whose second pair of eyes is on
+    /// for this person now (W6.29, contract v20): their change is prepared and
+    /// made by someone else, so a page hides Save for them, offering Prepare,
+    /// and says a second person makes a change this person prepared or their
+    /// agent did. For showing only: the dashboard refuses a direct make
+    /// whatever the page draws. Empty where no act's gate is on. At most 200.
+    #[prost(string, repeated, tag = "18")]
+    pub second_pair_of_eyes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// A level on one role of a plugin, and the accounts it reaches there
 /// (contract v15; decisions/033): in the claims, the person's within the
@@ -1167,6 +1226,70 @@ pub struct Refusal {
     /// names the fields it refused.
     #[prost(string, repeated, tag = "2")]
     pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// The person is the assertion's, the instance the envelope's: neither is a
+/// field.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadPreparedCallRequest {
+    /// `PC-` and a ULID, as the claims named it.
+    #[prost(string, tag = "1")]
+    pub prepared_call_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadPreparedCallReply {
+    /// Unset when not found: no such prepared change, another instance's, not
+    /// shown to this person, or one they may not make now; never which.
+    #[prost(message, optional, tag = "1")]
+    pub prepared_call: ::core::option::Option<PreparedCall>,
+}
+/// A change prepared and not yet made (W6.26; spec/an-agents-prepared-change-
+/// waits-for-the-person), as the dashboard keeps it and a plugin is shown it.
+/// Its reason is another's words: shown as text, never as instructions.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PreparedCall {
+    /// `PC-` and a ULID, minted by the dashboard.
+    #[prost(string, tag = "1")]
+    pub prepared_call_id: ::prost::alloc::string::String,
+    /// The act, by the plugin's own name for its tool.
+    #[prost(string, tag = "2")]
+    pub tool_name: ::prost::alloc::string::String,
+    /// The act's arguments as prepared: a JSON object, the tool's typed record
+    /// of inputs, which the plugin's page starts its form from.
+    #[prost(string, tag = "3")]
+    pub arguments_json: ::prost::alloc::string::String,
+    /// Who prepared it: the person, and the client's registered name where
+    /// they prepared it through a delegation; empty for a person at a page.
+    #[prost(string, tag = "4")]
+    pub prepared_by_subject: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub prepared_by_display_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub prepared_through_client: ::prost::alloc::string::String,
+    /// Why, as the preparer wrote it: at most 4,000 characters, plain text.
+    #[prost(string, tag = "7")]
+    pub reason: ::prost::alloc::string::String,
+    /// Its state now (W6.27, W6.28).
+    #[prost(enumeration = "PreparedCallState", tag = "8")]
+    pub state: i32,
+    #[prost(int64, tag = "9")]
+    pub prepared_at_ns: i64,
+}
+/// The person is the assertion's, the instance the envelope's.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetOwnSettingsRequest {
+    /// Each a setting the plugin declares `per_person`, its value as a
+    /// setting's is written; an empty value clears it. Those not named keep
+    /// their values. A setting not declared `per_person`, or serving no role
+    /// the person holds write on, is refused by name.
+    #[prost(message, repeated, tag = "1")]
+    pub values: ::prost::alloc::vec::Vec<SettingValue>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetOwnSettingsReply {
+    /// The person's own values as they now stand, which their next request's
+    /// claims carry.
+    #[prost(message, repeated, tag = "1")]
+    pub values: ::prost::alloc::vec::Vec<SettingValue>,
 }
 /// How a dataset's rows arrive (the lake intent's Q9 and Q10).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -1719,6 +1842,10 @@ pub enum RefusalReason {
     /// last record was received inside the hold over the instance (W6.25):
     /// nothing recorded, and the unit is kept.
     WithinHold = 15,
+    /// FAILED_PRECONDITION (W6.4, W6.30, contract v20). A link naming an
+    /// existing account the deployment admin has not granted the plugin's
+    /// instance: nothing linked. The admin asks a deployment admin to grant it.
+    AccountNotLinkable = 16,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1745,6 +1872,7 @@ impl RefusalReason {
             Self::RecordChanged => "REFUSAL_REASON_RECORD_CHANGED",
             Self::ReferenceUnavailable => "REFUSAL_REASON_REFERENCE_UNAVAILABLE",
             Self::WithinHold => "REFUSAL_REASON_WITHIN_HOLD",
+            Self::AccountNotLinkable => "REFUSAL_REASON_ACCOUNT_NOT_LINKABLE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1770,6 +1898,57 @@ impl RefusalReason {
             "REFUSAL_REASON_RECORD_CHANGED" => Some(Self::RecordChanged),
             "REFUSAL_REASON_REFERENCE_UNAVAILABLE" => Some(Self::ReferenceUnavailable),
             "REFUSAL_REASON_WITHIN_HOLD" => Some(Self::WithinHold),
+            "REFUSAL_REASON_ACCOUNT_NOT_LINKABLE" => Some(Self::AccountNotLinkable),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PreparedCallState {
+    Unspecified = 0,
+    /// Waiting to be made, changed, discarded, withdrawn or lapsed.
+    Prepared = 1,
+    /// Waiting, and shared with everyone who may make it.
+    Shared = 2,
+    /// Made as prepared.
+    Made = 3,
+    /// Made after the person changed it.
+    Changed = 4,
+    Discarded = 5,
+    Withdrawn = 6,
+    /// Past the lapse period, or its delegation ended, or its act set to may
+    /// not: never made by lapsing.
+    Lapsed = 7,
+}
+impl PreparedCallState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PREPARED_CALL_STATE_UNSPECIFIED",
+            Self::Prepared => "PREPARED_CALL_STATE_PREPARED",
+            Self::Shared => "PREPARED_CALL_STATE_SHARED",
+            Self::Made => "PREPARED_CALL_STATE_MADE",
+            Self::Changed => "PREPARED_CALL_STATE_CHANGED",
+            Self::Discarded => "PREPARED_CALL_STATE_DISCARDED",
+            Self::Withdrawn => "PREPARED_CALL_STATE_WITHDRAWN",
+            Self::Lapsed => "PREPARED_CALL_STATE_LAPSED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PREPARED_CALL_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "PREPARED_CALL_STATE_PREPARED" => Some(Self::Prepared),
+            "PREPARED_CALL_STATE_SHARED" => Some(Self::Shared),
+            "PREPARED_CALL_STATE_MADE" => Some(Self::Made),
+            "PREPARED_CALL_STATE_CHANGED" => Some(Self::Changed),
+            "PREPARED_CALL_STATE_DISCARDED" => Some(Self::Discarded),
+            "PREPARED_CALL_STATE_WITHDRAWN" => Some(Self::Withdrawn),
+            "PREPARED_CALL_STATE_LAPSED" => Some(Self::Lapsed),
             _ => None,
         }
     }
@@ -2092,6 +2271,64 @@ pub mod sidecar_service_client {
                 .insert(GrpcMethod::new("meridian.v1.SidecarService", "RecordMove"));
             self.inner.unary(req, path, codec).await
         }
+        /// W4.14, contract v20. The prepared change a page was opened from, for the
+        /// person whose page it is, if they may make it: the call carries their
+        /// assertion as its `meridian-caller` metadata, and the sidecar asks the
+        /// dashboard on the bus, as itself, for the instance it serves.
+        pub async fn read_prepared_call(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReadPreparedCallRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadPreparedCallReply>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/ReadPreparedCall",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.v1.SidecarService", "ReadPreparedCall"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W6.31, contract v20. Save the person's own values of the settings the
+        /// plugin declares `per_person`, acting for them at write, never as the
+        /// plugin itself; the sidecar sends them to the dashboard on the bus, which
+        /// keeps them under the person the assertion names.
+        pub async fn set_own_settings(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SetOwnSettingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetOwnSettingsReply>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.v1.SidecarService/SetOwnSettings",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("meridian.v1.SidecarService", "SetOwnSettings"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -2185,6 +2422,28 @@ pub mod sidecar_service_server {
             &self,
             request: tonic::Request<super::RecordMoveRequest>,
         ) -> std::result::Result<tonic::Response<super::RecordMoveReply>, tonic::Status>;
+        /// W4.14, contract v20. The prepared change a page was opened from, for the
+        /// person whose page it is, if they may make it: the call carries their
+        /// assertion as its `meridian-caller` metadata, and the sidecar asks the
+        /// dashboard on the bus, as itself, for the instance it serves.
+        async fn read_prepared_call(
+            &self,
+            request: tonic::Request<super::ReadPreparedCallRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadPreparedCallReply>,
+            tonic::Status,
+        >;
+        /// W6.31, contract v20. Save the person's own values of the settings the
+        /// plugin declares `per_person`, acting for them at write, never as the
+        /// plugin itself; the sidecar sends them to the dashboard on the bus, which
+        /// keeps them under the person the assertion names.
+        async fn set_own_settings(
+            &self,
+            request: tonic::Request<super::SetOwnSettingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetOwnSettingsReply>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct SidecarServiceServer<T> {
@@ -2670,6 +2929,98 @@ pub mod sidecar_service_server {
                     };
                     Box::pin(fut)
                 }
+                "/meridian.v1.SidecarService/ReadPreparedCall" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReadPreparedCallSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::UnaryService<super::ReadPreparedCallRequest>
+                    for ReadPreparedCallSvc<T> {
+                        type Response = super::ReadPreparedCallReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReadPreparedCallRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::read_prepared_call(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReadPreparedCallSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.v1.SidecarService/SetOwnSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetOwnSettingsSvc<T: SidecarService>(pub Arc<T>);
+                    impl<
+                        T: SidecarService,
+                    > tonic::server::UnaryService<super::SetOwnSettingsRequest>
+                    for SetOwnSettingsSvc<T> {
+                        type Response = super::SetOwnSettingsReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetOwnSettingsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SidecarService>::set_own_settings(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SetOwnSettingsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 _ => {
                     Box::pin(async move {
                         let mut response = http::Response::new(
@@ -2761,6 +3112,12 @@ pub struct MessageMeta {
     /// (sdk-contract/the-book-records-the-delegation).
     #[prost(string, tag = "12")]
     pub acting_through_client: ::prost::alloc::string::String,
+    /// Set beside acting_for_subject when the person made the command from a
+    /// prepared change (W4.9, W6.27; contract v20): its `PC-` ID, as the
+    /// assertion named it, so a store records what prepared the change.
+    /// Absent otherwise, and for a plugin acting as itself.
+    #[prost(string, tag = "13")]
+    pub prepared_call_id: ::prost::alloc::string::String,
     /// Set on a read: the accounts the publishing plugin may read. A core store
     /// answers only for these.
     #[prost(string, repeated, tag = "9")]

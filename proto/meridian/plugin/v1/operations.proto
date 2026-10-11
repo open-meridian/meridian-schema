@@ -821,8 +821,9 @@ message LinkExternalAccountResult {
 
 // The deployment's accounts, read by a plugin acting for its admin
 // in a session opened by Manage, to offer the accounts an external account
-// can be linked to (W4.9, W6.4): every account, since a plugin admin is
-// account agnostic, and its identity alone.
+// can be linked to (W4.9, W6.4): from contract v20 every account the
+// deployment admin granted the asking instance (W6.30), the instance the
+// envelope's; every account before v20. Its identity alone.
 // The params of ReadAccountsForLinking: meridian.v1.AccountsRequest, less what the sidecar sets.
 message ReadAccountsForLinkingParams {
 
@@ -1620,6 +1621,14 @@ message ListTradesParams {
   uint32 page_size = 7;
 
   string cursor = 8;
+
+  // Contract v20 (W10.6): for a data plugin only, the last trade its own instance
+  // recorded of each subject asked, per dataset and venue, with the
+  // watermark the answer was read at, so it backfills a restart's gap from
+  // the venue's history. The range and watermark are then left empty. A
+  // data plugin reads only its own instance's rows, by no entitlement; refused
+  // from any other reader, naming it.
+  bool latest_recorded = 9;
 }
 
 // The result of ListTrades: meridian.v1.ListTradesReply.
@@ -1674,7 +1683,7 @@ message ListQuotesResult {
   string next_cursor = 5;
 }
 
-// What a `dgm` cannot serve of a want, per subject, with its reason. It
+// What a data plugin cannot serve of a want, per subject, with its reason. It
 // stands for the date or range the want asked, or for the latest where it
 // asked the latest, and for nothing else (contract v19): a later want of
 // another date is asked again.
@@ -1714,7 +1723,8 @@ message ListDatasetsResult {
   repeated DatasetRef datasets = 1;
 
   // Each dataset's licence: to the dashboard; to a plugin, those of the
-  // datasets it may read.
+  // datasets it may read; to a data plugin, from contract v20, those of the
+  // datasets its own catalogue declares (W10.9).
   repeated DatasetLicence licences = 2;
 
   // To the dashboard every entitlement; to a plugin, its own.
@@ -2927,6 +2937,10 @@ message InstrumentValueSource {
   // The client's registered name, beside acting_through_delegation, as the
   // envelope carried it; empty whenever it is.
   string client_name = 9;
+
+  // The prepared change it was made from, where a person made it from one
+  // (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+  string prepared_call_id = 10;
 }
 
 // Which value of a deployment's instrument record (W3, contract v10).
@@ -3290,6 +3304,10 @@ message PersonActor {
   string delegation_id = 2;
 
   string client_name = 3;
+
+  // The prepared change it was made from, where a person made it from one
+  // (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+  string prepared_call_id = 4;
 }
 
 // A mirror of meridian.v1.SystemActor.
@@ -3901,7 +3919,7 @@ message Price {
 // (spec/the-lake, requirement 4).
 // A mirror of meridian.v1.ObservationMeta.
 message ObservationMeta {
-  // The `dgm`'s identity for this observation, made from its raw record, so
+  // The data plugin's identity for this observation, made from its raw record, so
   // the same observation recorded again changes nothing and a changed value
   // under it is a restatement. 1 to 128 characters.
   string row_key = 1;
@@ -3927,7 +3945,7 @@ message ObservationMeta {
   // The source's own timestamps, at most one of each kind: 0 to 6.
   repeated SourceTime source_times = 7;
 
-  // When the `dgm`'s sidecar published it: the envelope's publication time,
+  // When the data plugin's sidecar published it: the envelope's publication time,
   // which the sidecar stamps. A plugin's value is never read.
   int64 sent_at_ns = 8;
 
@@ -4131,7 +4149,7 @@ message Eligibility {
 // Whether a trade may set a statistic.
 // A mirror of meridian.v1.Eligible.
 enum Eligible {
-  // Not known: a code the `dgm` could not convert. A reader computing a bar
+  // Not known: a code the data plugin could not convert. A reader computing a bar
   // reads it as not eligible, and says so.
   ELIGIBLE_UNSPECIFIED = 0;
   ELIGIBLE_ELIGIBLE = 1;
@@ -4301,7 +4319,7 @@ message DatasetRef {
   uint64 miss_count = 7;
 }
 
-// One dataset a `dgm` serves. Its identity in a deployment is the instance
+// One dataset a data plugin serves. Its identity in a deployment is the instance
 // and its key (spec/the-lake, Q19).
 // A mirror of meridian.v1.DatasetDeclaration.
 message DatasetDeclaration {
@@ -4407,6 +4425,10 @@ message DatasetLicence {
   string client_name = 11;
 
   string note = 12;
+
+  // The prepared change it was set from, where a person made it from one
+  // (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+  string prepared_call_id = 13;
 }
 
 // A plugin instance's entitlement to a dataset, as the conductor keeps it
@@ -4437,6 +4459,10 @@ message DatasetEntitlement {
   string client_name = 8;
 
   string note = 9;
+
+  // The prepared change it was made from, where a person made it from one
+  // (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+  string prepared_call_id = 10;
 }
 
 // A custodial position that changed, and the statement that changed it.

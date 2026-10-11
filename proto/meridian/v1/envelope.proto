@@ -66,6 +66,12 @@ message MessageMeta {
   // (sdk-contract/the-book-records-the-delegation).
   string acting_through_client = 12;
 
+  // Set beside acting_for_subject when the person made the command from a
+  // prepared change (W4.9, W6.27; contract v20): its `PC-` ID, as the
+  // assertion named it, so a store records what prepared the change.
+  // Absent otherwise, and for a plugin acting as itself.
+  string prepared_call_id = 13;
+
   // Set on a read: the accounts the publishing plugin may read. A core store
   // answers only for these.
   repeated string account_scope = 9;

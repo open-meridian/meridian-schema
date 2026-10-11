@@ -716,8 +716,9 @@ pub struct LinkExternalAccountResult {
 }
 /// The deployment's accounts, read by a plugin acting for its admin
 /// in a session opened by Manage, to offer the accounts an external account
-/// can be linked to (W4.9, W6.4): every account, since a plugin admin is
-/// account agnostic, and its identity alone.
+/// can be linked to (W4.9, W6.4): from contract v20 every account the
+/// deployment admin granted the asking instance (W6.30), the instance the
+/// envelope's; every account before v20. Its identity alone.
 /// The params of ReadAccountsForLinking: meridian.v1.AccountsRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReadAccountsForLinkingParams {
@@ -1567,6 +1568,14 @@ pub struct ListTradesParams {
     pub page_size: u32,
     #[prost(string, tag = "8")]
     pub cursor: ::prost::alloc::string::String,
+    /// Contract v20 (W10.6): for a data plugin only, the last trade its own instance
+    /// recorded of each subject asked, per dataset and venue, with the
+    /// watermark the answer was read at, so it backfills a restart's gap from
+    /// the venue's history. The range and watermark are then left empty. A
+    /// data plugin reads only its own instance's rows, by no entitlement; refused
+    /// from any other reader, naming it.
+    #[prost(bool, tag = "9")]
+    pub latest_recorded: bool,
 }
 /// The result of ListTrades: meridian.v1.ListTradesReply.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1623,7 +1632,7 @@ pub struct ListQuotesResult {
     #[prost(string, tag = "5")]
     pub next_cursor: ::prost::alloc::string::String,
 }
-/// What a `dgm` cannot serve of a want, per subject, with its reason. It
+/// What a data plugin cannot serve of a want, per subject, with its reason. It
 /// stands for the date or range the want asked, or for the latest where it
 /// asked the latest, and for nothing else (contract v19): a later want of
 /// another date is asked again.
@@ -1663,7 +1672,8 @@ pub struct ListDatasetsResult {
     #[prost(message, repeated, tag = "1")]
     pub datasets: ::prost::alloc::vec::Vec<DatasetRef>,
     /// Each dataset's licence: to the dashboard; to a plugin, those of the
-    /// datasets it may read.
+    /// datasets it may read; to a data plugin, from contract v20, those of the
+    /// datasets its own catalogue declares (W10.9).
     #[prost(message, repeated, tag = "2")]
     pub licences: ::prost::alloc::vec::Vec<DatasetLicence>,
     /// To the dashboard every entitlement; to a plugin, its own.
@@ -2675,6 +2685,10 @@ pub struct InstrumentValueSource {
     /// envelope carried it; empty whenever it is.
     #[prost(string, tag = "9")]
     pub client_name: ::prost::alloc::string::String,
+    /// The prepared change it was made from, where a person made it from one
+    /// (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+    #[prost(string, tag = "10")]
+    pub prepared_call_id: ::prost::alloc::string::String,
 }
 /// A value offered for a deployment's record (W3.1, W3.3), shown beside its
 /// field and in force only when a person accepts it (W3.10).
@@ -2978,6 +2992,10 @@ pub struct PersonActor {
     pub delegation_id: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
     pub client_name: ::prost::alloc::string::String,
+    /// The prepared change it was made from, where a person made it from one
+    /// (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+    #[prost(string, tag = "4")]
+    pub prepared_call_id: ::prost::alloc::string::String,
 }
 /// A mirror of meridian.v1.SystemActor.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3562,7 +3580,7 @@ pub struct Price {
 /// A mirror of meridian.v1.ObservationMeta.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ObservationMeta {
-    /// The `dgm`'s identity for this observation, made from its raw record, so
+    /// The data plugin's identity for this observation, made from its raw record, so
     /// the same observation recorded again changes nothing and a changed value
     /// under it is a restatement. 1 to 128 characters.
     #[prost(string, tag = "1")]
@@ -3588,7 +3606,7 @@ pub struct ObservationMeta {
     /// The source's own timestamps, at most one of each kind: 0 to 6.
     #[prost(message, repeated, tag = "7")]
     pub source_times: ::prost::alloc::vec::Vec<SourceTime>,
-    /// When the `dgm`'s sidecar published it: the envelope's publication time,
+    /// When the data plugin's sidecar published it: the envelope's publication time,
     /// which the sidecar stamps. A plugin's value is never read.
     #[prost(int64, tag = "8")]
     pub sent_at_ns: i64,
@@ -3833,7 +3851,7 @@ pub struct DatasetRef {
     #[prost(uint64, tag = "7")]
     pub miss_count: u64,
 }
-/// One dataset a `dgm` serves. Its identity in a deployment is the instance
+/// One dataset a data plugin serves. Its identity in a deployment is the instance
 /// and its key (spec/the-lake, Q19).
 /// A mirror of meridian.v1.DatasetDeclaration.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3929,6 +3947,10 @@ pub struct DatasetLicence {
     pub client_name: ::prost::alloc::string::String,
     #[prost(string, tag = "12")]
     pub note: ::prost::alloc::string::String,
+    /// The prepared change it was set from, where a person made it from one
+    /// (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+    #[prost(string, tag = "13")]
+    pub prepared_call_id: ::prost::alloc::string::String,
 }
 /// A plugin instance's entitlement to a dataset, as the conductor keeps it
 /// (W10.1). Set by a deployment admin; never sent to the platform.
@@ -3960,6 +3982,10 @@ pub struct DatasetEntitlement {
     pub client_name: ::prost::alloc::string::String,
     #[prost(string, tag = "9")]
     pub note: ::prost::alloc::string::String,
+    /// The prepared change it was made from, where a person made it from one
+    /// (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+    #[prost(string, tag = "10")]
+    pub prepared_call_id: ::prost::alloc::string::String,
 }
 /// A custodial position that changed, and the statement that changed it.
 /// A mirror of meridian.v1.CustodialPositionUpdatedEvent.
@@ -5472,7 +5498,7 @@ impl PriceBasis {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum Eligible {
-    /// Not known: a code the `dgm` could not convert. A reader computing a bar
+    /// Not known: a code the data plugin could not convert. A reader computing a bar
     /// reads it as not eligible, and says so.
     Unspecified = 0,
     Eligible = 1,

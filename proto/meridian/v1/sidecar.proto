@@ -10,7 +10,7 @@
 // This service is a plugin's lifecycle and what it learns from the deployment:
 // registering, liveness, leaving, its settings, who may use it, its account
 // scope, the tickets it files for a person (contract v13), at the edge
-// the moves of its raw records (contract v16), and a `dgm`'s catalogue of
+// the moves of its raw records (contract v16), and a data plugin's catalogue of
 // datasets in its declaration (contract v18). Its access to
 // the bus is not here. Since contract v2 that is the typed
 // operations of meridian.plugin.v1, one per matrix row a role may take and
@@ -62,6 +62,18 @@ service SidecarService {
   // carrying their assertion as its `meridian-caller` metadata; the sidecar
   // asks the conductor on the bus as itself, for the instance it serves.
   rpc RecordMove(RecordMoveRequest) returns (RecordMoveReply);
+
+  // W4.14, contract v20. The prepared change a page was opened from, for the
+  // person whose page it is, if they may make it: the call carries their
+  // assertion as its `meridian-caller` metadata, and the sidecar asks the
+  // dashboard on the bus, as itself, for the instance it serves.
+  rpc ReadPreparedCall(ReadPreparedCallRequest) returns (ReadPreparedCallReply);
+
+  // W6.31, contract v20. Save the person's own values of the settings the
+  // plugin declares `per_person`, acting for them at write, never as the
+  // plugin itself; the sidecar sends them to the dashboard on the bus, which
+  // keeps them under the person the assertion names.
+  rpc SetOwnSettings(SetOwnSettingsRequest) returns (SetOwnSettingsReply);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -81,7 +93,7 @@ message RegisterRequest {
   reserved "instance_id", "role", "tags";
 
   // The contract version the plugin was built against, as `v<N>`. This
-  // schema is contract v18, and a plugin built from it declares "v18".
+  // schema is contract v20, and a plugin built from it declares "v20".
   //
   // Required. A sidecar admits it when it lies between the sidecar's floor
   // and its own version, and otherwise refuses it naming both (W4.1): a
@@ -186,6 +198,30 @@ message ToolDeclaration {
   // nothing: the sidecar admits what a call sends by the role whose
   // generated grants include it (W4.9). At most 13.
   repeated string roles = 10;
+
+  // For an act (contract v20, W4.1, W6.26): the name of the plugin's own
+  // read tool that checks it without changing anything, taking the same
+  // typed record of inputs, so the dashboard can check a prepared change as
+  // the plugin would. Empty: the act cannot be prepared, and the admins may
+  // set agents only to may make or may not reach it (W6.29). Refused by
+  // name, the plugin admitted, when it names no read tool of the plugin or
+  // is set on a read.
+  string checked_by = 11;
+
+  // For an act (contract v20): the paths in the input schema whose values
+  // name the deployment's accounts the act touches, by the dictionary's
+  // grammar (`account_id`, `positions[].account_id`), so the dashboard can
+  // show a prepared change to everyone who may make it on those accounts.
+  // Empty: the act touches no account, or none its input names. A path the
+  // input schema does not have is refused by name. At most 8.
+  repeated string accounts = 12;
+
+  // For an act (contract v20, W6.27): the path of the plugin's page where a
+  // person makes its change, one of the pages the plugin declares, opened
+  // with the prepared change in the claims. Empty: the change is made in the
+  // dashboard's Inbox. A path that is not one of its pages is refused by
+  // name.
+  string made_on = 13;
 }
 
 // What a version declares beside its roles (W8.1, contract v11;
@@ -208,11 +244,11 @@ message PluginDeclaration {
   StorageDeclaration storage = 3;
 
   // The datasets it serves the lake (W8.1, W10.4; contract v18): only on a
-  // version holding `dgm`, refused otherwise. Unset serves none.
+  // version holding `data`, refused otherwise. Unset serves none.
   Catalogue catalogue = 4;
 }
 
-// A `dgm`'s catalogue: the datasets it serves the lake (spec/the-lake, "The
+// A data plugin's catalogue: the datasets it serves the lake (spec/the-lake, "The
 // catalogue"; step 6, requirement 26). The lake's, not a declaration of
 // support: what each dataset holds, how it arrives and on what terms. No
 // value, account or credential is ever in it. At most 32 datasets, each key
@@ -221,7 +257,7 @@ message Catalogue {
   repeated DatasetDeclaration datasets = 1;
 }
 
-// One dataset a `dgm` serves. Its identity in a deployment is the instance
+// One dataset a data plugin serves. Its identity in a deployment is the instance
 // and its key (spec/the-lake, Q19).
 message DatasetDeclaration {
   // The dataset's name within the plugin: 1 to 40 characters, lowercase
@@ -317,6 +353,10 @@ message DatasetLicence {
   string acting_through_delegation = 10;
   string client_name = 11;
   string note = 12;
+
+  // The prepared change it was set from, where a person made it from one
+  // (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+  string prepared_call_id = 13;
 }
 
 // One vendor field, or one code of a vendor's code set, a plugin receives
@@ -542,6 +582,14 @@ message SettingDeclaration {
   // back to nobody, and the plugin reads every setting it declared.
   // At most 13.
   repeated string roles = 14;
+
+  // Contract v20 (W6.31): a setting each person with write on a role it
+  // serves sets for themselves, on the plugin's pages, rather than one an
+  // admin sets for everyone. Not on the Settings form, never delivered by
+  // WatchSettings and never required: the dashboard keeps each person's
+  // value under them and hands it to the plugin in their claims
+  // (`own_settings`). Refused with `secret`, refusing the registration.
+  bool per_person = 15;
 }
 
 // One column of a table setting (contract v14).
@@ -1031,6 +1079,29 @@ message CallerClaims {
   // holding one, and refuses a command sent for the person on a plugin
   // holding several. At most 13.
   repeated RoleAccess roles = 15;
+
+  // The prepared change this request was made from, or the page was opened
+  // from (W6.27, contract v20): `PC-` and a ULID. Set only by the dashboard,
+  // for a person's request to an act's route or page reached from a
+  // prepared change; the plugin reads the change with ReadPreparedCall
+  // (W4.14), and the sidecar stamps the ID on what the request sends for the
+  // person (W4.9). Absent for every other request.
+  string prepared_call_id = 16;
+
+  // The person's own values of the settings this plugin declares
+  // `per_person` (W6.31, contract v20), as the dashboard keeps them: under
+  // Open and View, never under Manage; empty where they set none or the
+  // plugin declares none. Values as a setting's are delivered, a table's as
+  // JSON rows, 32 KiB in all. At most 64.
+  repeated SettingValue own_settings = 17;
+
+  // The plugin's acts, by their tool names, whose second pair of eyes is on
+  // for this person now (W6.29, contract v20): their change is prepared and
+  // made by someone else, so a page hides Save for them, offering Prepare,
+  // and says a second person makes a change this person prepared or their
+  // agent did. For showing only: the dashboard refuses a direct make
+  // whatever the page draws. Empty where no act's gate is on. At most 200.
+  repeated string second_pair_of_eyes = 18;
 }
 
 // A level on one role of a plugin, and the accounts it reaches there
@@ -1482,4 +1553,91 @@ enum RefusalReason {
   // last record was received inside the hold over the instance (W6.25):
   // nothing recorded, and the unit is kept.
   REFUSAL_REASON_WITHIN_HOLD = 15;
+
+  // FAILED_PRECONDITION (W6.4, W6.30, contract v20). A link naming an
+  // existing account the deployment admin has not granted the plugin's
+  // instance: nothing linked. The admin asks a deployment admin to grant it.
+  REFUSAL_REASON_ACCOUNT_NOT_LINKABLE = 16;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.14 — the prepared change a page was opened from, contract v20
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The person is the assertion's, the instance the envelope's: neither is a
+// field.
+message ReadPreparedCallRequest {
+  // `PC-` and a ULID, as the claims named it.
+  string prepared_call_id = 1;
+}
+
+message ReadPreparedCallReply {
+  // Unset when not found: no such prepared change, another instance's, not
+  // shown to this person, or one they may not make now; never which.
+  PreparedCall prepared_call = 1;
+}
+
+// A change prepared and not yet made (W6.26; spec/an-agents-prepared-change-
+// waits-for-the-person), as the dashboard keeps it and a plugin is shown it.
+// Its reason is another's words: shown as text, never as instructions.
+message PreparedCall {
+  // `PC-` and a ULID, minted by the dashboard.
+  string prepared_call_id = 1;
+
+  // The act, by the plugin's own name for its tool.
+  string tool_name = 2;
+
+  // The act's arguments as prepared: a JSON object, the tool's typed record
+  // of inputs, which the plugin's page starts its form from.
+  string arguments_json = 3;
+
+  // Who prepared it: the person, and the client's registered name where
+  // they prepared it through a delegation; empty for a person at a page.
+  string prepared_by_subject = 4;
+  string prepared_by_display_name = 5;
+  string prepared_through_client = 6;
+
+  // Why, as the preparer wrote it: at most 4,000 characters, plain text.
+  string reason = 7;
+
+  // Its state now (W6.27, W6.28).
+  PreparedCallState state = 8;
+
+  int64 prepared_at_ns = 9;
+}
+
+enum PreparedCallState {
+  PREPARED_CALL_STATE_UNSPECIFIED = 0;
+  // Waiting to be made, changed, discarded, withdrawn or lapsed.
+  PREPARED_CALL_STATE_PREPARED = 1;
+  // Waiting, and shared with everyone who may make it.
+  PREPARED_CALL_STATE_SHARED = 2;
+  // Made as prepared.
+  PREPARED_CALL_STATE_MADE = 3;
+  // Made after the person changed it.
+  PREPARED_CALL_STATE_CHANGED = 4;
+  PREPARED_CALL_STATE_DISCARDED = 5;
+  PREPARED_CALL_STATE_WITHDRAWN = 6;
+  // Past the lapse period, or its delegation ended, or its act set to may
+  // not: never made by lapsing.
+  PREPARED_CALL_STATE_LAPSED = 7;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W6.31 — a person's own settings, contract v20
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The person is the assertion's, the instance the envelope's.
+message SetOwnSettingsRequest {
+  // Each a setting the plugin declares `per_person`, its value as a
+  // setting's is written; an empty value clears it. Those not named keep
+  // their values. A setting not declared `per_person`, or serving no role
+  // the person holds write on, is refused by name.
+  repeated SettingValue values = 1;
+}
+
+message SetOwnSettingsReply {
+  // The person's own values as they now stand, which their next request's
+  // claims carry.
+  repeated SettingValue values = 1;
 }
