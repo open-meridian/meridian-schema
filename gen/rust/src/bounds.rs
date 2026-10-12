@@ -66,6 +66,18 @@ pub const LIST_ACCOUNT_FIGURES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0
 /// meridian.v1.ListAccountAttributesRequest.page_size: bounds a page
 pub const LIST_ACCOUNT_ATTRIBUTES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
+/// meridian.v1.ListOrdersRequest.page_size: bounds a page
+pub const LIST_ORDERS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.OrderHistoryRequest.page_size: bounds a page
+pub const ORDER_HISTORY_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ListTradingInstructionsRequest.page_size: bounds a page
+pub const LIST_TRADING_INSTRUCTIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ListLocatesRequest.page_size: bounds a page
+pub const LIST_LOCATES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
 /// meridian.v1.AccountRecord.custodian: says where the account is held, for a
 /// person to find it by
 pub const ACCOUNT_RECORD_CUSTODIAN_LENGTH: Length = Length { least: 0, most: 200 };
@@ -110,6 +122,17 @@ pub const SET_DATASET_ENTITLEMENT_REQUEST_FIELDS_COUNT: Count = Count { least: 0
 /// set
 pub const SETTING_LAST_CHANGE_HINT_LENGTH: Length = Length { least: 0, most: 4 };
 
+/// meridian.v1.ConnectivityLinkChange.note: says why the change was made
+pub const CONNECTIVITY_LINK_CHANGE_NOTE_LENGTH: Length = Length { least: 0, most: 2000 };
+
+/// meridian.v1.SetConnectivityAvailableRequest.note: says why, kept with the
+/// change's record
+pub const SET_CONNECTIVITY_AVAILABLE_REQUEST_NOTE_LENGTH: Length = Length { least: 0, most: 2000 };
+
+/// meridian.v1.LinkConnectivityRequest.note: says why, kept with the change's
+/// record
+pub const LINK_CONNECTIVITY_REQUEST_NOTE_LENGTH: Length = Length { least: 0, most: 2000 };
+
 /// meridian.v1.TicketNote.note: carries the note's text
 pub const TICKET_NOTE_NOTE_LENGTH: Length = Length { least: 1, most: 4000 };
 
@@ -131,6 +154,16 @@ pub const VENUE_RECORD_COUNTRY_CODE_LENGTH: Length = Length { least: 2, most: 2 
 
 /// meridian.v1.VenueRecord.time_zone: says the venue's local time
 pub const VENUE_RECORD_TIME_ZONE_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.SpotDateInputs.pair: names the pair
+pub const SPOT_DATE_INPUTS_PAIR_COUNT: Count = Count { least: 2, most: 2 };
+
+/// meridian.v1.TenorDateInputs.pair: names the pair
+pub const TENOR_DATE_INPUTS_PAIR_COUNT: Count = Count { least: 2, most: 2 };
+
+/// meridian.v1.SpotDateRule.pair: names the currency pair a spot-date rule is
+/// for (W1.22)
+pub const SPOT_DATE_RULE_PAIR_COUNT: Count = Count { least: 2, most: 2 };
 
 /// meridian.v1.ObservationMeta.row_key: names one observation, so recording
 /// it again changes nothing
@@ -507,6 +540,10 @@ pub const CALL_AS_SERVICE_ACCOUNT_REQUEST_REASON_LENGTH: Length = Length { least
 /// meridian.v1.CallAsServiceAccountReply.answer_json: carries the act's own
 /// answer
 pub const CALL_AS_SERVICE_ACCOUNT_REPLY_ANSWER_JSON_LENGTH: Length = Length { least: 0, most: 1048576 };
+
+/// meridian.v1.AlgorithmDeclaration.description: says what the algorithm is,
+/// for a person reading the plugin's page
+pub const ALGORITHM_DECLARATION_DESCRIPTION_LENGTH: Length = Length { least: 1, most: 1024 };
 
 /// meridian.v1.RecordHoldingsStatementRequest.provenance: says where each
 /// value the plugin closed rather than read came from

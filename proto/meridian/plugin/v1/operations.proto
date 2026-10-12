@@ -66,10 +66,58 @@ service PluginOperations {
   rpc ListAccountFigures(ListAccountFiguresParams) returns (ListAccountFiguresResult);
   // W9.14: platform.book.query.list-account-attributes (query; stable).
   rpc ListAccountAttributes(ListAccountAttributesParams) returns (ListAccountAttributesResult);
+  // W11.1: platform.book.command.propose-order (command; preview).
+  rpc ProposeOrder(ProposeOrderParams) returns (ProposeOrderResult);
+  // W11.2: platform.book.command.record-order (command; preview).
+  rpc RecordOrder(RecordOrderParams) returns (RecordOrderResult);
+  // W11.3: platform.book.command.request-order-change (command; preview).
+  rpc RequestOrderChange(RequestOrderChangeParams) returns (RequestOrderChangeResult);
+  // W11.4: platform.book.command.record-check (command; preview).
+  rpc RecordCheck(RecordCheckParams) returns (RecordCheckResult);
+  // W11.5: platform.book.command.decide-approval (command; preview).
+  rpc DecideApproval(DecideApprovalParams) returns (DecideApprovalResult);
+  // W11.6: platform.book.command.release-order (command; preview).
+  rpc ReleaseOrder(ReleaseOrderParams) returns (ReleaseOrderResult);
+  // W11.7: platform.book.command.set-working-condition (command; preview).
+  rpc SetWorkingCondition(SetWorkingConditionParams) returns (SetWorkingConditionResult);
+  // W11.8: platform.book.command.create-placement (command; preview).
+  rpc CreatePlacement(CreatePlacementParams) returns (CreatePlacementResult);
+  // W11.9: platform.book.command.request-placement-change (command; preview).
+  rpc RequestPlacementChange(RequestPlacementChangeParams) returns (RequestPlacementChangeResult);
+  // W11.10: platform.book.command.report-placement (command; preview).
+  rpc ReportPlacement(ReportPlacementParams) returns (ReportPlacementResult);
+  // W11.11: platform.book.command.report-execution (command; preview).
+  rpc ReportExecution(ReportExecutionParams) returns (ReportExecutionResult);
+  // W11.12: platform.book.command.report-charge (command; preview).
+  rpc ReportCharge(ReportChargeParams) returns (ReportChargeResult);
+  // W11.14: platform.book.command.acknowledge-flag (command; preview).
+  rpc AcknowledgeFlag(AcknowledgeFlagParams) returns (AcknowledgeFlagResult);
+  // W11.16: platform.book.query.list-trading-instructions (query; preview).
+  rpc ListTradingInstructions(ListTradingInstructionsParams) returns (ListTradingInstructionsResult);
+  // W11.17: platform.book.query.list-orders (query; preview).
+  rpc ListOrders(ListOrdersParams) returns (ListOrdersResult);
+  // W11.17: platform.book.query.order-history (query; preview).
+  rpc ReadOrderHistory(ReadOrderHistoryParams) returns (ReadOrderHistoryResult);
+  // W11.18: platform.book.command.record-locate (command; preview).
+  rpc RecordLocate(RecordLocateParams) returns (RecordLocateResult);
+  // W11.18: platform.book.query.list-locates (query; preview).
+  rpc ListLocates(ListLocatesParams) returns (ListLocatesResult);
+  // W11.19: platform.book.command.record-locate-use (command; preview).
+  rpc RecordLocateUse(RecordLocateUseParams) returns (RecordLocateUseResult);
+  // W11.20: platform.config.event.venue-catalogue (event; preview).
+  rpc ReportVenueCatalogue(ReportVenueCatalogueParams) returns (Published);
+  // W11.20: platform.config.query.venue-catalogue (query; preview).
+  rpc ReadVenueCatalogue(ReadVenueCatalogueParams) returns (ReadVenueCatalogueResult);
+  // W11.22: platform.config.command.map-venue-account (command; preview).
+  rpc MapVenueAccount(MapVenueAccountParams) returns (MapVenueAccountResult);
   // W3.14: platform.reference.query.resolve-venue (query; preview).
   rpc ResolveVenue(ResolveVenueParams) returns (ResolveVenueResult);
   // W3.15: platform.reference.event.venue-missing (event; preview).
   rpc ReportMissingVenue(ReportMissingVenueParams) returns (Published);
+  // W3.19: platform.reference.query.read-calendar (query; preview).
+  rpc ReadCalendar(ReadCalendarParams) returns (ReadCalendarResult);
+  // W3.20: platform.reference.query.compute-date (query; preview).
+  rpc ComputeDate(ComputeDateParams) returns (ComputeDateResult);
   // W10.4: platform.lake.command.record-prices (command; preview).
   rpc RecordPrices(RecordPricesParams) returns (RecordPricesResult);
   // W10.4: platform.lake.command.record-bars (command; preview).
@@ -1312,6 +1360,915 @@ message ListAccountAttributesResult {
   Watermark as_of = 3;
 }
 
+// W11.1. For a person or a service account; by `portfolio`, the `oms`, or an
+// `ems` for a child order.
+// The params of ProposeOrder: meridian.v1.ProposeOrderRequest, less what the sidecar sets.
+message ProposeOrderParams {
+  string account_id = 1;
+
+  string instrument_id = 2;
+
+  string sleeve = 3;
+
+  Side side = 4;
+
+  string locate_id = 5;
+
+  // Exactly one of quantity and cash_quantity is set, as FIX's OrderQty
+  // (38) and CashOrderQty (152) are alternatives (ruled 2026-10-12): an
+  // order naming both, or neither, is refused INVALID_ARGUMENT naming
+  // `quantity` and `cash_quantity`. 0, a pass, is refused naming `quantity`
+  // until slice C defines it.
+  optional Decimal quantity = 6;
+
+  optional Money cash_quantity = 7;
+
+  OrderType order_type = 8;
+
+  optional Money limit_price = 9;
+
+  string dealt_currency = 10;
+
+  repeated Leg legs = 11;
+
+  AllocationInstruction allocation_instruction = 12;
+
+  TimeInForce time_in_force = 13;
+
+  LotReliefMethod lot_relief_method = 14;
+
+  repeated string relieve_lot_ids = 15;
+
+  Capacity capacity = 16;
+
+  OrderDirection direction = 17;
+
+  repeated Party parties = 18;
+
+  // Where who decided differs from who enters it.
+  Actor decided_by = 19;
+
+  string customer_id = 20;
+
+  string firm_designated_id = 21;
+
+  repeated string handling_instructions = 22;
+
+  int64 received_at_ns = 23;
+
+  TimePrecision received_precision = 24;
+
+  ReceiptQuote quote_at_receipt = 25;
+
+  repeated string represents_order_ids = 26;
+
+  string axe_source = 27;
+
+  string axe_counterparty_id = 28;
+
+  // A child order: in its parent's account, released on creation within it
+  // (Q19 (i)); under a parent not released, REFUSAL_REASON_ORDER_STATE.
+  OrderLink link = 29;
+
+  string idempotency_key = 30;
+
+  optional Money stop_price = 31;
+
+  string expire_date = 32;
+
+  int64 expire_time_ns = 33;
+
+  repeated ExecutionInstruction execution_instructions = 34;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of ProposeOrder: meridian.v1.OrderReply.
+message ProposeOrderResult {
+  Order order = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  // On a change request: the one it opened.
+  string change_request_id = 4;
+}
+
+// W11.2. A fact: never through the gate. By a connectivity plugin, its
+// account stamped by the sidecar from the `ems`'s map
+// (`venue-account-map`); or by the `oms`, for a person, naming the account.
+// The params of RecordOrder: meridian.v1.RecordOrderRequest, less what the sidecar sets.
+message RecordOrderParams {
+  // Stamped from venue_account_code on a connectivity plugin's; empty,
+  // never refused, where none is mapped, so the fact is kept unplaced.
+  string account_id = 1;
+
+  string venue_account_code = 2;
+
+  string instrument_id = 3;
+
+  string sleeve = 4;
+
+  Side side = 5;
+
+  Decimal quantity = 6;
+
+  OrderType order_type = 7;
+
+  optional Money limit_price = 8;
+
+  TimeInForce time_in_force = 9;
+
+  string venue_order_id = 10;
+
+  OrderOrigin origin = 11;
+
+  RawRecordRef raw_record = 12;
+
+  string idempotency_key = 13;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RecordOrder: meridian.v1.OrderReply.
+message RecordOrderResult {
+  Order order = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  // On a change request: the one it opened.
+  string change_request_id = 4;
+}
+
+// W11.3.
+// The params of RequestOrderChange: meridian.v1.RequestOrderChangeRequest, less what the sidecar sets.
+message RequestOrderChangeParams {
+  string order_id = 1;
+
+  OrderChange change = 2;
+
+  // Required on a justified act: an alignment, an override.
+  string reason = 3;
+
+  string idempotency_key = 4;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RequestOrderChange: meridian.v1.OrderReply.
+message RequestOrderChangeResult {
+  Order order = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  // On a change request: the one it opened.
+  string change_request_id = 4;
+}
+
+// W11.4. By `compliance`; on an order version, or on a placement before it
+// is sent, answered with the placement.
+// The params of RecordCheck: meridian.v1.RecordCheckRequest, less what the sidecar sets.
+message RecordCheckParams {
+  string order_id = 1;
+
+  uint64 order_version = 2;
+
+  string placement_id = 3;
+
+  CheckVerdict verdict = 4;
+
+  string rule = 5;
+
+  string note = 6;
+
+  string idempotency_key = 7;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RecordCheck: meridian.v1.OrderReply.
+message RecordCheckResult {
+  Order order = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  // On a change request: the one it opened.
+  string change_request_id = 4;
+}
+
+// W11.5.
+// The params of DecideApproval: meridian.v1.DecideApprovalRequest, less what the sidecar sets.
+message DecideApprovalParams {
+  string order_id = 1;
+
+  ApprovalDecision decision = 2;
+
+  // Required on an override.
+  string reason = 3;
+
+  string idempotency_key = 4;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of DecideApproval: meridian.v1.OrderReply.
+message DecideApprovalResult {
+  Order order = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  // On a change request: the one it opened.
+  string change_request_id = 4;
+}
+
+// W11.6. Through the gate, in its order: allocation, block, approval,
+// compliance.
+// The params of ReleaseOrder: meridian.v1.ReleaseOrderRequest, less what the sidecar sets.
+message ReleaseOrderParams {
+  string order_id = 1;
+
+  string idempotency_key = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of ReleaseOrder: meridian.v1.OrderReply.
+message ReleaseOrderResult {
+  Order order = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  // On a change request: the one it opened.
+  string change_request_id = 4;
+}
+
+// W11.7. Claimed, held or paused, set or cleared.
+// The params of SetWorkingCondition: meridian.v1.SetWorkingConditionRequest, less what the sidecar sets.
+message SetWorkingConditionParams {
+  string order_id = 1;
+
+  // ORDER_CONDITION_CLAIMED, _HELD or _PAUSED; any other refused.
+  OrderCondition condition = 2;
+
+  // True sets it, false clears it.
+  bool set = 3;
+
+  string reason = 4;
+
+  string idempotency_key = 5;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of SetWorkingCondition: meridian.v1.OrderReply.
+message SetWorkingConditionResult {
+  Order order = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  // On a change request: the one it opened.
+  string change_request_id = 4;
+}
+
+// W11.8. By the `ems`; or by a connectivity plugin, a direct order's.
+// The params of CreatePlacement: meridian.v1.CreatePlacementRequest, less what the sidecar sets.
+message CreatePlacementParams {
+  string order_id = 1;
+
+  // One linked to the placing `ems` and made available to the user the
+  // command acts for, or REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED, recorded.
+  string connectivity_instance_id = 2;
+
+  string venue_account_code = 3;
+
+  Decimal quantity = 4;
+
+  optional Money limit_price = 5;
+
+  TimeInForce time_in_force = 6;
+
+  StrategyInstruction strategy = 7;
+
+  string destination = 8;
+
+  RouteType route_type = 9;
+
+  repeated string handling_instructions = 10;
+
+  // Offered empty until slice C.
+  string rfq_id = 11;
+
+  string axe_id = 12;
+
+  string idempotency_key = 14;
+
+  // Set by the sidecar, never by a plugin (stamped.tsv).
+  reserved 13;
+  reserved "ems_instance_id";
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of CreatePlacement: meridian.v1.PlacementReply.
+message CreatePlacementResult {
+  Placement placement = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  string change_request_id = 4;
+}
+
+// W11.9. By the `ems` or the `oms`; by a connectivity plugin only to report
+// a cancel it already sent under a stop, a fact naming the instruction's
+// entry as its cause (v21's Q17).
+// The params of RequestPlacementChange: meridian.v1.RequestPlacementChangeRequest, less what the sidecar sets.
+message RequestPlacementChangeParams {
+  string placement_id = 1;
+
+  PlacementChange change = 2;
+
+  string reason = 3;
+
+  // The trading instruction's entry, on a cancel reported under a stop:
+  // only its entry_id is read, and the sidecar refuses any other field set
+  // (the order-path plan's protos, point 10, ruled 2026-10-12).
+  EntryMeta cause = 4;
+
+  string idempotency_key = 5;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RequestPlacementChange: meridian.v1.PlacementReply.
+message RequestPlacementChangeResult {
+  Placement placement = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  string change_request_id = 4;
+}
+
+// W11.10. A fact, each with the raw record it was converted from.
+// The params of ReportPlacement: meridian.v1.ReportPlacementRequest, less what the sidecar sets.
+message ReportPlacementParams {
+  string placement_id = 1;
+
+  PlacementEvent event = 2;
+
+  string venue_order_id = 3;
+
+  int64 routed_at_ns = 4;
+
+  TimePrecision routed_precision = 5;
+
+  RejectionReason rejection_reason = 6;
+
+  AsReported rejection_as_reported = 7;
+
+  UnknownReason unknown_reason = 8;
+
+  AsReported status_as_reported = 9;
+
+  RestatementReason restatement_reason = 10;
+
+  // On a replace or a restatement: the quantity and limit now.
+  optional Decimal quantity = 11;
+
+  optional Money limit_price = 12;
+
+  RawRecordRef raw_record = 13;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// A fact's answer: each record it changed, or the unplaced fact kept.
+// The result of ReportPlacement: meridian.v1.FactReply.
+message ReportPlacementResult {
+  Placement placement = 1;
+
+  Execution execution = 2;
+
+  Order order = 3;
+
+  Charge charge = 4;
+
+  UnplacedFact unplaced = 5;
+
+  EntryMeta entry = 6;
+
+  JournalRef journal = 7;
+}
+
+// W11.11. A fact by a connectivity plugin; or, for a person, a manual or
+// done-away execution by the `ems` or the `oms`. A fill with no settlement
+// date, stated or computed, is refused INVALID_ARGUMENT naming
+// `settlement_date` (the refresh's Q39).
+// The params of ReportExecution: meridian.v1.ReportExecutionRequest, less what the sidecar sets.
+message ReportExecutionParams {
+  string placement_id = 1;
+
+  // A done-away execution's order.
+  string order_id = 2;
+
+  // Stamped from venue_account_code on a connectivity plugin's, as
+  // RecordOrderRequest's is.
+  string account_id = 3;
+
+  string venue_account_code = 4;
+
+  string venue_execution_id = 5;
+
+  ExecutionKind kind = 6;
+
+  ExecutionSource source = 7;
+
+  Decimal quantity = 8;
+
+  Money price = 9;
+
+  int64 trade_time_ns = 10;
+
+  string trade_date = 11;
+
+  Finality finality = 12;
+
+  string settlement_date = 13;
+
+  string computed_settlement_date = 14;
+
+  DateBasis settlement_date_basis = 15;
+
+  repeated Fee fees = 16;
+
+  string supersedes = 17;
+
+  string venue_id = 18;
+
+  string uti = 19;
+
+  string prior_uti = 20;
+
+  string upi = 21;
+
+  string given_up_to = 23;
+
+  string trade_chain_reference = 24;
+
+  string settlement_counterparty = 25;
+
+  RawRecordRef raw_record = 26;
+
+  string idempotency_key = 27;
+
+  string effective_date = 28;
+
+  Party counterparty = 29;
+
+  LiquidityIndicator liquidity_indicator = 30;
+
+  string uti_generated_by = 31;
+
+  // Retired in the domain message, and never reused.
+  reserved 22;
+  reserved "derivative_terms";
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// A fact's answer: each record it changed, or the unplaced fact kept.
+// The result of ReportExecution: meridian.v1.FactReply.
+message ReportExecutionResult {
+  Placement placement = 1;
+
+  Execution execution = 2;
+
+  Order order = 3;
+
+  Charge charge = 4;
+
+  UnplacedFact unplaced = 5;
+
+  EntryMeta entry = 6;
+
+  JournalRef journal = 7;
+}
+
+// W11.12.
+// The params of ReportCharge: meridian.v1.ReportChargeRequest, less what the sidecar sets.
+message ReportChargeParams {
+  string placement_id = 1;
+
+  Fee fee = 2;
+
+  string trade_date = 3;
+
+  string settlement_date = 4;
+
+  RawRecordRef raw_record = 5;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// A fact's answer: each record it changed, or the unplaced fact kept.
+// The result of ReportCharge: meridian.v1.FactReply.
+message ReportChargeResult {
+  Placement placement = 1;
+
+  Execution execution = 2;
+
+  Order order = 3;
+
+  Charge charge = 4;
+
+  UnplacedFact unplaced = 5;
+
+  EntryMeta entry = 6;
+
+  JournalRef journal = 7;
+}
+
+// W11.14. Late fact only; does not tie out is never acknowledged.
+// The params of AcknowledgeFlag: meridian.v1.AcknowledgeFlagRequest, less what the sidecar sets.
+message AcknowledgeFlagParams {
+  string order_id = 1;
+
+  OrderCondition condition = 2;
+
+  string reason = 3;
+
+  string idempotency_key = 4;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of AcknowledgeFlag: meridian.v1.OrderReply.
+message AcknowledgeFlagResult {
+  Order order = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  // On a change request: the one it opened.
+  string change_request_id = 4;
+}
+
+// Those in force, never a history; read on start, whatever the scope.
+// With `since`, each instruction changed above it, an instruction set back
+// to active included, as an unscoped record row's catch-up reads (W4.3).
+// The params of ListTradingInstructions: meridian.v1.ListTradingInstructionsRequest, less what the sidecar sets.
+message ListTradingInstructionsParams {
+  Watermark since = 1;
+
+  int32 page_size = 2;
+
+  string cursor = 3;
+}
+
+// The result of ListTradingInstructions: meridian.v1.ListTradingInstructionsReply.
+message ListTradingInstructionsResult {
+  repeated TradingInstruction instructions = 1;
+
+  // The control partition's sequence they were read at.
+  uint64 control_sequence = 2;
+
+  Watermark as_of = 3;
+
+  string next_cursor = 4;
+}
+
+// The orders in the reader's scope, as of now or changed since a watermark;
+// a connectivity plugin's, those behind placements naming its instance.
+// The params of ListOrders: meridian.v1.ListOrdersRequest, less what the sidecar sets.
+message ListOrdersParams {
+  // Empty: every account in the reader's scope.
+  string account_id = 1;
+
+  // Only records whose last change is above it, as every record catch-up
+  // reads (W4.3); unset, every record in scope as of now.
+  Watermark since = 2;
+
+  int32 page_size = 3;
+
+  string cursor = 4;
+}
+
+// Each kind of record the order path delivers, in its own list, so a
+// catch-up after a gap or a loss reads the records its row carries: an
+// order's (OrderUpdated), a placement's (PlacementUpdated), an execution's
+// (ExecutionRecorded), an unplaced fact's (UnplacedFactRecorded).
+// The result of ListOrders: meridian.v1.ListOrdersReply.
+message ListOrdersResult {
+  repeated Order orders = 1;
+
+  Watermark as_of = 2;
+
+  string next_cursor = 3;
+
+  repeated Placement placements = 4;
+
+  repeated Execution executions = 5;
+
+  // Those naming an account in the reader's scope; one naming none is read
+  // by no plugin (W11.13).
+  repeated UnplacedFact unplaced_facts = 6;
+}
+
+// One order's journal from its first entry; the history never changes.
+// The params of ReadOrderHistory: meridian.v1.OrderHistoryRequest, less what the sidecar sets.
+message ReadOrderHistoryParams {
+  string account_id = 1;
+
+  string order_id = 2;
+
+  int32 page_size = 3;
+
+  string cursor = 4;
+}
+
+// The result of ReadOrderHistory: meridian.v1.OrderHistoryReply.
+message ReadOrderHistoryResult {
+  // Each with its actor, its times, and the prepared change it was made
+  // from where one was.
+  repeated EntryMeta entries = 1;
+
+  string next_cursor = 2;
+}
+
+// W11.18. By the fund's connectivity plugin; the answer later on the same
+// record as its own entry.
+// The params of RecordLocate: meridian.v1.RecordLocateRequest, less what the sidecar sets.
+message RecordLocateParams {
+  string venue_account_code = 2;
+
+  string instrument_id = 3;
+
+  optional Decimal quantity_requested = 4;
+
+  LocateAnswer answer = 5;
+
+  // Names the record an answer arriving later is on; empty for a new one.
+  string locate_record_id = 6;
+
+  RawRecordRef raw_record = 7;
+
+  string idempotency_key = 8;
+
+  // Set by the sidecar, never by a plugin (stamped.tsv).
+  reserved 1;
+  reserved "account_id";
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RecordLocate: meridian.v1.LocateReply.
+message RecordLocateResult {
+  Locate locate = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+}
+
+// The params of ListLocates: meridian.v1.ListLocatesRequest, less what the sidecar sets.
+message ListLocatesParams {
+  string account_id = 1;
+
+  // Only locates whose last change is above it (W4.3).
+  Watermark since = 2;
+
+  int32 page_size = 3;
+
+  string cursor = 4;
+}
+
+// The result of ListLocates: meridian.v1.ListLocatesReply.
+message ListLocatesResult {
+  repeated Locate locates = 1;
+
+  Watermark as_of = 2;
+
+  string next_cursor = 3;
+}
+
+// W11.19. By `compliance` or the `oms`; on an expired locate,
+// REFUSAL_REASON_ORDER_STATE.
+// The params of RecordLocateUse: meridian.v1.RecordLocateUseRequest, less what the sidecar sets.
+message RecordLocateUseParams {
+  string locate_record_id = 1;
+
+  LocateUse use = 2;
+
+  string idempotency_key = 3;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RecordLocateUse: meridian.v1.LocateReply.
+message RecordLocateUseResult {
+  Locate locate = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+}
+
+// W11.20. Published by a connectivity plugin, per venue account code its
+// `ems` mapped; kept by the conductor, latest per code, each change its own
+// record; heard by the `ems` and the `oms`.
+// The params of ReportVenueCatalogue: meridian.v1.VenueCatalogueEvent, less what the sidecar sets.
+message ReportVenueCatalogueParams {
+  VenueCatalogue catalogue = 1;
+
+  // Set by the sidecar, never by a plugin (stamped.tsv).
+  reserved 2;
+  reserved "publisher_instance_id";
+}
+
+// W11.20. The latest per venue account code; a code the plugin has not
+// published is answered empty, not refused.
+// The params of ReadVenueCatalogue: meridian.v1.ReadVenueCatalogueRequest, less what the sidecar sets.
+message ReadVenueCatalogueParams {
+  string connectivity_instance_id = 1;
+
+  string venue_account_code = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // reads as itself, which the sidecar refuses here: a read of the
+  // deployment's configuration (platform.config) is answered only in a
+  // session at ACCESS_LEVEL_ADMIN, and stamped with the person.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of ReadVenueCatalogue: meridian.v1.ReadVenueCatalogueReply.
+message ReadVenueCatalogueResult {
+  VenueCatalogue catalogue = 1;
+}
+
+// W11.22. Sent by the `ems` acting for the admin viewing its page (W4.9):
+// maps an account to the venue account code it trades under at one of the
+// `ems`'s connectivity plugins, or removes the mapping (an empty
+// account_id). Answered by the `ems`'s map as recorded; refused
+// REFUSAL_REASON_ACCOUNT_NOT_LINKABLE for an account not granted to the
+// `ems`'s instance (W6.30), REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED for a
+// connectivity plugin not linked to it, ALREADY_EXISTS for a code mapped on
+// that plugin already.
+// The params of MapVenueAccount: meridian.v1.MapVenueAccountRequest, less what the sidecar sets.
+message MapVenueAccountParams {
+  string connectivity_instance_id = 1;
+
+  string venue_account_code = 2;
+
+  string account_id = 3;
+
+  // Set by the sidecar, never by a plugin (stamped.tsv).
+  reserved 4;
+  reserved "ems_instance_id";
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// An `ems`'s map of book accounts to the venue account codes they trade
+// under at its connectivity plugins (W11.22; contract v22): what the `ems`
+// sets in the venue's account field, and what the sidecar stamps a venue
+// fact's account by (`venue-account-map`).
+// The result of MapVenueAccount: meridian.v1.VenueAccountMap.
+message MapVenueAccountResult {
+  string ems_instance_id = 1;
+
+  repeated VenueAccountMapping mappings = 2;
+}
+
 // W3.14: which venue a set of identifiers names on a date, in the venues the
 // deployment holds.
 // The params of ResolveVenue: meridian.v1.ResolveVenueRequest, less what the sidecar sets.
@@ -1356,6 +2313,72 @@ message ReportMissingVenueParams {
   // Set by the sidecar, never by a plugin (stamped.tsv).
   reserved 4;
   reserved "publisher_instance_id";
+}
+
+// W3.19: a calendar's days over a range, as of a recorded time or its latest
+// version. A reference read, answered whatever the asker's scope.
+// The params of ReadCalendar: meridian.v1.ReadCalendarRequest, less what the sidecar sets.
+message ReadCalendarParams {
+  string calendar_id = 1;
+
+  // ISO 8601, inclusive; a range ending before it starts is refused naming
+  // `to_date`.
+  string from_date = 2;
+
+  string to_date = 3;
+
+  // Zero means the latest version held.
+  int64 as_of_ns = 4;
+}
+
+// The result of ReadCalendar: meridian.v1.ReadCalendarReply.
+message ReadCalendarResult {
+  // False: the calendar is not held, reported missing (W3.18).
+  bool found = 1;
+
+  string calendar_id = 2;
+
+  int64 version = 3;
+
+  // The days listed in the range, each with its source.
+  repeated CalendarDay days = 4;
+
+  repeated CalendarWeekend weekends = 5;
+
+  CalendarCoverage coverage = 6;
+
+  repeated CalendarSource sources = 7;
+}
+
+// W3.20: one way to work out a date, in core. The same inputs and versions
+// always give the same date; the wall clock is never read.
+// The params of ComputeDate: meridian.v1.ComputeDateRequest, less what the sidecar sets.
+message ComputeDateParams {
+  oneof inputs {
+    SettlementDateInputs settlement = 1;
+    SpotDateInputs spot = 2;
+    TenorDateInputs tenor = 3;
+    RollInputs roll = 5;
+    BusinessDayInputs business_day = 6;
+  }
+
+  // The records as of this recorded time; zero means the latest held.
+  int64 as_of_ns = 4;
+}
+
+// The result of ComputeDate: meridian.v1.ComputeDateReply.
+message ComputeDateResult {
+  // ISO 8601; empty unless computed.
+  string date = 1;
+
+  DateOutcome outcome = 2;
+
+  // The rule and each calendar, with their versions, it was computed on.
+  DateBasis basis = 3;
+
+  // On a business-day question, computed: whether the date is one on every
+  // calendar named.
+  bool business_day = 4;
 }
 
 // A batch of prices, recorded whole or refused naming the item and field:
@@ -1786,6 +2809,22 @@ message Delivery {
     TradesRecordedEvent trades_recorded = 29;
     // W10.5: platform.lake.{dataset}.event.quotes-recorded.
     QuotesRecordedEvent quotes_recorded = 30;
+    // W11.13: platform.book.event.order-updated.
+    OrderUpdatedEvent order_updated = 31;
+    // W11.13: platform.book.event.placement-updated.
+    // Reaches a connectivity plugin only at the instance its
+    // placement.connectivity_instance_id names (matrix/directed.tsv).
+    PlacementUpdatedEvent placement_updated = 32;
+    // W11.13: platform.book.event.execution-recorded.
+    ExecutionRecordedEvent execution_recorded = 33;
+    // W11.13: platform.book.event.unplaced-fact-recorded.
+    UnplacedFactRecordedEvent unplaced_fact_recorded = 34;
+    // W11.16: platform.book.event.trading-instruction-changed.
+    TradingInstructionChangedEvent trading_instruction_changed = 35;
+    // W11.18: platform.book.event.locate-updated.
+    LocateUpdatedEvent locate_updated = 36;
+    // W11.20: platform.config.event.venue-catalogue.
+    VenueCatalogueEvent report_venue_catalogue = 37;
   }
 }
 
@@ -3693,37 +4732,6 @@ message BreakCause {
   string note = 7;
 }
 
-// What the date read found of one date (W3.20, W9.4; the calendars spec's
-// requirement 14; contract v22): the date, the calendars and their versions
-// it was checked on, and why the day is closed.
-// A mirror of meridian.v1.DateCheck.
-message DateCheck {
-  // ISO 8601.
-  string date = 1;
-
-  // Each calendar it was checked on, with its version.
-  repeated CalendarRef calendars = 2;
-
-  // Why the day is closed.
-  DateCheckReason reason = 3;
-
-  // On a holiday: its name as the source gives it.
-  string holiday_name = 4;
-}
-
-// Why a date is not a business day (the calendars spec's requirement 14;
-// contract v22).
-// A mirror of meridian.v1.DateCheckReason.
-enum DateCheckReason {
-  DATE_CHECK_REASON_UNSPECIFIED = 0;
-  // A weekend day on one of the calendars, not listed open.
-  DATE_CHECK_REASON_WEEKEND = 1;
-  // A closed day listed on one of the calendars, with its name.
-  DATE_CHECK_REASON_HOLIDAY = 2;
-  // Outside a calendar's coverage: not known, never a business day.
-  DATE_CHECK_REASON_OUTSIDE_COVERAGE = 3;
-}
-
 // A mirror of meridian.v1.BreakCauseCategory.
 enum BreakCauseCategory {
   BREAK_CAUSE_CATEGORY_UNSPECIFIED = 0;
@@ -3765,6 +4773,37 @@ message ActivityRef {
 
   // ISO 8601: the activity's trade date, as the custodian stated it.
   string trade_date = 3;
+}
+
+// What the date read found of one date (W3.20, W9.4; the calendars spec's
+// requirement 14; contract v22): the date, the calendars and their versions
+// it was checked on, and why the day is closed.
+// A mirror of meridian.v1.DateCheck.
+message DateCheck {
+  // ISO 8601.
+  string date = 1;
+
+  // Each calendar it was checked on, with its version.
+  repeated CalendarRef calendars = 2;
+
+  // Why the day is closed.
+  DateCheckReason reason = 3;
+
+  // On a holiday: its name as the source gives it.
+  string holiday_name = 4;
+}
+
+// Why a date is not a business day (the calendars spec's requirement 14;
+// contract v22).
+// A mirror of meridian.v1.DateCheckReason.
+enum DateCheckReason {
+  DATE_CHECK_REASON_UNSPECIFIED = 0;
+  // A weekend day on one of the calendars, not listed open.
+  DATE_CHECK_REASON_WEEKEND = 1;
+  // A closed day listed on one of the calendars, with its name.
+  DATE_CHECK_REASON_HOLIDAY = 2;
+  // Outside a calendar's coverage: not known, never a business day.
+  DATE_CHECK_REASON_OUTSIDE_COVERAGE = 3;
 }
 
 // A mirror of meridian.v1.BreakHandling.
@@ -4003,6 +5042,1543 @@ message ResolvedByEntries {
   repeated string entry_ids = 1;
 }
 
+// A mirror of meridian.v1.Side.
+enum Side {
+  SIDE_UNSPECIFIED = 0;
+  SIDE_BUY = 1;
+  SIDE_SELL = 2;
+  // With the locate it names (Order.locate_id, W11.18).
+  SIDE_SELL_SHORT = 3;
+  SIDE_SELL_SHORT_EXEMPT = 4;
+}
+
+// A mirror of meridian.v1.OrderType.
+enum OrderType {
+  ORDER_TYPE_UNSPECIFIED = 0;
+  ORDER_TYPE_MARKET = 1;
+  ORDER_TYPE_LIMIT = 2;
+  ORDER_TYPE_STOP = 3;
+  ORDER_TYPE_STOP_LIMIT = 4;
+  // An RFQ order: its quotes and outcomes are slice C's, on its placement.
+  ORDER_TYPE_REQUEST_FOR_QUOTE = 5;
+}
+
+// One leg of an order (step 5's Q26).
+// A mirror of meridian.v1.Leg.
+message Leg {
+  string instrument_id = 1;
+
+  Side side = 2;
+
+  // FIX's LegRatioQty (623).
+  Decimal ratio = 3;
+}
+
+// `portfolio`'s allocation instruction (principle 1; FIX's
+// AllocationInstruction).
+// A mirror of meridian.v1.AllocationInstruction.
+message AllocationInstruction {
+  repeated AllocationLine lines = 1;
+}
+
+// One account's part of an allocation instruction.
+// A mirror of meridian.v1.AllocationLine.
+message AllocationLine {
+  string account_id = 1;
+
+  // The amount, or, where weighted, unset.
+  optional Decimal quantity = 2;
+
+  // A weighted line's share, 0 to 1.
+  optional Decimal weight = 3;
+
+  // Slice B's, with the allocation; carried empty until then.
+  string sleeve = 4;
+}
+
+// A mirror of meridian.v1.TimeInForce.
+enum TimeInForce {
+  TIME_IN_FORCE_UNSPECIFIED = 0;
+  TIME_IN_FORCE_DAY = 1;
+  TIME_IN_FORCE_GOOD_TILL_CANCELLED = 2;
+  TIME_IN_FORCE_GOOD_TILL_DATE = 3;
+  // With a kill time.
+  TIME_IN_FORCE_GOOD_TILL_TIME = 4;
+  TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = 5;
+  TIME_IN_FORCE_FILL_OR_KILL = 6;
+  TIME_IN_FORCE_AT_THE_OPEN = 7;
+  TIME_IN_FORCE_AT_THE_CLOSE = 8;
+}
+
+// For a broker's order, set by the `oms`.
+// A mirror of meridian.v1.Capacity.
+enum Capacity {
+  CAPACITY_UNSPECIFIED = 0;
+  CAPACITY_AGENCY = 1;
+  CAPACITY_PRINCIPAL = 2;
+  CAPACITY_RISKLESS_PRINCIPAL = 3;
+  CAPACITY_MIXED = 4;
+}
+
+// Whether an order was received from a client (Q23).
+// A mirror of meridian.v1.OrderDirection.
+enum OrderDirection {
+  // The firm's own order, unmarked.
+  ORDER_DIRECTION_UNSPECIFIED = 0;
+  // A client's order, proposed by the `portfolio` intake standing for the
+  // client's portfolio manager.
+  ORDER_DIRECTION_RECEIVED = 1;
+}
+
+// A party to an order or an execution, as delivered (requirements 30, 55).
+// After FIX's Parties (PartyID 448, PartyIDSource 447, PartyRole 452).
+// A mirror of meridian.v1.Party.
+message Party {
+  // Its identifiers as delivered, each with its scheme.
+  repeated Identifier identifiers = 1;
+
+  // Its LEI, where given (requirement 55).
+  string lei = 2;
+
+  PartyRole party_role = 3;
+
+  // Its contact as delivered (requirement 30).
+  string contact = 4;
+}
+
+// A party's role on an order or an execution.
+// A mirror of meridian.v1.PartyRole.
+enum PartyRole {
+  PARTY_ROLE_UNSPECIFIED = 0;
+  // The client, as delivered.
+  PARTY_ROLE_CLIENT = 1;
+  // The counterparty, where known.
+  PARTY_ROLE_COUNTERPARTY = 2;
+}
+
+// A precision a time was stated in (the order-path plan's refresh, Q38).
+// A mirror of meridian.v1.TimePrecision.
+enum TimePrecision {
+  TIME_PRECISION_UNSPECIFIED = 0;
+  TIME_PRECISION_SECOND = 1;
+  TIME_PRECISION_MILLISECOND = 2;
+  TIME_PRECISION_MICROSECOND = 3;
+  TIME_PRECISION_NANOSECOND = 4;
+}
+
+// The quote at time of receipt, held as stated (requirement 56; the
+// refresh's Q35).
+// A mirror of meridian.v1.ReceiptQuote.
+message ReceiptQuote {
+  optional Money bid = 1;
+
+  optional Money ask = 2;
+
+  ReceiptQuoteSourceKind source_kind = 3;
+
+  // With RECEIPT_QUOTE_SOURCE_KIND_VENUE: the venue, its `VEN-` ID.
+  string venue_id = 4;
+
+  int64 quoted_at_ns = 5;
+
+  // The sizes (FIX's BidSize, 134, and OfferSize, 135).
+  optional Decimal bid_size = 6;
+
+  optional Decimal ask_size = 7;
+
+  // The lake row it was read from, optional: its dataset and row key.
+  string dataset = 8;
+
+  string row_key = 9;
+}
+
+// Which quote a quote at time of receipt is (the refresh's Q35, as refined
+// and ruled 2026-10-12; the values spelled with the enum's prefix, the
+// order-path plan's protos, point 9, ruled 2026-10-12).
+// A mirror of meridian.v1.ReceiptQuoteSourceKind.
+enum ReceiptQuoteSourceKind {
+  RECEIPT_QUOTE_SOURCE_KIND_UNSPECIFIED = 0;
+  // The consolidated best bid and offer across venues, the quote Rule 605's
+  // statistics reference.
+  RECEIPT_QUOTE_SOURCE_KIND_CONSOLIDATED = 1;
+  // One named venue's, its `VEN-` ID beside it.
+  RECEIPT_QUOTE_SOURCE_KIND_VENUE = 2;
+}
+
+// The split link on a child order (W11.1; Q41).
+// A mirror of meridian.v1.OrderLink.
+message OrderLink {
+  OrderLinkKind kind = 1;
+
+  string parent_order_id = 2;
+}
+
+// The one named link in v22 (W11.1; step 5's link 1, Q6; the refresh's
+// Q41). Block, allocation, street order, two-way quote, alternatives and
+// basket join with their slices.
+// A mirror of meridian.v1.OrderLinkKind.
+enum OrderLinkKind {
+  ORDER_LINK_KIND_UNSPECIFIED = 0;
+  // A child order an `ems` (or the `oms`) worked out of its parent.
+  ORDER_LINK_KIND_SPLIT = 1;
+}
+
+// The standard execution instructions (step 6's requirement 12; FIX's
+// ExecInst, tag 18), set by the `oms`; a venue's own parameters are never
+// here.
+// A mirror of meridian.v1.ExecutionInstruction.
+enum ExecutionInstruction {
+  EXECUTION_INSTRUCTION_UNSPECIFIED = 0;
+  EXECUTION_INSTRUCTION_NOT_HELD = 1;
+  EXECUTION_INSTRUCTION_DO_NOT_REDUCE = 2;
+  EXECUTION_INSTRUCTION_DO_NOT_INCREASE = 3;
+  EXECUTION_INSTRUCTION_REDUCE_ONLY = 4;
+  // Self-match prevention, honoured by the connectivity plugin with the
+  // venue's own identifier and instruction (step 5, "Self-match and
+  // wash-trade prevention").
+  EXECUTION_INSTRUCTION_SELF_MATCH_PREVENTION = 5;
+}
+
+// An order (W11.1, W11.2): its identity (account, instrument, side) never
+// changes (Q20); each field set by its owner (step 5, "The order's fields").
+// A mirror of meridian.v1.Order.
+message Order {
+  // `ORD-` and a ULID, minted by the book; never reused (decisions/035).
+  string order_id = 1;
+
+  string account_id = 2;
+
+  string instrument_id = 3;
+
+  // The sleeve within the account (ruled 2026-10-10); empty for the
+  // account's unsleeved part.
+  string sleeve = 4;
+
+  Side side = 5;
+
+  // On a short: the prime's locate ID on a locate record in the book
+  // (W11.18), which `compliance` checks at release by its own logic.
+  string locate_id = 6;
+
+  // The ordered quantity, or, where the order is for an amount, its cash
+  // quantity: exactly one is set, as FIX's OrderQty (38) and CashOrderQty
+  // (152) are alternatives (ruled 2026-10-12).
+  Decimal quantity = 7;
+
+  Money cash_quantity = 8;
+
+  OrderType order_type = 9;
+
+  Money limit_price = 10;
+
+  // A stop or stop-limit order's trigger (FIX's StopPx, tag 99).
+  Money stop_price = 40;
+
+  // On a pair: the dealt currency, by its cash instrument's ID.
+  string dealt_currency = 11;
+
+  // A slot of optional legs (FX swaps, spreads; step 5's Q26).
+  repeated Leg legs = 12;
+
+  // `portfolio`'s: accounts with amounts or weights. At release it sums to
+  // the ordered quantity, or, unset, the whole is in the order's own account
+  // (principle 1; REFUSAL_REASON_ALLOCATION_UNBALANCED). A child order
+  // carries none: its parent's governs (Q47).
+  AllocationInstruction allocation_instruction = 13;
+
+  // Set by the `oms`, on its proposal or by a change (W11.3).
+  TimeInForce time_in_force = 14;
+
+  // ISO 8601: a good-till-date order's date (FIX's ExpireDate, tag 432);
+  // and a good-till-time order's kill time (FIX's ExpireTime, tag 126).
+  string expire_date = 41;
+
+  int64 expire_time_ns = 42;
+
+  // The standard execution instructions, set by the `oms` (FIX's ExecInst,
+  // tag 18).
+  repeated ExecutionInstruction execution_instructions = 43;
+
+  // How a sale relieves lots: the method, or the lots it names; unset, the
+  // account's lot_relief_default (W9.13, W11.13).
+  LotReliefMethod lot_relief_method = 15;
+
+  repeated string relieve_lot_ids = 16;
+
+  Capacity capacity = 17;
+
+  OrderDirection direction = 18;
+
+  // The client, as delivered, with its LEI where given.
+  repeated Party parties = 19;
+
+  // Entered by, from the actor; decided by, where it differs (requirement
+  // 29).
+  PersonRoles person_roles = 20;
+
+  // The reporting fields its decision owns (requirements 55, 56; the
+  // refresh's Q36): stored as stated, core reporting nothing.
+  string customer_id = 21;
+
+  string firm_designated_id = 22;
+
+  repeated string handling_instructions = 23;
+
+  int64 received_at_ns = 24;
+
+  TimePrecision received_precision = 25;
+
+  ReceiptQuote quote_at_receipt = 26;
+
+  // The orders a firm's order represents, recorded and not checked (Q37).
+  repeated string represents_order_ids = 27;
+
+  // Slice C's, carried empty until it lands (the refresh's Q34): the axe an
+  // order was made from in the lake, its source and counterparty.
+  string axe_source = 28;
+
+  string axe_counterparty_id = 29;
+
+  // On a child order: its parent, released, whose instrument and side it
+  // has (Q46).
+  OrderLink link = 30;
+
+  // On an order the book did not create (W11.2); unspecified on one it did.
+  OrderOrigin origin = 31;
+
+  // The venue's order ID on such an order, an external reference, never a
+  // key.
+  string venue_order_id = 32;
+
+  // A fold over its journal (decisions/035), never stored.
+  OrderStatus status = 33;
+
+  // Each check recorded on it, naming the version it checked (W11.4).
+  repeated Check checks = 34;
+
+  // Its change requests, each tracked to its outcome (requirement 16).
+  repeated ChangeRequest change_requests = 35;
+
+  // On a read (W11.17): its placements, executions and charges.
+  repeated Placement placements = 36;
+
+  repeated Execution executions = 37;
+
+  repeated Charge charges = 38;
+
+  JournalRef last_change = 39;
+}
+
+// The people on an order, a placement or an entered execution (requirement
+// 29). Each a person who has signed in (W6.1) or a service account.
+// A mirror of meridian.v1.PersonRoles.
+message PersonRoles {
+  // Stamped from the actor of the proposing or recording command.
+  Actor entered_by = 1;
+
+  // The placement's, and an entered execution's: that act's actor.
+  Actor executed_by = 2;
+
+  // Named in the command, where it differs from entered by.
+  Actor decided_by = 3;
+}
+
+// Where an order the book did not create came from (W11.2).
+// A mirror of meridian.v1.OrderOrigin.
+enum OrderOrigin {
+  // An order the book created: proposed (W11.1).
+  ORDER_ORIGIN_UNSPECIFIED = 0;
+  // A venue-originated order: a liquidation, auto-deleveraging, one a drop
+  // copy shows; actor the venue.
+  ORDER_ORIGIN_VENUE = 1;
+  // A telephoned or outside order, recorded by the `oms` for a person.
+  ORDER_ORIGIN_TELEPHONED = 2;
+}
+
+// An order's status: its state, its conditions and its quantities, each
+// derived.
+// A mirror of meridian.v1.OrderStatus.
+message OrderStatus {
+  OrderState state = 1;
+
+  repeated StandingOrderCondition conditions = 2;
+
+  OrderQuantities quantities = 3;
+}
+
+// An order is in exactly one of seven states (W11's invariants).
+// A mirror of meridian.v1.OrderState.
+enum OrderState {
+  ORDER_STATE_UNSPECIFIED = 0;
+  // Proposed, not released: the gate has not passed it (W11.1, W11.6).
+  ORDER_STATE_PROPOSED = 1;
+  // Ended before release: a check's refuse, or the `oms`'s rejection
+  // (W11.4, W11.5). Terminal.
+  ORDER_STATE_REFUSED = 2;
+  // Released for working, nothing committed or filled yet (W11.6).
+  ORDER_STATE_RELEASED = 3;
+  // Released with quantity committed at a placement or a child order, or
+  // filled in part.
+  ORDER_STATE_WORKING = 4;
+  // Reported filled reached ordered.
+  ORDER_STATE_FILLED = 5;
+  // Ended by a cancel, the firm's or the venue's. Terminal.
+  ORDER_STATE_CANCELLED = 6;
+  // Its time in force ended, by the deployment's clock (W11.13). Terminal.
+  ORDER_STATE_EXPIRED = 7;
+}
+
+// One condition an order holds, with its reason and who set it.
+// A mirror of meridian.v1.StandingOrderCondition.
+message StandingOrderCondition {
+  OrderCondition condition = 1;
+
+  // In words, for a person; a plugin acts on the condition, never on these.
+  string reason = 2;
+
+  // Who set it.
+  Actor actor = 3;
+
+  // On claimed: the instance claiming and the user it claims for (W11.7).
+  Claimant claimant = 4;
+
+  // On does not tie out: why.
+  TieOutReason tie_out_reason = 5;
+}
+
+// The nine conditions an order holds beside its state, each with its reason
+// and the actor that set it.
+// A mirror of meridian.v1.OrderCondition.
+enum OrderCondition {
+  ORDER_CONDITION_UNSPECIFIED = 0;
+  // A change request is outstanding (W11.3; requirement 16).
+  ORDER_CONDITION_CHANGE_REQUESTED = 1;
+  // `compliance` requires approval by its policy (W11.5).
+  ORDER_CONDITION_APPROVAL_REQUIRED = 2;
+  // The account waits for compliance and a compliance plugin covering it
+  // has not answered on this version (W11.6; step 5's Q5).
+  ORDER_CONDITION_AWAITING_CHECK = 3;
+  // Claimed to work it, by an instance for a user (W11.7).
+  ORDER_CONDITION_CLAIMED = 4;
+  ORDER_CONDITION_HELD = 5;
+  // Its working paused: not the trading instruction's pause (Q31).
+  ORDER_CONDITION_PAUSED = 6;
+  // A placement's outcome is not known (W11.10; requirement 20).
+  ORDER_CONDITION_OUTCOME_UNKNOWN = 7;
+  // Its quantities do not tie out -- an overfill, or a restatement past its
+  // intent (Q15, Q16, Q21) -- until an alignment, a booking to an error
+  // account (slice B) or a bust clears it. Never acknowledged.
+  ORDER_CONDITION_DOES_NOT_TIE_OUT = 8;
+  // A fact arrived after the state it would have changed ended (#12):
+  // recorded, flagged, acknowledged by a person (W11.14).
+  ORDER_CONDITION_LATE_FACT = 9;
+}
+
+// The instance holding a claim, and the user it acts for.
+// A mirror of meridian.v1.Claimant.
+message Claimant {
+  string instance_id = 1;
+
+  oneof user {
+    PersonActor person = 2;
+    ServiceAccountActor service_account = 3;
+  }
+}
+
+// Why an order does not tie out (W11's invariants; Q15, Q16).
+// A mirror of meridian.v1.TieOutReason.
+enum TieOutReason {
+  TIE_OUT_REASON_UNSPECIFIED = 0;
+  TIE_OUT_REASON_OVERFILL = 1;
+  // A restatement past the order's intent.
+  TIE_OUT_REASON_RESTATEMENT = 2;
+}
+
+// The quantities, derived; idle may go negative, shown, never refused (Q3).
+// A mirror of meridian.v1.OrderQuantities.
+message OrderQuantities {
+  Decimal ordered = 1;
+
+  // Executions at matched or later, a child order's included.
+  Decimal reported_filled = 2;
+
+  // Executions at final.
+  Decimal final_filled = 3;
+
+  Decimal awaiting_acceptance = 4;
+
+  // Open at live placements and live child orders.
+  Decimal committed = 5;
+
+  // Ordered less committed and filled.
+  Decimal idle = 6;
+
+  Decimal leaves = 7;
+}
+
+// A verdict on an order version or a placement (W11.4).
+// A mirror of meridian.v1.Check.
+message Check {
+  CheckVerdict verdict = 1;
+
+  // The order version it checked: the journal sequence of the order's last
+  // change when it checked. Unset on a placement's.
+  uint64 order_version = 2;
+
+  // On a check of a placement before it is sent.
+  string placement_id = 3;
+
+  string rule = 4;
+
+  string note = 5;
+
+  // The compliance plugin instance that recorded it.
+  string instance_id = 6;
+
+  Actor recorded_by = 7;
+}
+
+// Ruled 2026-09-30 (requirement 44).
+// A mirror of meridian.v1.CheckVerdict.
+enum CheckVerdict {
+  CHECK_VERDICT_UNSPECIFIED = 0;
+  CHECK_VERDICT_PASS = 1;
+  CHECK_VERDICT_WARN = 2;
+  // Stands until overridden (W11.5); a release is refused while it does.
+  CHECK_VERDICT_BLOCK = 3;
+  // Ends a proposed order refused; nobody may override it.
+  CHECK_VERDICT_REFUSE = 4;
+}
+
+// A change request, tracked to its outcome (requirement 16).
+// A mirror of meridian.v1.ChangeRequest.
+message ChangeRequest {
+  // `CRQ-` and a ULID, minted by the book.
+  string change_request_id = 1;
+
+  string order_id = 2;
+
+  // On a placement's change.
+  string placement_id = 3;
+
+  oneof change {
+    OrderChange order_change = 4;
+    PlacementChange placement_change = 5;
+  }
+
+  string reason = 6;
+
+  EntryMeta entry = 7;
+
+  ChangeRequestOutcome outcome = 8;
+}
+
+// What an order's change asks (W11.3).
+// A mirror of meridian.v1.OrderChange.
+message OrderChange {
+  OrderChangeKind kind = 1;
+
+  // The new ordered quantity, on ORDER_CHANGE_KIND_QUANTITY.
+  optional Decimal quantity = 2;
+
+  optional Money limit_price = 3;
+
+  TimeInForce time_in_force = 4;
+
+  // Amended in the same act as an increase or a reduction.
+  AllocationInstruction allocation_instruction = 5;
+
+  // On ORDER_CHANGE_KIND_AMEND: the instructions now, whole.
+  repeated ExecutionInstruction execution_instructions = 6;
+}
+
+// What an order's change request asks (W11.3; step 5's Q20).
+// A mirror of meridian.v1.OrderChangeKind.
+enum OrderChangeKind {
+  ORDER_CHANGE_KIND_UNSPECIFIED = 0;
+  // Each live placement and child order asked to cancel; cancelled when
+  // none is live.
+  ORDER_CHANGE_KIND_CANCEL = 1;
+  // Its limit, time in force or execution instructions.
+  ORDER_CHANGE_KIND_AMEND = 2;
+  // A released order with nothing committed, back to proposed.
+  ORDER_CHANGE_KIND_RECALL = 3;
+  // A proposal withdrawn by its proposer.
+  ORDER_CHANGE_KIND_WITHDRAW = 4;
+  // An increase or a reduction, `portfolio`'s, its allocation amended in the
+  // same act; or the `oms`'s justified alignment.
+  ORDER_CHANGE_KIND_QUANTITY = 5;
+}
+
+// What a placement's change asks (W11.9).
+// A mirror of meridian.v1.PlacementChange.
+message PlacementChange {
+  PlacementChangeKind kind = 1;
+
+  optional Decimal quantity = 2;
+
+  optional Money limit_price = 3;
+
+  TimeInForce time_in_force = 4;
+}
+
+// What a placement's change request asks (W11.9).
+// A mirror of meridian.v1.PlacementChangeKind.
+enum PlacementChangeKind {
+  PLACEMENT_CHANGE_KIND_UNSPECIFIED = 0;
+  PLACEMENT_CHANGE_KIND_CANCEL = 1;
+  PLACEMENT_CHANGE_KIND_REPLACE = 2;
+}
+
+// What became of a change request (requirement 16).
+// A mirror of meridian.v1.ChangeRequestOutcome.
+enum ChangeRequestOutcome {
+  CHANGE_REQUEST_OUTCOME_UNSPECIFIED = 0;
+  // Outstanding: the order or placement holds change requested.
+  CHANGE_REQUEST_OUTCOME_PENDING = 1;
+  CHANGE_REQUEST_OUTCOME_APPLIED = 2;
+  // Refused by the venue, as FIX's OrderCancelReject (9).
+  CHANGE_REQUEST_OUTCOME_REJECTED = 3;
+}
+
+// A placement (W11.8): part of a released order at one connectivity plugin
+// linked to the placing `ems`, which it reaches alone.
+// A mirror of meridian.v1.Placement.
+message Placement {
+  // `PLC-` and a ULID, minted by the book. The client order identifier the
+  // venue sees is this, or one the plugin derives from it.
+  string placement_id = 1;
+
+  string order_id = 2;
+
+  string account_id = 3;
+
+  // The placing `ems`, as its sidecar stamped it.
+  string ems_instance_id = 4;
+
+  // The connectivity plugin that sends it, linked to that `ems`.
+  string connectivity_instance_id = 5;
+
+  // What the `ems` set in the venue's account field, from its map (W11.22).
+  string venue_account_code = 6;
+
+  Decimal quantity = 7;
+
+  Money limit_price = 8;
+
+  TimeInForce time_in_force = 9;
+
+  StrategyInstruction strategy = 10;
+
+  // The reporting fields (requirement 56): the destination, a `VEN-` ID,
+  // and route type by the `ems`; the routing time as the connectivity
+  // plugin sent it, on its acknowledgement.
+  string destination = 11;
+
+  RouteType route_type = 12;
+
+  int64 routed_at_ns = 13;
+
+  TimePrecision routed_precision = 14;
+
+  repeated string handling_instructions = 15;
+
+  // Slice C's, carried empty until it lands (the refresh's Q34): the RFQ a
+  // placement answers, as FIX's QuoteID (tag 117), and the axe, as FIX's
+  // IOIID (tag 23).
+  string rfq_id = 16;
+
+  string axe_id = 17;
+
+  // The venue's order ID now; every one it has had, in venue_order_ids.
+  string venue_order_id = 18;
+
+  PlacementStatus status = 19;
+
+  // Executed by: the actor of the placing command.
+  PersonRoles person_roles = 20;
+
+  repeated Check checks = 21;
+
+  // On a rejection: its reason, and the venue's as reported only beside
+  // REJECTION_REASON_VENUE_REJECTED.
+  RejectionReason rejection_reason = 22;
+
+  AsReported rejection_as_reported = 23;
+
+  JournalRef last_change = 24;
+
+  // Every venue order ID it has had, in order, the current last
+  // (requirement 34): external references, never keys.
+  repeated string venue_order_ids = 25;
+}
+
+// A strategy for the venue to work (step 6's Q11): the kinds name which of
+// a broker's strategies, described in its catalogue on FIXatdl's model
+// (W11.20), is its VWAP, TWAP, POV or IS. A connectivity plugin whose
+// broker has none rejects it unsupported.
+// A mirror of meridian.v1.StrategyInstruction.
+message StrategyInstruction {
+  StrategyKind kind = 1;
+
+  int64 start_ns = 2;
+
+  int64 end_ns = 3;
+
+  // A participation rate, 0.1 for ten percent.
+  optional Decimal participation = 4;
+
+  Urgency urgency = 5;
+
+  // The limits (step 6's Q11): the most participation, and a price beyond
+  // which it does not trade, distinct from the order's limit.
+  optional Decimal max_participation = 6;
+
+  optional Money price_limit = 7;
+}
+
+// A broker's algorithm the placement asks for (step 6's Q11; Q6 as ruled).
+// A mirror of meridian.v1.StrategyKind.
+enum StrategyKind {
+  STRATEGY_KIND_UNSPECIFIED = 0;
+  STRATEGY_KIND_VWAP = 1;
+  STRATEGY_KIND_TWAP = 2;
+  STRATEGY_KIND_POV = 3;
+  STRATEGY_KIND_IS = 4;
+}
+
+// A strategy's urgency (step 6's Q11): a few levels, as brokers have.
+// A mirror of meridian.v1.Urgency.
+enum Urgency {
+  URGENCY_UNSPECIFIED = 0;
+  URGENCY_LOW = 1;
+  URGENCY_MEDIUM = 2;
+  URGENCY_HIGH = 3;
+}
+
+// The route type a placement's destination is reached by (requirement 56).
+// A mirror of meridian.v1.RouteType.
+enum RouteType {
+  ROUTE_TYPE_UNSPECIFIED = 0;
+  // To the destination the `ems` chose.
+  ROUTE_TYPE_DIRECTED = 1;
+  // The broker chooses the destination.
+  ROUTE_TYPE_NOT_DIRECTED = 2;
+}
+
+// A placement's status, derived.
+// A mirror of meridian.v1.PlacementStatus.
+message PlacementStatus {
+  PlacementState state = 1;
+
+  repeated StandingPlacementCondition conditions = 2;
+}
+
+// A placement is in one of eight states.
+// A mirror of meridian.v1.PlacementState.
+enum PlacementState {
+  PLACEMENT_STATE_UNSPECIFIED = 0;
+  // Created, not yet sent.
+  PLACEMENT_STATE_QUEUED = 1;
+  // Sent, not acknowledged.
+  PLACEMENT_STATE_SENT = 2;
+  // Acknowledged by the venue.
+  PLACEMENT_STATE_WORKING = 3;
+  // Ended for the day by the venue; not terminal for a good-till-cancelled
+  // order, whose quantity stays committed (#20).
+  PLACEMENT_STATE_DONE_FOR_DAY = 4;
+  PLACEMENT_STATE_FILLED = 5;
+  PLACEMENT_STATE_CANCELLED = 6;
+  PLACEMENT_STATE_EXPIRED = 7;
+  // Refused by the venue, or held back by the connectivity plugin's own
+  // pre-trade check, with its RejectionReason.
+  PLACEMENT_STATE_REJECTED = 8;
+}
+
+// One condition a placement holds; see StandingOrderCondition.
+// A mirror of meridian.v1.StandingPlacementCondition.
+message StandingPlacementCondition {
+  PlacementCondition condition = 1;
+
+  string reason = 2;
+
+  Actor actor = 3;
+
+  // On outcome unknown.
+  UnknownReason unknown_reason = 4;
+
+  AsReported status_as_reported = 5;
+}
+
+// The conditions a placement holds beside its state.
+// A mirror of meridian.v1.PlacementCondition.
+enum PlacementCondition {
+  PLACEMENT_CONDITION_UNSPECIFIED = 0;
+  PLACEMENT_CONDITION_CHANGE_REQUESTED = 1;
+  // With its UnknownReason; its quantity stays committed.
+  PLACEMENT_CONDITION_OUTCOME_UNKNOWN = 2;
+  // Halted by the venue, which may leave its state unchanged.
+  PLACEMENT_CONDITION_SUSPENDED = 3;
+  // Held at the venue until a stop or a condition triggers.
+  PLACEMENT_CONDITION_AWAITING_TRIGGER = 4;
+}
+
+// Why a placement's outcome is unknown (requirement 20).
+// A mirror of meridian.v1.UnknownReason.
+enum UnknownReason {
+  UNKNOWN_REASON_UNSPECIFIED = 0;
+  UNKNOWN_REASON_CONNECTION_LOST = 1;
+  UNKNOWN_REASON_REQUEST_UNANSWERED = 2;
+  // The venue's status as reported beside it.
+  UNKNOWN_REASON_VENUE_STATUS_NOT_MAPPED = 3;
+}
+
+// Why a placement was rejected (step 6, "Refusals and rejections"). A
+// rejection, not a refusal: core refuses nothing a venue cannot do.
+// A mirror of meridian.v1.RejectionReason.
+enum RejectionReason {
+  REJECTION_REASON_UNSPECIFIED = 0;
+  // Asked for what the plugin or the venue does not offer for this account.
+  REJECTION_REASON_UNSUPPORTED = 1;
+  // The catch-all, the venue's reason beside it in an AsReported only when
+  // no contract reason maps.
+  REJECTION_REASON_VENUE_REJECTED = 2;
+  // The connectivity plugin's own market-access check (Q18).
+  REJECTION_REASON_HELD_BY_PRE_TRADE_CHECK = 3;
+}
+
+// An execution, never edited (W11.11): a bust or a correction is another,
+// superseding it.
+// A mirror of meridian.v1.Execution.
+message Execution {
+  // `EXE-` and a ULID, minted by the book.
+  string execution_id = 1;
+
+  string order_id = 2;
+
+  string placement_id = 3;
+
+  string account_id = 4;
+
+  string instrument_id = 5;
+
+  // Its order's sleeve (the refresh's Q33).
+  string sleeve = 6;
+
+  Side side = 7;
+
+  Decimal quantity = 8;
+
+  Money price = 9;
+
+  int64 trade_time_ns = 10;
+
+  // ISO 8601, as the venue reports it.
+  string trade_date = 11;
+
+  // The venue's, or one the plugin derived deterministically (requirement
+  // 33); an external reference.
+  string venue_execution_id = 12;
+
+  ExecutionKind kind = 13;
+
+  ExecutionSource source = 14;
+
+  Finality finality = 15;
+
+  // Each with its kind, a signed amount and its asset; a rebate negative.
+  repeated Fee fees = 16;
+
+  // ISO 8601: the date the venue states, kept as stated; and, where it
+  // states none or the plugin also asked, the date read's answer with its
+  // basis (W3.20; the calendars spec's requirement 13). The pending lines
+  // take the stated date, else the computed one.
+  string settlement_date = 17;
+
+  string computed_settlement_date = 18;
+
+  DateBasis settlement_date_basis = 19;
+
+  // The execution it busts or corrects: the last correction, not the
+  // original.
+  string supersedes = 20;
+
+  // The place of execution, a `VEN-` ID.
+  string venue_id = 21;
+
+  // The reporting fields (requirements 55, 57, 58), carried where set.
+  string uti = 22;
+
+  string prior_uti = 23;
+
+  string upi = 24;
+
+  // A prime broker.
+  string given_up_to = 26;
+
+  string trade_chain_reference = 27;
+
+  string settlement_counterparty = 28;
+
+  // Executed by, on an entered execution.
+  PersonRoles person_roles = 29;
+
+  RawRecordRef raw_record = 30;
+
+  JournalRef last_change = 31;
+
+  // On a correction: the date it takes effect, beside the journal's own
+  // sequence.
+  string effective_date = 32;
+
+  // The counterparty where known, its contact as delivered.
+  Party counterparty = 33;
+
+  LiquidityIndicator liquidity_indicator = 34;
+
+  // Who generated the UTI.
+  string uti_generated_by = 35;
+
+  // Retired in the domain message, and never reused.
+  reserved 25;
+  reserved "derivative_terms";
+}
+
+// A mirror of meridian.v1.ExecutionKind.
+enum ExecutionKind {
+  EXECUTION_KIND_UNSPECIFIED = 0;
+  EXECUTION_KIND_VENUE_REPORTED = 1;
+  // Entered by the `ems` or the `oms`, for a person.
+  EXECUTION_KIND_MANUAL = 2;
+  // Joins with its two-account act.
+  EXECUTION_KIND_FROM_INVENTORY = 3;
+  EXECUTION_KIND_DONE_AWAY = 4;
+  // Joins with its link.
+  EXECUTION_KIND_FROM_CHILD_ORDERS = 5;
+  // Joins with its two-account act (Q23).
+  EXECUTION_KIND_INTERNAL_CROSS = 6;
+  // From a status report where the venue sends no fill, its ID derived
+  // deterministically (requirement 33).
+  EXECUTION_KIND_INFERRED = 7;
+}
+
+// A mirror of meridian.v1.ExecutionSource.
+enum ExecutionSource {
+  EXECUTION_SOURCE_UNSPECIFIED = 0;
+  EXECUTION_SOURCE_PRIMARY = 1;
+  // Deduplicated against the primary on the venue's identifiers.
+  EXECUTION_SOURCE_DROP_COPY = 2;
+}
+
+// An execution's finality: a level, and when it reached it.
+// A mirror of meridian.v1.Finality.
+message Finality {
+  FinalityLevel level = 1;
+
+  int64 at_ns = 2;
+}
+
+// A level with a time per step; a venue with no steps reports final at once.
+// A mirror of meridian.v1.FinalityLevel.
+enum FinalityLevel {
+  FINALITY_LEVEL_UNSPECIFIED = 0;
+  // A hit awaiting the maker's accept (Q13, last look).
+  FINALITY_LEVEL_AWAITING_ACCEPTANCE = 1;
+  FINALITY_LEVEL_MATCHED = 2;
+  // On chain, in a block.
+  FINALITY_LEVEL_INCLUDED = 3;
+  FINALITY_LEVEL_FINAL = 4;
+  // It did not happen after all: a last-look reject, a revert, a re-org.
+  FINALITY_LEVEL_FAILED = 5;
+}
+
+// A fee (requirement 26), in any asset with a cash instrument (v18).
+// A mirror of meridian.v1.Fee.
+message Fee {
+  FeeKind kind = 1;
+
+  // Signed; a rebate negative.
+  Money amount = 2;
+}
+
+// A fee's kind (requirement 26). Grown by revision.
+// A mirror of meridian.v1.FeeKind.
+enum FeeKind {
+  FEE_KIND_UNSPECIFIED = 0;
+  FEE_KIND_EXCHANGE = 1;
+  // A venue's cancel fee.
+  FEE_KIND_CANCEL = 2;
+  // Gas, on an on-chain venue.
+  FEE_KIND_NETWORK = 3;
+}
+
+// Maker or taker (FIX's LastLiquidityInd, tag 851).
+// A mirror of meridian.v1.LiquidityIndicator.
+enum LiquidityIndicator {
+  LIQUIDITY_INDICATOR_UNSPECIFIED = 0;
+  // Added liquidity.
+  LIQUIDITY_INDICATOR_MAKER = 1;
+  // Removed liquidity.
+  LIQUIDITY_INDICATOR_TAKER = 2;
+}
+
+// A fee with no fill, on its placement (W11.12): it moves cash, pending to
+// its settlement date, and counts toward no quantity.
+// A mirror of meridian.v1.Charge.
+message Charge {
+  // `CHG-` and a ULID, minted by the book.
+  string charge_id = 1;
+
+  string placement_id = 2;
+
+  string order_id = 3;
+
+  string account_id = 4;
+
+  Fee fee = 5;
+
+  string trade_date = 6;
+
+  string settlement_date = 7;
+
+  RawRecordRef raw_record = 8;
+}
+
+// A mirror of meridian.v1.ApprovalDecision.
+enum ApprovalDecision {
+  APPROVAL_DECISION_UNSPECIFIED = 0;
+  // `compliance` sets approval required, by policy.
+  APPROVAL_DECISION_REQUIRE = 1;
+  // A person approves.
+  APPROVAL_DECISION_APPROVE = 2;
+  // A person overrides a block, with a reason.
+  APPROVAL_DECISION_OVERRIDE = 3;
+  // The `oms` rejects a proposed order it was asked to work (Q23): the
+  // order ends refused.
+  APPROVAL_DECISION_REJECT = 4;
+}
+
+// A mirror of meridian.v1.PlacementEvent.
+enum PlacementEvent {
+  PLACEMENT_EVENT_UNSPECIFIED = 0;
+  PLACEMENT_EVENT_SENT = 1;
+  // With the venue's order ID and the routing time.
+  PLACEMENT_EVENT_ACKNOWLEDGED = 2;
+  PLACEMENT_EVENT_REPLACED = 3;
+  PLACEMENT_EVENT_DONE_FOR_DAY = 4;
+  // With its RestatementReason.
+  PLACEMENT_EVENT_RESTATED = 5;
+  PLACEMENT_EVENT_SUSPENDED = 6;
+  PLACEMENT_EVENT_TRIGGERED = 7;
+  PLACEMENT_EVENT_CANCELLED = 8;
+  PLACEMENT_EVENT_EXPIRED = 9;
+  // With its RejectionReason.
+  PLACEMENT_EVENT_REJECTED = 10;
+  // With its UnknownReason; never a rejection.
+  PLACEMENT_EVENT_OUTCOME_UNKNOWN = 11;
+  // An unknown outcome resolved by asking the venue, never by resending.
+  PLACEMENT_EVENT_OUTCOME_RESOLVED = 12;
+}
+
+// A restatement's reason, after FIX's; one beyond the order's intent sets
+// late fact and does not tie out (Q15).
+// A mirror of meridian.v1.RestatementReason.
+enum RestatementReason {
+  RESTATEMENT_REASON_UNSPECIFIED = 0;
+  RESTATEMENT_REASON_CORPORATE_ACTION = 1;
+  RESTATEMENT_REASON_RENEWAL = 2;
+  RESTATEMENT_REASON_REPRICING = 3;
+  RESTATEMENT_REASON_PARTIAL_DECLINE = 4;
+  RESTATEMENT_REASON_CANCEL_ON_HALT = 5;
+  RESTATEMENT_REASON_CANCEL_ON_SYSTEM_FAILURE = 6;
+  // The venue's option: FIX's "Market (Exchange) option".
+  RESTATEMENT_REASON_VENUE_OPTION = 7;
+  RESTATEMENT_REASON_OTHER = 8;
+}
+
+// A well-formed fact naming nothing the book holds, kept with its reason,
+// never dropped (requirement 13); placed by its own entry when a later
+// record claims it.
+// A mirror of meridian.v1.UnplacedFact.
+message UnplacedFact {
+  // `UNP-` and a ULID, minted by the book.
+  string unplaced_id = 1;
+
+  // Empty where its venue account code maps to no account: delivered to no
+  // plugin, counted on its connectivity plugin's admin view.
+  string account_id = 2;
+
+  // The kind of fact, as data: `execution`, `placement`, `charge`, `order`.
+  string fact_kind = 3;
+
+  UnplacedReason reason = 4;
+
+  RawRecordRef raw_record = 5;
+
+  string venue_account_code = 6;
+
+  oneof fact {
+    ReportExecutionRequest execution = 7;
+    ReportPlacementRequest placement = 8;
+    ReportChargeRequest charge = 9;
+    RecordOrderRequest order = 10;
+    RecordLocateRequest locate = 11;
+  }
+
+  // The entry that placed it, once a later record claimed it.
+  JournalRef placed_by = 12;
+
+  // Its latest entry: the one that kept it, or the one that placed it.
+  JournalRef last_change = 13;
+}
+
+// Why a fact was kept unplaced (requirement 13; W11.13).
+// A mirror of meridian.v1.UnplacedReason.
+enum UnplacedReason {
+  UNPLACED_REASON_UNSPECIFIED = 0;
+  // It names a placement the book does not hold.
+  UNPLACED_REASON_UNKNOWN_PLACEMENT = 1;
+  // Its venue account code maps to no account on the sending connectivity
+  // plugin (W11.2, W11.22).
+  UNPLACED_REASON_UNMAPPED_VENUE_ACCOUNT = 2;
+  // Its instrument's record is incomplete (W11.2; the order-path plan's
+  // Q18).
+  UNPLACED_REASON_INSTRUMENT_INCOMPLETE = 3;
+}
+
+// W11.11. A fact by a connectivity plugin; or, for a person, a manual or
+// done-away execution by the `ems` or the `oms`. A fill with no settlement
+// date, stated or computed, is refused INVALID_ARGUMENT naming
+// `settlement_date` (the refresh's Q39).
+// A mirror of meridian.v1.ReportExecutionRequest.
+message ReportExecutionRequest {
+  string placement_id = 1;
+
+  // A done-away execution's order.
+  string order_id = 2;
+
+  // Stamped from venue_account_code on a connectivity plugin's, as
+  // RecordOrderRequest's is.
+  string account_id = 3;
+
+  string venue_account_code = 4;
+
+  string venue_execution_id = 5;
+
+  ExecutionKind kind = 6;
+
+  ExecutionSource source = 7;
+
+  Decimal quantity = 8;
+
+  Money price = 9;
+
+  int64 trade_time_ns = 10;
+
+  string trade_date = 11;
+
+  Finality finality = 12;
+
+  string settlement_date = 13;
+
+  string computed_settlement_date = 14;
+
+  DateBasis settlement_date_basis = 15;
+
+  repeated Fee fees = 16;
+
+  string supersedes = 17;
+
+  string venue_id = 18;
+
+  string uti = 19;
+
+  string prior_uti = 20;
+
+  string upi = 21;
+
+  string given_up_to = 23;
+
+  string trade_chain_reference = 24;
+
+  string settlement_counterparty = 25;
+
+  RawRecordRef raw_record = 26;
+
+  string idempotency_key = 27;
+
+  string effective_date = 28;
+
+  Party counterparty = 29;
+
+  LiquidityIndicator liquidity_indicator = 30;
+
+  string uti_generated_by = 31;
+
+  // Retired in the domain message, and never reused.
+  reserved 22;
+  reserved "derivative_terms";
+}
+
+// W11.10. A fact, each with the raw record it was converted from.
+// A mirror of meridian.v1.ReportPlacementRequest.
+message ReportPlacementRequest {
+  string placement_id = 1;
+
+  PlacementEvent event = 2;
+
+  string venue_order_id = 3;
+
+  int64 routed_at_ns = 4;
+
+  TimePrecision routed_precision = 5;
+
+  RejectionReason rejection_reason = 6;
+
+  AsReported rejection_as_reported = 7;
+
+  UnknownReason unknown_reason = 8;
+
+  AsReported status_as_reported = 9;
+
+  RestatementReason restatement_reason = 10;
+
+  // On a replace or a restatement: the quantity and limit now.
+  optional Decimal quantity = 11;
+
+  optional Money limit_price = 12;
+
+  RawRecordRef raw_record = 13;
+}
+
+// W11.12.
+// A mirror of meridian.v1.ReportChargeRequest.
+message ReportChargeRequest {
+  string placement_id = 1;
+
+  Fee fee = 2;
+
+  string trade_date = 3;
+
+  string settlement_date = 4;
+
+  RawRecordRef raw_record = 5;
+}
+
+// W11.2. A fact: never through the gate. By a connectivity plugin, its
+// account stamped by the sidecar from the `ems`'s map
+// (`venue-account-map`); or by the `oms`, for a person, naming the account.
+// A mirror of meridian.v1.RecordOrderRequest.
+message RecordOrderRequest {
+  // Stamped from venue_account_code on a connectivity plugin's; empty,
+  // never refused, where none is mapped, so the fact is kept unplaced.
+  string account_id = 1;
+
+  string venue_account_code = 2;
+
+  string instrument_id = 3;
+
+  string sleeve = 4;
+
+  Side side = 5;
+
+  Decimal quantity = 6;
+
+  OrderType order_type = 7;
+
+  optional Money limit_price = 8;
+
+  TimeInForce time_in_force = 9;
+
+  string venue_order_id = 10;
+
+  OrderOrigin origin = 11;
+
+  RawRecordRef raw_record = 12;
+
+  string idempotency_key = 13;
+}
+
+// W11.18. By the fund's connectivity plugin; the answer later on the same
+// record as its own entry.
+// A mirror of meridian.v1.RecordLocateRequest.
+message RecordLocateRequest {
+  // Stamped from venue_account_code (`venue-account-map`).
+  string account_id = 1;
+
+  string venue_account_code = 2;
+
+  string instrument_id = 3;
+
+  optional Decimal quantity_requested = 4;
+
+  LocateAnswer answer = 5;
+
+  // Names the record an answer arriving later is on; empty for a new one.
+  string locate_record_id = 6;
+
+  RawRecordRef raw_record = 7;
+
+  string idempotency_key = 8;
+}
+
+// The prime's answer.
+// A mirror of meridian.v1.LocateAnswer.
+message LocateAnswer {
+  Decimal quantity_approved = 1;
+
+  optional Decimal rate = 2;
+
+  int64 expires_at_ns = 3;
+
+  string locate_id = 4;
+}
+
+// A trading instruction (W11.15): recorded with its setter's level, a
+// deployment admin's on one account in that account's partition, every
+// other in the control partition.
+// A mirror of meridian.v1.TradingInstruction.
+message TradingInstruction {
+  TradingInstructionTarget target = 1;
+
+  TradingInstructionValue value = 2;
+
+  SetterLevel setter_level = 3;
+
+  // On a user group's: the persons it covers, by their deployment-local
+  // subjects, resolved by core when set and whenever membership changes.
+  repeated string covers = 4;
+
+  string reason = 5;
+
+  EntryMeta entry = 6;
+
+  // Its latest entry, which a catch-up reads it by (W11.16).
+  JournalRef last_change = 7;
+}
+
+// What an instruction names: a deployment admin's an account, All accounts,
+// a plugin, a person, a service account or a user group; a plugin admin's
+// their plugin, or a person, service account or account within it, naming
+// the plugin beside it.
+// A mirror of meridian.v1.TradingInstructionTarget.
+message TradingInstructionTarget {
+  bool all_accounts = 1;
+
+  string account_id = 2;
+
+  // A plugin, by its instance.
+  string instance_id = 3;
+
+  // A person, by the deployment-local subject.
+  string subject = 4;
+
+  string service_account_id = 5;
+
+  string user_group_id = 6;
+}
+
+// Conventions each plugin honours; the book refuses and cancels nothing for
+// any (Q1, Q18). The most restrictive in force governs.
+// A mirror of meridian.v1.TradingInstructionValue.
+enum TradingInstructionValue {
+  TRADING_INSTRUCTION_VALUE_UNSPECIFIED = 0;
+  TRADING_INSTRUCTION_VALUE_ACTIVE = 1;
+  // No new orders.
+  TRADING_INSTRUCTION_VALUE_PAUSE = 2;
+  // No new orders, and working orders cancelled; a connectivity plugin
+  // cancels at its venue at once (W11.9).
+  TRADING_INSTRUCTION_VALUE_STOP = 3;
+}
+
+// The level an instruction was set at, from the claims; an entry is lifted
+// only at the level that set it.
+// A mirror of meridian.v1.SetterLevel.
+enum SetterLevel {
+  SETTER_LEVEL_UNSPECIFIED = 0;
+  SETTER_LEVEL_DEPLOYMENT_ADMIN = 1;
+  SETTER_LEVEL_PLUGIN_ADMIN = 2;
+}
+
+// A locate the fund requested of its prime, the prime's answer on it
+// (W11.18; requirement 50a). Each change its own entry; the street never
+// holds one.
+// A mirror of meridian.v1.Locate.
+message Locate {
+  // `LOC-` and a ULID, minted by the book.
+  string locate_record_id = 1;
+
+  string account_id = 2;
+
+  string instrument_id = 3;
+
+  Decimal quantity_requested = 4;
+
+  // Unset until the prime answers.
+  LocateAnswer answer = 5;
+
+  // The prime's locate ID, from its answer, which a short order names.
+  string locate_id = 6;
+
+  // Derived from its uses.
+  Decimal remaining = 7;
+
+  repeated LocateUse uses = 8;
+
+  RawRecordRef raw_record = 9;
+
+  JournalRef last_change = 10;
+}
+
+// One use of a locate, its own entry (W11.19): when a locate is used up is
+// `compliance`'s or the `oms`'s logic (principle 3).
+// A mirror of meridian.v1.LocateUse.
+message LocateUse {
+  LocateUseKind kind = 1;
+
+  Decimal quantity = 2;
+
+  string order_id = 3;
+}
+
+// A mirror of meridian.v1.LocateUseKind.
+enum LocateUseKind {
+  LOCATE_USE_KIND_UNSPECIFIED = 0;
+  // Reserved against the locate for an order (at release, recommended).
+  LOCATE_USE_KIND_RESERVE = 1;
+  // Given back: a cancel, or the day's end.
+  LOCATE_USE_KIND_GIVE_BACK = 2;
+  // Consumed by fills.
+  LOCATE_USE_KIND_CONSUME = 3;
+}
+
+// A venue's offering per venue account code (W11.20), converted at the edge
+// from the venue's own definitions: not a capability, and nothing declared
+// about the role. What is not listed is rejected unsupported if sent.
+// A mirror of meridian.v1.VenueCatalogue.
+message VenueCatalogue {
+  // The connectivity plugin it came from: the stamped publisher's.
+  string connectivity_instance_id = 1;
+
+  string venue_account_code = 2;
+
+  repeated VenueOrderType order_types = 3;
+
+  repeated VenueStrategy strategies = 4;
+
+  repeated VenueEligibility eligibility = 5;
+}
+
+// An order type the venue offers, with the times in force it takes.
+// A mirror of meridian.v1.VenueOrderType.
+message VenueOrderType {
+  OrderType order_type = 1;
+
+  repeated TimeInForce times_in_force = 2;
+
+  int64 stated_at_ns = 3;
+}
+
+// A broker's strategy (the order-path plan's refresh, Q31, as refined and
+// ruled 2026-10-12): the strategy and its parameters on the model of FIXatdl,
+// the FIX Trading Community's standard for describing algorithmic strategies,
+// or mapping one to one onto it, so a broker's published definitions are
+// imported at the edge rather than keyed again.
+// A mirror of meridian.v1.VenueStrategy.
+message VenueStrategy {
+  // Which of the contract's kinds it is the broker's, where it is one.
+  StrategyKind kind = 1;
+
+  // The broker's name for it.
+  string name = 2;
+
+  int64 stated_at_ns = 3;
+
+  // Its parameters, as FIXatdl's Parameter elements describe them.
+  repeated StrategyParameter parameters = 4;
+}
+
+// One parameter of a broker's strategy, on FIXatdl's Parameter: its name,
+// type, whether required (use="required"), its range (minValue, maxValue),
+// its allowed values (EnumPair) and its default (initValue). FIXatdl's
+// fixTag and the strategy's wireValue stay at the edge: an `ems` never
+// meets a FIX tag (W11.20).
+// A mirror of meridian.v1.StrategyParameter.
+message StrategyParameter {
+  string name = 1;
+
+  StrategyParameterType type = 2;
+
+  bool required = 3;
+
+  // In the type's text form; empty where unbounded.
+  string min_value = 4;
+
+  string max_value = 5;
+
+  // Empty where any value of the type is allowed.
+  repeated string allowed_values = 6;
+
+  string default_value = 7;
+}
+
+// FIXatdl's parameter types (Int_t, Float_t, Qty_t, Price_t, PriceOffset_t,
+// Amt_t, Percentage_t, Boolean_t, Char_t, String_t, UTCTimestamp_t,
+// LocalMktDate_t), in the contract's spelling.
+// A mirror of meridian.v1.StrategyParameterType.
+enum StrategyParameterType {
+  STRATEGY_PARAMETER_TYPE_UNSPECIFIED = 0;
+  STRATEGY_PARAMETER_TYPE_INT = 1;
+  STRATEGY_PARAMETER_TYPE_FLOAT = 2;
+  STRATEGY_PARAMETER_TYPE_QTY = 3;
+  STRATEGY_PARAMETER_TYPE_PRICE = 4;
+  STRATEGY_PARAMETER_TYPE_PRICE_OFFSET = 5;
+  STRATEGY_PARAMETER_TYPE_AMOUNT = 6;
+  STRATEGY_PARAMETER_TYPE_PERCENTAGE = 7;
+  STRATEGY_PARAMETER_TYPE_BOOLEAN = 8;
+  STRATEGY_PARAMETER_TYPE_CHAR = 9;
+  STRATEGY_PARAMETER_TYPE_STRING = 10;
+  STRATEGY_PARAMETER_TYPE_UTC_TIMESTAMP = 11;
+  STRATEGY_PARAMETER_TYPE_LOCAL_MARKET_DATE = 12;
+}
+
+// The venue's eligibility for one instrument.
+// A mirror of meridian.v1.VenueEligibility.
+message VenueEligibility {
+  string instrument_id = 1;
+
+  bool fractionable = 2;
+
+  bool shortable = 3;
+
+  int64 stated_at_ns = 4;
+
+  BorrowStatus borrow_status = 5;
+
+  // The options level the venue states for the account; 0 where none.
+  uint32 options_level = 6;
+}
+
+// A venue's borrow status for an instrument (W11.18's easy- and
+// hard-to-borrow).
+// A mirror of meridian.v1.BorrowStatus.
+enum BorrowStatus {
+  BORROW_STATUS_UNSPECIFIED = 0;
+  BORROW_STATUS_EASY_TO_BORROW = 1;
+  BORROW_STATUS_HARD_TO_BORROW = 2;
+}
+
+// One account's code at one connectivity plugin: a code once per plugin.
+// A mirror of meridian.v1.VenueAccountMapping.
+message VenueAccountMapping {
+  string connectivity_instance_id = 1;
+
+  string venue_account_code = 2;
+
+  // An account the deployment admin granted the `ems`'s instance (W6.30).
+  string account_id = 3;
+}
+
 // The venue master's record of one venue (W1.16). The platform mints its ID;
 // a deployment keeps what it pulled (W3.5) and answers it (W3.14).
 // A mirror of meridian.v1.VenueRecord.
@@ -4063,6 +6639,173 @@ enum VenueKind {
   // facility, an alternative display facility, an approved publication
   // arrangement.
   VENUE_KIND_REPORTING_FACILITY = 5;
+}
+
+// One listed day, naming the source it came from: never listed without one.
+// A mirror of meridian.v1.CalendarDay.
+message CalendarDay {
+  // ISO 8601, a plain date.
+  string date = 1;
+
+  CalendarDayKind kind = 2;
+
+  // The holiday's name as the source gives it.
+  string name = 3;
+
+  // A source_id among the version's sources.
+  string source = 4;
+}
+
+// What a listed day is.
+// A mirror of meridian.v1.CalendarDayKind.
+enum CalendarDayKind {
+  CALENDAR_DAY_KIND_UNSPECIFIED = 0;
+  // A weekday that is not a business day: a holiday, an ad hoc closure.
+  CALENDAR_DAY_KIND_CLOSED = 1;
+  // A weekend day that is nevertheless a business day.
+  CALENDAR_DAY_KIND_OPEN = 2;
+}
+
+// A calendar's weekend, dated, so a change of weekend takes effect on its
+// day.
+// A mirror of meridian.v1.CalendarWeekend.
+message CalendarWeekend {
+  // A set: each weekday once.
+  repeated Weekday weekdays = 1;
+
+  // ISO 8601.
+  string valid_from_date = 2;
+}
+
+// A mirror of meridian.v1.Weekday.
+enum Weekday {
+  WEEKDAY_UNSPECIFIED = 0;
+  WEEKDAY_MONDAY = 1;
+  WEEKDAY_TUESDAY = 2;
+  WEEKDAY_WEDNESDAY = 3;
+  WEEKDAY_THURSDAY = 4;
+  WEEKDAY_FRIDAY = 5;
+  WEEKDAY_SATURDAY = 6;
+  WEEKDAY_SUNDAY = 7;
+}
+
+// The first and last dates a calendar vouches for (requirement 4): outside
+// them a date's status is not known, never a business day by default.
+// A mirror of meridian.v1.CalendarCoverage.
+message CalendarCoverage {
+  // ISO 8601, inclusive.
+  string from_date = 1;
+
+  string to_date = 2;
+}
+
+// A source a calendar or a rule version cites, with the moment the platform
+// read it (requirement 3).
+// A mirror of meridian.v1.CalendarSource.
+message CalendarSource {
+  // Unique within the version, which its days name.
+  string source_id = 1;
+
+  string name = 2;
+
+  // Where it is read: a public primary source's address.
+  string address = 3;
+
+  int64 read_at_ns = 4;
+}
+
+// W3.20: an instrument's settlement date by its market's rule.
+// A mirror of meridian.v1.SettlementDateInputs.
+message SettlementDateInputs {
+  string instrument_id = 1;
+
+  string trade_date = 2;
+}
+
+// W3.20: a pair's spot date, from a trade date or from an execution's moment
+// through the pair's cut.
+// A mirror of meridian.v1.SpotDateInputs.
+message SpotDateInputs {
+  repeated string pair = 1;
+
+  string trade_date = 2;
+
+  // In place of trade_date: the moment, its trade date taken through the
+  // cut.
+  int64 at_ns = 3;
+}
+
+// W3.20: a tenor date from a trade date.
+// A mirror of meridian.v1.TenorDateInputs.
+message TenorDateInputs {
+  repeated string pair = 1;
+
+  Tenor tenor = 2;
+
+  string trade_date = 3;
+}
+
+// A mirror of meridian.v1.Tenor.
+message Tenor {
+  // Of the unit; 1 for the short dates.
+  int32 count = 1;
+
+  TenorUnit unit = 2;
+}
+
+// A mirror of meridian.v1.TenorUnit.
+enum TenorUnit {
+  TENOR_UNIT_UNSPECIFIED = 0;
+  TENOR_UNIT_DAY = 1;
+  TENOR_UNIT_WEEK = 2;
+  TENOR_UNIT_MONTH = 3;
+  TENOR_UNIT_YEAR = 4;
+  // The short dates, counted in single business days from the trade date,
+  // the next day and spot.
+  TENOR_UNIT_OVERNIGHT = 5;
+  TENOR_UNIT_TOM_NEXT = 6;
+  TENOR_UNIT_SPOT_NEXT = 7;
+}
+
+// W3.20: a date rolled by a convention on a set of calendars.
+// A mirror of meridian.v1.RollInputs.
+message RollInputs {
+  string date = 1;
+
+  BusinessDayConvention convention = 2;
+
+  // By their `CAL-` IDs; a day is good only if good in every one.
+  repeated string calendars = 3;
+}
+
+// How a date rolls on its calendars.
+// A mirror of meridian.v1.BusinessDayConvention.
+enum BusinessDayConvention {
+  BUSINESS_DAY_CONVENTION_UNSPECIFIED = 0;
+  BUSINESS_DAY_CONVENTION_FOLLOWING = 1;
+  BUSINESS_DAY_CONVENTION_MODIFIED_FOLLOWING = 2;
+  BUSINESS_DAY_CONVENTION_PRECEDING = 3;
+  BUSINESS_DAY_CONVENTION_NONE = 4;
+}
+
+// W3.20: whether a date is a business day on a set of calendars.
+// A mirror of meridian.v1.BusinessDayInputs.
+message BusinessDayInputs {
+  string date = 1;
+
+  repeated string calendars = 2;
+}
+
+// Why a date was or was not computed (requirement 9).
+// A mirror of meridian.v1.DateOutcome.
+enum DateOutcome {
+  DATE_OUTCOME_UNSPECIFIED = 0;
+  DATE_OUTCOME_COMPUTED = 1;
+  // Transient: reported missing, the conductor pulls it, the asker retries.
+  DATE_OUTCOME_CALENDAR_NOT_HELD = 2;
+  // Never a business day by default.
+  DATE_OUTCOME_OUTSIDE_COVERAGE = 3;
+  DATE_OUTCOME_RULE_NOT_HELD = 4;
 }
 
 // A price of one kind for one subject. An FX rate is the price of one
@@ -4799,4 +7542,88 @@ message TradesRecordedEvent {
 // A mirror of meridian.v1.QuotesRecordedEvent.
 message QuotesRecordedEvent {
   Quote quote = 1;
+}
+
+// A mirror of meridian.v1.OrderUpdatedEvent.
+message OrderUpdatedEvent {
+  Order order = 1;
+
+  // What changed, by field.
+  repeated string changed = 2;
+
+  EntryMeta entry = 3;
+
+  JournalRef journal = 4;
+
+  ChangeCause cause = 5;
+}
+
+// To the `ems`, `oms` and `compliance` within scope, and to the
+// connectivity plugin it names, alone of its role (matrix/directed.tsv).
+// A mirror of meridian.v1.PlacementUpdatedEvent.
+message PlacementUpdatedEvent {
+  Placement placement = 1;
+
+  repeated string changed = 2;
+
+  EntryMeta entry = 3;
+
+  JournalRef journal = 4;
+
+  ChangeCause cause = 5;
+}
+
+// W9's PositionChanged follows for each position it moved.
+// A mirror of meridian.v1.ExecutionRecordedEvent.
+message ExecutionRecordedEvent {
+  Execution execution = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  ChangeCause cause = 4;
+}
+
+// A mirror of meridian.v1.UnplacedFactRecordedEvent.
+message UnplacedFactRecordedEvent {
+  UnplacedFact unplaced = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  ChangeCause cause = 4;
+}
+
+// To every subscriber, without an account scope.
+// A mirror of meridian.v1.TradingInstructionChangedEvent.
+message TradingInstructionChangedEvent {
+  TradingInstruction instruction = 1;
+
+  JournalRef journal = 2;
+
+  ChangeCause cause = 3;
+}
+
+// A mirror of meridian.v1.LocateUpdatedEvent.
+message LocateUpdatedEvent {
+  Locate locate = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  ChangeCause cause = 4;
+}
+
+// W11.20. Published by a connectivity plugin, per venue account code its
+// `ems` mapped; kept by the conductor, latest per code, each change its own
+// record; heard by the `ems` and the `oms`.
+// A mirror of meridian.v1.VenueCatalogueEvent.
+message VenueCatalogueEvent {
+  VenueCatalogue catalogue = 1;
+
+  // Stamped by the sidecar, whatever the plugin sent.
+  string publisher_instance_id = 2;
 }

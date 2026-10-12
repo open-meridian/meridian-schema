@@ -51,6 +51,14 @@ pub struct MessageMeta {
     /// acted. Absent otherwise.
     #[prost(string, tag = "15")]
     pub owner_subject: ::prost::alloc::string::String,
+    /// Set beside owner_subject (contract v22; the order-path plan's refresh,
+    /// Q24, and its protos' point 3, ruled 2026-10-12): the claims'
+    /// algorithm_id, the algorithm identifier the service account's call named,
+    /// after the sidecar checked it against the algorithms the plugin's version
+    /// declares. The book copies it to the entry's ServiceAccountActor. Absent
+    /// for a person, and where the call named none.
+    #[prost(string, tag = "16")]
+    pub algorithm_id: ::prost::alloc::string::String,
     /// Set beside acting_for_subject when the person acted through a client:
     /// the delegation the assertion named (W4.9, decisions/029), so a store
     /// records the person through that client. Absent for a person at the
@@ -70,10 +78,17 @@ pub struct MessageMeta {
     #[prost(string, tag = "13")]
     pub prepared_call_id: ::prost::alloc::string::String,
     /// Set on a read: the accounts the publishing plugin may read. A core store
-    /// answers only for these.
+    /// answers only for these. From contract v22 also set on a command naming
+    /// a record by its ID alone -- an order, a placement, a change request or a
+    /// locate (W4.9, W11; the order-path plan's protos, point 8, ruled
+    /// 2026-10-12): the accounts the sending instance may write, narrowed to
+    /// the person's write access where it acts for one. The book resolves the
+    /// record's account and refuses, changing nothing, a command whose account
+    /// is outside them (PERMISSION_DENIED, no reason code).
     #[prost(string, repeated, tag = "9")]
     pub account_scope: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// Set by the sidecar on every query it sends for a plugin, beside
+    /// Set by the sidecar on every query it sends for a plugin, and from
+    /// contract v22 on every command naming a record by its ID alone, beside
     /// account_scope, and never by a core component (W4.11): the scope
     /// applies, so an empty one is nothing. A store answers a query carrying
     /// it whose scope is empty with nothing, and refuses one naming an account
@@ -124,7 +139,7 @@ impl SubjectKind {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v21, and a plugin built from it declares "v21".
+    /// schema is contract v22, and a plugin built from it declares "v22".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -276,6 +291,26 @@ pub struct PluginDeclaration {
     /// version holding `data`, refused otherwise. Unset serves none.
     #[prost(message, optional, tag = "4")]
     pub catalogue: ::core::option::Option<Catalogue>,
+    /// The algorithm identifiers its autonomous work may name (W4.1, W4.9;
+    /// v21's Q16, the order-path plan's refresh, Q24; contract v22): each
+    /// stable across versions, with a description. A call as a service account
+    /// naming one this version does not declare is refused INVALID_ARGUMENT,
+    /// naming `algorithm_id` (CallAsServiceAccountRequest, W4.15); the book
+    /// puts the one named on each entry's ServiceAccountActor. Empty declares
+    /// none.
+    #[prost(message, repeated, tag = "5")]
+    pub algorithms: ::prost::alloc::vec::Vec<AlgorithmDeclaration>,
+}
+/// One algorithm identifier a version declares (contract v22).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AlgorithmDeclaration {
+    /// Stable across versions and reinstalls: what `reporting` maps to a
+    /// regime's decision-maker and executor.
+    #[prost(string, tag = "1")]
+    pub algorithm_id: ::prost::alloc::string::String,
+    /// What it is, for a person reading the plugin's page. Plain text.
+    #[prost(string, tag = "2")]
+    pub description: ::prost::alloc::string::String,
 }
 /// A data plugin's catalogue: the datasets it serves the lake (spec/the-lake, "The
 /// catalogue"; step 6, requirement 26). The lake's, not a declaration of
@@ -337,6 +372,14 @@ pub struct DatasetDeclaration {
     /// no venue is the dataset's view.
     #[prost(string, tag = "11")]
     pub venue_id: ::prost::alloc::string::String,
+    /// The settlement calendar its business dates follow, its `CAL-` ID
+    /// (W10.1; spec/settlement-calendars-are-core-reference-data, requirement
+    /// 15; the lake's Q28; contract v22), beside day_time_zone and
+    /// day_end_minute. A daily value dated on a day it says is closed is
+    /// recorded as reported and flagged, never refused. Empty names none, as
+    /// before.
+    #[prost(string, tag = "12")]
+    pub calendar_id: ::prost::alloc::string::String,
 }
 /// A dataset's licence: its catalogue's default terms (unset dataset and
 /// author), or the deployment's licence a deployment admin set, which is what
@@ -839,6 +882,49 @@ pub struct Provenance {
     /// The rule that derived it, by name, as the plugin documents it.
     #[prost(string, tag = "6")]
     pub rule: ::prost::alloc::string::String,
+    /// On a value core computed (PROVENANCE_KIND_COMPUTED, contract v22): the
+    /// rule and each calendar, with their versions, the date read worked it
+    /// out on (W3.20; the calendars spec's Q10). Never on another kind.
+    #[prost(message, optional, tag = "7")]
+    pub date_basis: ::core::option::Option<DateBasis>,
+}
+/// What a date was computed on (W3.20; spec/settlement-calendars-are-core-
+/// reference-data, requirement 8; contract v22): the rule and its version,
+/// and each calendar and its version, so anything recording the date can
+/// record its basis with it, and the same inputs and versions always give
+/// the same date. Plugin-facing, since a plugin's Provenance and its
+/// execution's settlement date carry one; the records are core's
+/// (meridian-core's reference.proto).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DateBasis {
+    /// Empty for a date worked out on calendars alone: a roll, a
+    /// business-day check.
+    #[prost(message, optional, tag = "1")]
+    pub rule: ::core::option::Option<DateRuleRef>,
+    #[prost(message, repeated, tag = "2")]
+    pub calendars: ::prost::alloc::vec::Vec<CalendarRef>,
+}
+/// A date rule by its kind, subject and version: a rule has no ID of its own
+/// (the calendars spec's Q11).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DateRuleRef {
+    #[prost(enumeration = "DateRuleKind", tag = "1")]
+    pub kind: i32,
+    /// As the platform names it: `US/equity`, a country and an asset class;
+    /// `EUR/USD`, a pair.
+    #[prost(string, tag = "2")]
+    pub subject: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub version: i64,
+}
+/// A calendar at one version.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CalendarRef {
+    /// "CAL-...", the platform's ID, never reused.
+    #[prost(string, tag = "1")]
+    pub calendar_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub version: i64,
 }
 /// A write marked as a backfill (requirement 27): a field a contract revision
 /// added, re-converted from the plugin's raw records and sent for a row
@@ -1045,6 +1131,17 @@ pub struct CallerClaims {
     /// which is the service account. Empty for a person.
     #[prost(string, tag = "20")]
     pub owner_subject: ::prost::alloc::string::String,
+    /// For a service account (contract v22; the order-path plan's refresh,
+    /// Q24, and its protos' point 3, ruled 2026-10-12): the algorithm
+    /// identifier the call named (CallAsServiceAccountRequest.algorithm_id),
+    /// kept in the assertion the dashboard made for it, so every command the
+    /// call makes carries it and none can name another. The sidecar checks it
+    /// against the algorithms the plugin's version declares
+    /// (PluginDeclaration.algorithms), refusing INVALID_ARGUMENT naming
+    /// `algorithm_id`, and stamps it on the envelope (MessageMeta.algorithm_id).
+    /// Empty for a person, and where the call named none.
+    #[prost(string, tag = "21")]
+    pub algorithm_id: ::prost::alloc::string::String,
 }
 /// A level on one role of a plugin, and the accounts it reaches there
 /// (contract v15; decisions/033): in the claims, the person's within the
@@ -1159,6 +1256,82 @@ pub struct AccountScopeDelivery {
     /// unlinked, and its rows are refused (Refusal).
     #[prost(message, repeated, tag = "3")]
     pub links: ::prost::alloc::vec::Vec<LinkedExternalAccount>,
+    /// Contract v22 (W4.11, W11.21, W11.22; the order-path plan's refresh,
+    /// Q26). For a connectivity plugin: its link to its one `ems`. It holds no
+    /// permission-derived scope and no links of its own: its read and write
+    /// scope above is the accounts that `ems` mapped venue account codes to on
+    /// it, and empty while it is linked to none. For an `ems`: the
+    /// connectivity plugins linked to it, who may route through each, and its
+    /// venue account map. Sent again on every change to any of them.
+    #[prost(message, optional, tag = "4")]
+    pub connectivity_link: ::core::option::Option<ConnectivityLink>,
+    #[prost(message, repeated, tag = "5")]
+    pub connectivity_links: ::prost::alloc::vec::Vec<ConnectivityLink>,
+    #[prost(message, optional, tag = "6")]
+    pub venue_account_map: ::core::option::Option<VenueAccountMap>,
+}
+/// A connectivity plugin instance's availability, the `ems` it is linked to
+/// and its users (W11.21; ruled 2026-10-10; contract v22). Kept by the
+/// conductor, each change its own record, a ConnectivityLinkChange the
+/// conductor keeps and no proto carries (decisions/031).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConnectivityLink {
+    #[prost(string, tag = "1")]
+    pub connectivity_instance_id: ::prost::alloc::string::String,
+    /// Made available by a deployment admin; nothing is by default.
+    #[prost(bool, tag = "2")]
+    pub available: bool,
+    /// The one `ems` instance it is linked to, by its admin; empty while
+    /// unlinked.
+    #[prost(string, tag = "3")]
+    pub ems_instance_id: ::prost::alloc::string::String,
+    /// Who may route through it, made available by the `ems`'s admin: a
+    /// placement for any other user is refused
+    /// REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED.
+    #[prost(message, repeated, tag = "4")]
+    pub users: ::prost::alloc::vec::Vec<ConnectivityUser>,
+}
+/// A user a connectivity plugin is made available to: a person, a service
+/// account or a user group (W11.21).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConnectivityUser {
+    #[prost(oneof = "connectivity_user::User", tags = "1, 2, 3")]
+    pub user: ::core::option::Option<connectivity_user::User>,
+}
+/// Nested message and enum types in `ConnectivityUser`.
+pub mod connectivity_user {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum User {
+        /// A person, by the deployment-local subject.
+        #[prost(string, tag = "1")]
+        Subject(::prost::alloc::string::String),
+        #[prost(string, tag = "2")]
+        ServiceAccountId(::prost::alloc::string::String),
+        #[prost(string, tag = "3")]
+        UserGroupId(::prost::alloc::string::String),
+    }
+}
+/// An `ems`'s map of book accounts to the venue account codes they trade
+/// under at its connectivity plugins (W11.22; contract v22): what the `ems`
+/// sets in the venue's account field, and what the sidecar stamps a venue
+/// fact's account by (`venue-account-map`).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VenueAccountMap {
+    #[prost(string, tag = "1")]
+    pub ems_instance_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub mappings: ::prost::alloc::vec::Vec<VenueAccountMapping>,
+}
+/// One account's code at one connectivity plugin: a code once per plugin.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VenueAccountMapping {
+    #[prost(string, tag = "1")]
+    pub connectivity_instance_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub venue_account_code: ::prost::alloc::string::String,
+    /// An account the deployment admin granted the `ems`'s instance (W6.30).
+    #[prost(string, tag = "3")]
+    pub account_id: ::prost::alloc::string::String,
 }
 /// One of the plugin's external accounts, as linked.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1453,6 +1626,16 @@ pub struct CallAsServiceAccountRequest {
     /// own reason field, which its arguments carry where the act takes one.
     #[prost(string, tag = "4")]
     pub reason: ::prost::alloc::string::String,
+    /// The algorithm the autonomous work runs, one of the identifiers the
+    /// version declares (PluginDeclaration.algorithms; contract v22, the
+    /// order-path plan's refresh, Q24, and its protos' point 3, ruled
+    /// 2026-10-12): kept in the assertion the dashboard makes for the call
+    /// (CallerClaims.algorithm_id), checked and stamped by the sidecar on every
+    /// command the act sends (MessageMeta.algorithm_id), and copied by the book
+    /// to each entry's ServiceAccountActor. One the version does not declare
+    /// is refused INVALID_ARGUMENT, naming `algorithm_id`. Empty names none.
+    #[prost(string, tag = "5")]
+    pub algorithm_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallAsServiceAccountReply {
@@ -1722,8 +1905,9 @@ impl FigureState {
         }
     }
 }
-/// The four kinds of provenance (requirement 32), the same meanings as an
-/// instrument value's source (v10's InstrumentValueSource).
+/// The kinds of provenance (requirement 32), the same meanings as an
+/// instrument value's source (v10's InstrumentValueSource), and from v22 a
+/// value core computed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ProvenanceKind {
@@ -1737,6 +1921,10 @@ pub enum ProvenanceKind {
     Supplied = 3,
     /// Derived by a named rule in the plugin's code.
     Derived = 4,
+    /// Computed by core, with its basis (contract v22): a date the date read
+    /// worked out from the settlement calendars, since it is not the plugin's
+    /// own rule (W3.20; the calendars spec's Q10).
+    Computed = 5,
 }
 impl ProvenanceKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1750,6 +1938,7 @@ impl ProvenanceKind {
             Self::SecondSource => "PROVENANCE_KIND_SECOND_SOURCE",
             Self::Supplied => "PROVENANCE_KIND_SUPPLIED",
             Self::Derived => "PROVENANCE_KIND_DERIVED",
+            Self::Computed => "PROVENANCE_KIND_COMPUTED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1760,6 +1949,39 @@ impl ProvenanceKind {
             "PROVENANCE_KIND_SECOND_SOURCE" => Some(Self::SecondSource),
             "PROVENANCE_KIND_SUPPLIED" => Some(Self::Supplied),
             "PROVENANCE_KIND_DERIVED" => Some(Self::Derived),
+            "PROVENANCE_KIND_COMPUTED" => Some(Self::Computed),
+            _ => None,
+        }
+    }
+}
+/// Which date rule (contract v22).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DateRuleKind {
+    Unspecified = 0,
+    /// A market's settlement-date rule, for a country and an asset class.
+    Settlement = 1,
+    /// A currency pair's spot-date rule, its tenor-date rule on it.
+    Spot = 2,
+}
+impl DateRuleKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DATE_RULE_KIND_UNSPECIFIED",
+            Self::Settlement => "DATE_RULE_KIND_SETTLEMENT",
+            Self::Spot => "DATE_RULE_KIND_SPOT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DATE_RULE_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "DATE_RULE_KIND_SETTLEMENT" => Some(Self::Settlement),
+            "DATE_RULE_KIND_SPOT" => Some(Self::Spot),
             _ => None,
         }
     }
@@ -2027,7 +2249,43 @@ pub enum RefusalReason {
     /// FAILED_PRECONDITION (W6.4, W6.30, contract v20). A link naming an
     /// existing account the deployment admin has not granted the plugin's
     /// instance: nothing linked. The admin asks a deployment admin to grant it.
+    /// From contract v22 also an `ems`'s venue account mapping naming such an
+    /// account (W11.22), with the same status (the order-path plan's protos,
+    /// point 6, ruled 2026-10-12).
     AccountNotLinkable = 16,
+    /// A release whose allocation instruction does not sum to the ordered
+    /// quantity (W11.6; principle 1, ordered equals allocated).
+    AllocationUnbalanced = 17,
+    /// A release of an order whose approval required stands unapproved
+    /// (W11.6).
+    ApprovalRequired = 18,
+    /// A release while a check's block stands without an override (W11.6).
+    CheckBlocks = 19,
+    /// A placement, a claim or a change by other than the claimant of a
+    /// claimed order (W11.3, W11.7, W11.8, W11.9); a cancel by anyone who may
+    /// write the account is admitted past a claim (Q4), and so is a
+    /// connectivity plugin's report of a cancel it sent under a stop.
+    Claimed = 20,
+    /// A command the order's or the placement's state does not allow, by the
+    /// transition table (decisions/035): a placement or a child order under an
+    /// order not released, a quantity change that is not the proposer's or an
+    /// alignment, an acknowledgement of does not tie out, a use of an expired
+    /// locate.
+    OrderState = 21,
+    /// A new record reusing an identifier already in use (W11.1; step 5,
+    /// "Refusals").
+    IdentifierInUse = 22,
+    /// A placement naming a connectivity plugin not linked to the placing
+    /// `ems`, or not made available to the user the command acts for, a
+    /// person or a service account (W11.8; ruled 2026-10-10, the order-path
+    /// plan's refresh, Q30); refused and recorded, an entry naming the placing
+    /// `ems`, the instance asked for, the actor and the reason, heard by the
+    /// `ems` and `compliance`. Also an `ems`'s venue account mapping at a
+    /// connectivity plugin not linked to it (W11.22).
+    ConnectivityNotAllowed = 23,
+    /// A link of a connectivity plugin already linked to another `ems`
+    /// (W11.21): each is linked to exactly one.
+    ConnectivityLinked = 24,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2055,6 +2313,14 @@ impl RefusalReason {
             Self::ReferenceUnavailable => "REFUSAL_REASON_REFERENCE_UNAVAILABLE",
             Self::WithinHold => "REFUSAL_REASON_WITHIN_HOLD",
             Self::AccountNotLinkable => "REFUSAL_REASON_ACCOUNT_NOT_LINKABLE",
+            Self::AllocationUnbalanced => "REFUSAL_REASON_ALLOCATION_UNBALANCED",
+            Self::ApprovalRequired => "REFUSAL_REASON_APPROVAL_REQUIRED",
+            Self::CheckBlocks => "REFUSAL_REASON_CHECK_BLOCKS",
+            Self::Claimed => "REFUSAL_REASON_CLAIMED",
+            Self::OrderState => "REFUSAL_REASON_ORDER_STATE",
+            Self::IdentifierInUse => "REFUSAL_REASON_IDENTIFIER_IN_USE",
+            Self::ConnectivityNotAllowed => "REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED",
+            Self::ConnectivityLinked => "REFUSAL_REASON_CONNECTIVITY_LINKED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2081,6 +2347,16 @@ impl RefusalReason {
             "REFUSAL_REASON_REFERENCE_UNAVAILABLE" => Some(Self::ReferenceUnavailable),
             "REFUSAL_REASON_WITHIN_HOLD" => Some(Self::WithinHold),
             "REFUSAL_REASON_ACCOUNT_NOT_LINKABLE" => Some(Self::AccountNotLinkable),
+            "REFUSAL_REASON_ALLOCATION_UNBALANCED" => Some(Self::AllocationUnbalanced),
+            "REFUSAL_REASON_APPROVAL_REQUIRED" => Some(Self::ApprovalRequired),
+            "REFUSAL_REASON_CHECK_BLOCKS" => Some(Self::CheckBlocks),
+            "REFUSAL_REASON_CLAIMED" => Some(Self::Claimed),
+            "REFUSAL_REASON_ORDER_STATE" => Some(Self::OrderState),
+            "REFUSAL_REASON_IDENTIFIER_IN_USE" => Some(Self::IdentifierInUse),
+            "REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED" => {
+                Some(Self::ConnectivityNotAllowed)
+            }
+            "REFUSAL_REASON_CONNECTIVITY_LINKED" => Some(Self::ConnectivityLinked),
             _ => None,
         }
     }
