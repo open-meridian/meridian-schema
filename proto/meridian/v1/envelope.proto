@@ -110,6 +110,18 @@ message MessageMeta {
   // it whose scope is empty with nothing, and refuses one naming an account
   // outside the scope.
   bool account_scope_applies = 10;
+
+  // Set by the sidecar of an `ems` on every CreatePlacement it sends for its
+  // plugin, and never by a plugin or a core component (W4.9, W11.8; contract
+  // v22; approved 2026-10-12): its verdict on the connectivity link it
+  // holds, true when the placement's connectivity plugin is linked to the
+  // stamped ems instance, its link not withdrawn, and the acting user -- the
+  // person, the service account, or a user group they are in -- among the
+  // link's users, by the caller's claims. The book refuses a placement
+  // stamped false with REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED and records
+  // the refusal (the order-path plan's refresh, Q30). Read on no other
+  // command.
+  bool connectivity_allowed = 17;
 }
 
 // The kind of user a subject is (contract v21): in the claims, whom the

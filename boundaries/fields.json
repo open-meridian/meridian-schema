@@ -16680,6 +16680,19 @@
       "store": "envelope"
     },
     {
+      "name": "meridian.v1.MessageMeta.connectivity_allowed",
+      "type": "boolean",
+      "empty": "false on every message but an ems's CreatePlacement, where false is the sidecar's refusal of the link",
+      "intent": "carries the ems's sidecar's verdict on a placement's connectivity link",
+      "meaning": "true when the placement's connectivity plugin is linked to the stamped ems instance, its link not withdrawn, and the acting user -- person, service account or a user group they are in -- among the link's users, by the caller's claims (W4.9, W11.8); the book refuses a placement stamped false with REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED and records the refusal",
+      "not_meaning": "anything a plugin supplies, or a verdict read on any other command",
+      "filled": "stamped",
+      "filled_by": "sidecar",
+      "since": "v22",
+      "stability": "preview",
+      "store": "envelope"
+    },
+    {
       "name": "meridian.v1.MessageMeta.algorithm_id",
       "type": "text",
       "empty": "empty for a person, and where the call named none",
