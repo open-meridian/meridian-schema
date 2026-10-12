@@ -13816,6 +13816,32 @@
       "store": "conductor"
     },
     {
+      "name": "meridian.v1.AccessRecords.connectivity_links",
+      "type": "repeated message ConnectivityLink",
+      "empty": "empty while no connectivity plugin is available or linked, and from a conductor before v22",
+      "intent": "gives the dashboard each connectivity plugin's standing link, so its pages show them after a reload and dashboard__read_plugin_access answers them (W11.21)",
+      "meaning": "each connectivity plugin instance's availability, the ems it is linked to and its users, as the conductor keeps them; filled for the dashboard only",
+      "not_meaning": "the link's history, which the conductor keeps as each change's own record",
+      "filled": "decided",
+      "filled_by": "conductor",
+      "since": "v22",
+      "stability": "preview",
+      "store": "conductor"
+    },
+    {
+      "name": "meridian.v1.AccessRecords.venue_account_maps",
+      "type": "repeated message VenueAccountMap",
+      "empty": "empty while no ems has mapped an account, and from a conductor before v22",
+      "intent": "gives the dashboard each ems's venue account map, so its page shows the mappings after a reload and dashboard__read_plugin_access answers them (W11.22)",
+      "meaning": "each ems instance's mappings of book accounts to the venue account codes they trade under at its connectivity plugins, as the conductor keeps them; filled for the dashboard only",
+      "not_meaning": "the map's history, which the conductor keeps as each change's own record",
+      "filled": "decided",
+      "filled_by": "conductor",
+      "since": "v22",
+      "stability": "preview",
+      "store": "conductor"
+    },
+    {
       "name": "meridian.v1.KnownPluginRoles.plugin_instance_id",
       "type": "identifier instance",
       "empty": "never empty",
