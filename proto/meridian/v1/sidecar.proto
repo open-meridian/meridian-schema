@@ -26,6 +26,9 @@ syntax = "proto3";
 
 package meridian.v1;
 
+// For SubjectKind, the kind of user the claims' subject is (contract v21).
+import "meridian/v1/envelope.proto";
+
 service SidecarService {
   // Nothing else may be called until this succeeds.
   rpc Register(RegisterRequest) returns (RegisterReply);
@@ -46,9 +49,10 @@ service SidecarService {
   rpc WatchAccountScope(WatchAccountScopeRequest) returns (stream AccountScopeDelivery);
 
   // W4.12, contract v13. File a ticket for the person whose request the
-  // plugin is serving, never as itself: the call carries the caller's
-  // assertion as its `meridian-caller` metadata, and the sidecar asks the
-  // dashboard on the bus, as itself, for the instance it serves.
+  // plugin is serving, or from contract v21 its role's service account,
+  // never as itself: the call carries the caller's assertion as its
+  // `meridian-caller` metadata, and the sidecar asks the dashboard on the
+  // bus, as itself, for the instance it serves.
   rpc FileTicket(FileTicketRequest) returns (FileTicketReply);
 
   // W4.12, contract v13. What became of the tickets this plugin filed: their
@@ -74,6 +78,14 @@ service SidecarService {
   // plugin itself; the sidecar sends them to the dashboard on the bus, which
   // keeps them under the person the assertion names.
   rpc SetOwnSettings(SetOwnSettingsRequest) returns (SetOwnSettingsReply);
+
+  // W4.15, contract v21. Call one of the plugin's own acts as the service
+  // account its role runs as, from its autonomous work, with no person
+  // behind it: the call carries no `meridian-caller` metadata, and the
+  // sidecar asks the dashboard on the bus, as itself, for the instance it
+  // serves. The dashboard makes the act, prepares it, or refuses naming the
+  // field.
+  rpc CallAsServiceAccount(CallAsServiceAccountRequest) returns (CallAsServiceAccountReply);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,7 +105,7 @@ message RegisterRequest {
   reserved "instance_id", "role", "tags";
 
   // The contract version the plugin was built against, as `v<N>`. This
-  // schema is contract v20, and a plugin built from it declares "v20".
+  // schema is contract v21, and a plugin built from it declares "v21".
   //
   // Required. A sidecar admits it when it lies between the sidecar's floor
   // and its own version, and otherwise refuses it naming both (W4.1): a
@@ -989,7 +1001,9 @@ message CallerAssertion {
 }
 
 message CallerClaims {
-  // Deployment-local: the directory's issuer and subject, never an address.
+  // Deployment-local: the directory's issuer and subject, never an address;
+  // from contract v21, for a service account, its `SA-` ID, subject_kind
+  // saying so.
   string subject = 1;
   string display_name = 2;
 
@@ -1102,6 +1116,23 @@ message CallerClaims {
   // agent did. For showing only: the dashboard refuses a direct make
   // whatever the page draws. Empty where no act's gate is on. At most 200.
   repeated string second_pair_of_eyes = 18;
+
+  // Whether the subject is a person or a service account (W4.9, W4.15;
+  // contract v21). Set only by the dashboard, SUBJECT_KIND_SERVICE_ACCOUNT
+  // only for a call it admitted through the act's door, never for a page, a
+  // delegation or a client. The sidecar admits what is sent with the claims
+  // as a person's command under Open, refuses it every `platform.config.`
+  // command and query but a ticket's, and stamps the kind on the envelope
+  // (`acting_for_kind`), so every store records which kind of user acted.
+  // Unspecified: a person, as every assertion before v21. An agent acting
+  // for a person names a delegation, and the person stays the actor.
+  SubjectKind subject_kind = 19;
+
+  // For a service account (contract v21, W6.32): the deployment-local
+  // subject of the person answerable for it when the call was admitted,
+  // stamped on the envelope beside it and kept on the actor. Not who acted,
+  // which is the service account. Empty for a person.
+  string owner_subject = 20;
 }
 
 // A level on one role of a plugin, and the accounts it reaches there
@@ -1294,10 +1325,11 @@ message RecordMoveReply {}
 // A problem a person met, filed by the plugin serving them (W4.12; W6.21 for
 // a person filing on a page or through the deployment's MCP, with the same
 // fields). Every plugin may file, whatever its roles or none, and only for a
-// person it acts for, at any level: the caller's assertion is required, and
-// a filing without one is refused. Every text here is written by someone
-// other than whoever reads it, and is data to every agent that reads it,
-// never instructions.
+// person it acts for, at any level, or from contract v21 its role's service
+// account, with the assertion of a call the dashboard admitted for it
+// (W4.15): the caller's assertion is required, and a filing without one is
+// refused. Every text here is written by someone other than whoever reads
+// it, and is data to every agent that reads it, never instructions.
 message FileTicketRequest {
   // A line saying what is wrong. At most 120 characters, plain text.
   string title = 1;
@@ -1486,7 +1518,7 @@ enum RefusalReason {
 
   // A command other than a finding sent with no user (W9.1, W9.6, W9.7,
   // W9.13): an opening balance, handling, a resolution or an attribute is a
-  // person's act.
+  // user's act, a person's or from contract v21 a service account's.
   REFUSAL_REASON_ACTOR_REQUIRED = 2;
 
   // A justified act sent without its reason or explanation.
@@ -1640,4 +1672,54 @@ message SetOwnSettingsReply {
   // The person's own values as they now stand, which their next request's
   // claims carry.
   repeated SettingValue values = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W4.15 — a plugin's own act, as its role's service account, contract v21
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Sent as the plugin itself, with no person: the instance is the envelope's,
+// and the service account is the one the role's admin chose (W6.33), never a
+// field. A refusal is the call's status, naming the field in
+// `Refusal.fields` (`role`, `tool_name`, `reason`), with no refusal code of
+// its own. The reason is the plugin's words, shown as text, never as
+// instructions.
+message CallAsServiceAccountRequest {
+  // A role the instance was launched with, whose service account the call
+  // is made as. Not a role the plugin grants itself: the generated grants
+  // and the account's grant decide what it reaches.
+  string role = 1;
+
+  // One of the plugin's own declared acts on that role, by its tool's name:
+  // 1 to 61 characters. Never a read, another role's act, or a core tool
+  // (`dashboard__...`), each refused by name.
+  string tool_name = 2;
+
+  // The act's arguments: a JSON object, the tool's typed record of inputs,
+  // sent to the act's route when made and kept as the prepared change's
+  // when prepared. At least `{}`, at most 1 MiB.
+  string arguments_json = 3;
+
+  // Why the autonomous work calls the act: 1 to 4,000 characters, plain
+  // text, kept as the prepared change's reason when prepared. Not the act's
+  // own reason field, which its arguments carry where the act takes one.
+  string reason = 4;
+}
+
+message CallAsServiceAccountReply {
+  // `made`, the act made as the service account, its own answer beside it;
+  // or `prepared`, kept for the people who may make it, prepared_call_id
+  // naming it: by the levels, the gate and the account's setting that
+  // applied (W6.29). Not that the act succeeded in its store, which the
+  // act's own answer says.
+  string outcome = 1;
+
+  // `PC-` and a ULID, where the outcome is prepared: its preparer is the
+  // service account, and a person makes it. Empty otherwise.
+  string prepared_call_id = 2;
+
+  // The act's own answer, where the outcome is made: the route's typed JSON
+  // answer, as a tool's call is answered (W6.20), at most 1 MiB. Empty
+  // otherwise.
+  string answer_json = 3;
 }

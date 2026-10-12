@@ -51,8 +51,21 @@ message MessageMeta {
   // Stamped by the sidecar, never supplied by a plugin (decisions/014).
 
   // Set on a command sent for a person: whose it is, so the store can record
-  // who made the change. Deployment-local subject.
+  // who made the change. Deployment-local subject. From contract v21, for a
+  // service account, its `SA-` subject, acting_for_kind saying so.
   string acting_for_subject = 8;
+
+  // Set beside acting_for_subject: the kind of user it names, the claims'
+  // subject_kind (W4.9, contract v21), so a store records a service
+  // account, never a person. Unspecified for a person, and for a plugin
+  // acting as itself.
+  SubjectKind acting_for_kind = 14;
+
+  // Set beside acting_for_kind when it is a service account: the claims'
+  // owner_subject, the person answerable for the account when it acted
+  // (W4.9, W9.8; contract v21), which the store keeps on the actor. Not who
+  // acted. Absent otherwise.
+  string owner_subject = 15;
 
   // Set beside acting_for_subject when the person acted through a client:
   // the delegation the assertion named (W4.9, decisions/029), so a store
@@ -82,4 +95,15 @@ message MessageMeta {
   // it whose scope is empty with nothing, and refuses one naming an account
   // outside the scope.
   bool account_scope_applies = 10;
+}
+
+// The kind of user a subject is (contract v21): in the claims, whom the
+// dashboard vouched for; on the envelope, whom a command was sent for.
+enum SubjectKind {
+  // A person, or nobody where the subject is empty: every subject before
+  // v21.
+  SUBJECT_KIND_UNSPECIFIED = 0;
+  // A service account, a user of the deployment that is not a person
+  // (W6.32): the subject is its `SA-` ID, and its owner is named beside it.
+  SUBJECT_KIND_SERVICE_ACCOUNT = 1;
 }
