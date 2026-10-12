@@ -701,7 +701,7 @@ class CallerAssertion(_message.Message):
     def __init__(self, claims: _Optional[bytes] = ..., signature: _Optional[bytes] = ..., key_id: _Optional[str] = ...) -> None: ...
 
 class CallerClaims(_message.Message):
-    __slots__ = ("subject", "display_name", "audience_instance_id", "level", "read_account_ids", "write_account_ids", "issued_at_ns", "expires_at_ns", "assertion_id", "deployment_admin", "delegation_id", "client_name", "tool_name", "roles", "prepared_call_id", "own_settings", "second_pair_of_eyes", "subject_kind", "owner_subject", "algorithm_id")
+    __slots__ = ("subject", "display_name", "audience_instance_id", "level", "read_account_ids", "write_account_ids", "issued_at_ns", "expires_at_ns", "assertion_id", "deployment_admin", "delegation_id", "client_name", "tool_name", "roles", "prepared_call_id", "own_settings", "second_pair_of_eyes", "subject_kind", "owner_subject", "algorithm_id", "connectivity_instance_ids")
     SUBJECT_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     AUDIENCE_INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -722,6 +722,7 @@ class CallerClaims(_message.Message):
     SUBJECT_KIND_FIELD_NUMBER: _ClassVar[int]
     OWNER_SUBJECT_FIELD_NUMBER: _ClassVar[int]
     ALGORITHM_ID_FIELD_NUMBER: _ClassVar[int]
+    CONNECTIVITY_INSTANCE_IDS_FIELD_NUMBER: _ClassVar[int]
     subject: str
     display_name: str
     audience_instance_id: str
@@ -742,7 +743,8 @@ class CallerClaims(_message.Message):
     subject_kind: _envelope_pb2.SubjectKind
     owner_subject: str
     algorithm_id: str
-    def __init__(self, subject: _Optional[str] = ..., display_name: _Optional[str] = ..., audience_instance_id: _Optional[str] = ..., level: _Optional[_Union[AccessLevel, str]] = ..., read_account_ids: _Optional[_Iterable[str]] = ..., write_account_ids: _Optional[_Iterable[str]] = ..., issued_at_ns: _Optional[int] = ..., expires_at_ns: _Optional[int] = ..., assertion_id: _Optional[str] = ..., deployment_admin: bool = ..., delegation_id: _Optional[str] = ..., client_name: _Optional[str] = ..., tool_name: _Optional[str] = ..., roles: _Optional[_Iterable[_Union[RoleAccess, _Mapping]]] = ..., prepared_call_id: _Optional[str] = ..., own_settings: _Optional[_Iterable[_Union[SettingValue, _Mapping]]] = ..., second_pair_of_eyes: _Optional[_Iterable[str]] = ..., subject_kind: _Optional[_Union[_envelope_pb2.SubjectKind, str]] = ..., owner_subject: _Optional[str] = ..., algorithm_id: _Optional[str] = ...) -> None: ...
+    connectivity_instance_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, subject: _Optional[str] = ..., display_name: _Optional[str] = ..., audience_instance_id: _Optional[str] = ..., level: _Optional[_Union[AccessLevel, str]] = ..., read_account_ids: _Optional[_Iterable[str]] = ..., write_account_ids: _Optional[_Iterable[str]] = ..., issued_at_ns: _Optional[int] = ..., expires_at_ns: _Optional[int] = ..., assertion_id: _Optional[str] = ..., deployment_admin: bool = ..., delegation_id: _Optional[str] = ..., client_name: _Optional[str] = ..., tool_name: _Optional[str] = ..., roles: _Optional[_Iterable[_Union[RoleAccess, _Mapping]]] = ..., prepared_call_id: _Optional[str] = ..., own_settings: _Optional[_Iterable[_Union[SettingValue, _Mapping]]] = ..., second_pair_of_eyes: _Optional[_Iterable[str]] = ..., subject_kind: _Optional[_Union[_envelope_pb2.SubjectKind, str]] = ..., owner_subject: _Optional[str] = ..., algorithm_id: _Optional[str] = ..., connectivity_instance_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class RoleAccess(_message.Message):
     __slots__ = ("role", "level", "read_positions", "write_positions")

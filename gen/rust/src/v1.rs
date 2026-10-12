@@ -101,7 +101,9 @@ pub struct MessageMeta {
     /// holds, true when the placement's connectivity plugin is linked to the
     /// stamped ems instance, its link not withdrawn, and the acting user -- the
     /// person, the service account, or a user group they are in -- among the
-    /// link's users, by the caller's claims. The book refuses a placement
+    /// link's users, by the caller's claims (CallerClaims.
+    /// connectivity_instance_ids, which the dashboard computed from the links
+    /// at admission). The book refuses a placement
     /// stamped false with REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED and records
     /// the refusal (the order-path plan's refresh, Q30). Read on no other
     /// command.
@@ -1154,6 +1156,19 @@ pub struct CallerClaims {
     /// Empty for a person, and where the call named none.
     #[prost(string, tag = "21")]
     pub algorithm_id: ::prost::alloc::string::String,
+    /// The connectivity plugin instances this user may route through for the
+    /// calling ems (W4.9, W11.8, W11.21; contract v22; approved 2026-10-12):
+    /// computed by the dashboard at admission from the conductor's links
+    /// (AccessRecords.connectivity_links) and the person's user groups, logins
+    /// or the service account's identity. The ems's sidecar checks a
+    /// CreatePlacement's connectivity instance against it and stamps
+    /// MessageMeta.connectivity_allowed. It tells the ems which connectivity
+    /// plugins the user may use, never their groups. Empty in an assertion
+    /// for any other plugin, and for a user who may route through none.
+    #[prost(string, repeated, tag = "22")]
+    pub connectivity_instance_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
 }
 /// A level on one role of a plugin, and the accounts it reaches there
 /// (contract v15; decisions/033): in the claims, the person's within the

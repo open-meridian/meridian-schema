@@ -117,7 +117,9 @@ message MessageMeta {
   // holds, true when the placement's connectivity plugin is linked to the
   // stamped ems instance, its link not withdrawn, and the acting user -- the
   // person, the service account, or a user group they are in -- among the
-  // link's users, by the caller's claims. The book refuses a placement
+  // link's users, by the caller's claims (CallerClaims.
+  // connectivity_instance_ids, which the dashboard computed from the links
+  // at admission). The book refuses a placement
   // stamped false with REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED and records
   // the refusal (the order-path plan's refresh, Q30). Read on no other
   // command.
