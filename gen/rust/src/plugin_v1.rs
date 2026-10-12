@@ -2962,7 +2962,7 @@ pub struct EntryMeta {
 /// A mirror of meridian.v1.Actor.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Actor {
-    #[prost(oneof = "actor::Kind", tags = "1, 2")]
+    #[prost(oneof = "actor::Kind", tags = "1, 2, 3")]
     pub kind: ::core::option::Option<actor::Kind>,
 }
 /// Nested message and enum types in `Actor`.
@@ -2977,6 +2977,11 @@ pub mod actor {
         /// the book's own act (a merged record followed) leaves it empty.
         #[prost(message, tag = "2")]
         System(super::SystemActor),
+        /// A service account a plugin's autonomous work acted as, whose call the
+        /// dashboard admitted (W4.15, W9.8; contract v21), from the envelope the
+        /// sidecar stamped. Never a person, nor the plugin's own finding.
+        #[prost(message, tag = "3")]
+        ServiceAccount(super::ServiceAccountActor),
     }
 }
 /// A mirror of meridian.v1.PersonActor.
@@ -3002,6 +3007,19 @@ pub struct PersonActor {
 pub struct SystemActor {
     #[prost(string, tag = "1")]
     pub instance_id: ::prost::alloc::string::String,
+}
+/// A service account that answered for an act (W9.8, contract v21).
+/// A mirror of meridian.v1.ServiceAccountActor.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ServiceAccountActor {
+    /// Its `SA-` subject, as the sidecar stamped it (W4.9).
+    #[prost(string, tag = "1")]
+    pub subject: ::prost::alloc::string::String,
+    /// The deployment-local subject of the person answerable for it when it
+    /// acted, as the sidecar stamped it; a later change of owner leaves it as
+    /// it was.
+    #[prost(string, tag = "2")]
+    pub owner_subject: ::prost::alloc::string::String,
 }
 /// A mirror of meridian.v1.ReferenceVersion.
 #[derive(Clone, PartialEq, ::prost::Message)]
