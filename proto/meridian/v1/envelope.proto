@@ -67,6 +67,14 @@ message MessageMeta {
   // acted. Absent otherwise.
   string owner_subject = 15;
 
+  // Set beside owner_subject (contract v22; the order-path plan's refresh,
+  // Q24, and its protos' point 3, ruled 2026-10-12): the claims'
+  // algorithm_id, the algorithm identifier the service account's call named,
+  // after the sidecar checked it against the algorithms the plugin's version
+  // declares. The book copies it to the entry's ServiceAccountActor. Absent
+  // for a person, and where the call named none.
+  string algorithm_id = 16;
+
   // Set beside acting_for_subject when the person acted through a client:
   // the delegation the assertion named (W4.9, decisions/029), so a store
   // records the person through that client. Absent for a person at the
@@ -86,10 +94,17 @@ message MessageMeta {
   string prepared_call_id = 13;
 
   // Set on a read: the accounts the publishing plugin may read. A core store
-  // answers only for these.
+  // answers only for these. From contract v22 also set on a command naming
+  // a record by its ID alone -- an order, a placement, a change request or a
+  // locate (W4.9, W11; the order-path plan's protos, point 8, ruled
+  // 2026-10-12): the accounts the sending instance may write, narrowed to
+  // the person's write access where it acts for one. The book resolves the
+  // record's account and refuses, changing nothing, a command whose account
+  // is outside them (PERMISSION_DENIED, no reason code).
   repeated string account_scope = 9;
 
-  // Set by the sidecar on every query it sends for a plugin, beside
+  // Set by the sidecar on every query it sends for a plugin, and from
+  // contract v22 on every command naming a record by its ID alone, beside
   // account_scope, and never by a core component (W4.11): the scope
   // applies, so an empty one is nothing. A store answers a query carrying
   // it whose scope is empty with nothing, and refuses one naming an account

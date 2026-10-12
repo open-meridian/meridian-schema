@@ -2168,8 +2168,6 @@ message DateBasis {
 
 // A date rule by its kind, subject and version: a rule has no ID of its own
 // (the calendars spec's Q11).
-// TODO(name): the approved text names the fields `rule`, `kind`, `subject`
-// and `version`, not this message.
 // A mirror of meridian.v1.DateRuleRef.
 message DateRuleRef {
   DateRuleKind kind = 1;
@@ -2192,7 +2190,6 @@ enum DateRuleKind {
 }
 
 // A calendar at one version.
-// TODO(name): the approved text names the fields, not this message.
 // A mirror of meridian.v1.CalendarRef.
 message CalendarRef {
   // "CAL-...", the platform's ID, never reused.
@@ -3297,8 +3294,8 @@ enum LotSource {
   // Opened by an adjustment resolving a break (Q28). Step 5 adds the
   // book's own trade, slice D a transfer in.
   LOT_SOURCE_ADJUSTMENT = 2;
-  // TODO(name): from v22 a reported fill opens a lot (W11.13), and the
-  // approved text names no LotSource value for it.
+  // A lot a reported fill opens (W11.13; contract v22).
+  LOT_SOURCE_EXECUTION = 3;
 }
 
 // What a journal entry records beside its JournalRef and ChangeCause.
@@ -3399,18 +3396,18 @@ message ServiceAccountActor {
   // it was.
   string owner_subject = 2;
 
-  // The algorithm the command named, one of the identifiers the plugin's
-  // version declares (PluginDeclaration.algorithms, W4.1, W4.9; v21's Q16,
-  // the order-path plan's refresh, Q24; contract v22): stable across
-  // versions, so `reporting` reads it for the decision-maker and executor a
-  // regime asks for. Empty where the command named none, and before v22.
+  // The algorithm the service account's call named, one of the
+  // identifiers the plugin's version declares (PluginDeclaration.algorithms;
+  // W4.9, W4.15; v21's Q16, the order-path plan's refresh, Q24; contract
+  // v22): copied by the book from the envelope (MessageMeta.algorithm_id),
+  // where the sidecar stamped it from the claims after checking it. Stable
+  // across versions, so `reporting` reads it for the decision-maker and
+  // executor a regime asks for. Empty where the call named none, and before
+  // v22.
   string algorithm_id = 3;
 }
 
 // The venue an act is a fact of (W11, contract v22).
-// TODO(name): `VenueActor` follows PersonActor, SystemActor and
-// ServiceAccountActor; the approved text names the arm `venue` but not its
-// message.
 // A mirror of meridian.v1.VenueActor.
 message VenueActor {
   // The connectivity plugin instance that reported it, as its sidecar
@@ -3699,8 +3696,6 @@ message BreakCause {
 // What the date read found of one date (W3.20, W9.4; the calendars spec's
 // requirement 14; contract v22): the date, the calendars and their versions
 // it was checked on, and why the day is closed.
-// TODO(name): the approved text names the field `date_check`, not its
-// message, nor the enum or fields saying why the day is closed.
 // A mirror of meridian.v1.DateCheck.
 message DateCheck {
   // ISO 8601.
@@ -3709,8 +3704,24 @@ message DateCheck {
   // Each calendar it was checked on, with its version.
   repeated CalendarRef calendars = 2;
 
-  // TODO(name): why the day is closed -- a weekend, a named holiday, or
-  // outside coverage -- and the holiday's name as the source gives it.
+  // Why the day is closed.
+  DateCheckReason reason = 3;
+
+  // On a holiday: its name as the source gives it.
+  string holiday_name = 4;
+}
+
+// Why a date is not a business day (the calendars spec's requirement 14;
+// contract v22).
+// A mirror of meridian.v1.DateCheckReason.
+enum DateCheckReason {
+  DATE_CHECK_REASON_UNSPECIFIED = 0;
+  // A weekend day on one of the calendars, not listed open.
+  DATE_CHECK_REASON_WEEKEND = 1;
+  // A closed day listed on one of the calendars, with its name.
+  DATE_CHECK_REASON_HOLIDAY = 2;
+  // Outside a calendar's coverage: not known, never a business day.
+  DATE_CHECK_REASON_OUTSIDE_COVERAGE = 3;
 }
 
 // A mirror of meridian.v1.BreakCauseCategory.

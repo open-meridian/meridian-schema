@@ -264,16 +264,15 @@ message PluginDeclaration {
 
   // The algorithm identifiers its autonomous work may name (W4.1, W4.9;
   // v21's Q16, the order-path plan's refresh, Q24; contract v22): each
-  // stable across versions, with a description. A command a service account
-  // sends naming one this version does not declare is refused
-  // INVALID_ARGUMENT, naming the field; the book puts the one named on the
-  // entry's ServiceAccountActor. Empty declares none.
+  // stable across versions, with a description. A call as a service account
+  // naming one this version does not declare is refused INVALID_ARGUMENT,
+  // naming `algorithm_id` (CallAsServiceAccountRequest, W4.15); the book
+  // puts the one named on each entry's ServiceAccountActor. Empty declares
+  // none.
   repeated AlgorithmDeclaration algorithms = 5;
 }
 
 // One algorithm identifier a version declares (contract v22).
-// TODO(name): the approved text names the field `algorithms`, not this
-// message.
 message AlgorithmDeclaration {
   // Stable across versions and reinstalls: what `reporting` maps to a
   // regime's decision-maker and executor.
@@ -991,8 +990,6 @@ enum DateRuleKind {
 
 // A date rule by its kind, subject and version: a rule has no ID of its own
 // (the calendars spec's Q11).
-// TODO(name): the approved text names the fields `rule`, `kind`, `subject`
-// and `version`, not this message.
 message DateRuleRef {
   DateRuleKind kind = 1;
   // As the platform names it: `US/equity`, a country and an asset class;
@@ -1002,7 +999,6 @@ message DateRuleRef {
 }
 
 // A calendar at one version.
-// TODO(name): the approved text names the fields, not this message.
 message CalendarRef {
   // "CAL-...", the platform's ID, never reused.
   string calendar_id = 1;
@@ -1217,6 +1213,17 @@ message CallerClaims {
   // stamped on the envelope beside it and kept on the actor. Not who acted,
   // which is the service account. Empty for a person.
   string owner_subject = 20;
+
+  // For a service account (contract v22; the order-path plan's refresh,
+  // Q24, and its protos' point 3, ruled 2026-10-12): the algorithm
+  // identifier the call named (CallAsServiceAccountRequest.algorithm_id),
+  // kept in the assertion the dashboard made for it, so every command the
+  // call makes carries it and none can name another. The sidecar checks it
+  // against the algorithms the plugin's version declares
+  // (PluginDeclaration.algorithms), refusing INVALID_ARGUMENT naming
+  // `algorithm_id`, and stamps it on the envelope (MessageMeta.algorithm_id).
+  // Empty for a person, and where the call named none.
+  string algorithm_id = 21;
 }
 
 // A level on one role of a plugin, and the accounts it reaches there
@@ -1341,7 +1348,6 @@ message AccountScopeDelivery {
   // it, and empty while it is linked to none. For an `ems`: the
   // connectivity plugins linked to it, who may route through each, and its
   // venue account map. Sent again on every change to any of them.
-  // TODO(name): these three fields' names are not in the approved text.
   ConnectivityLink connectivity_link = 4;
   repeated ConnectivityLink connectivity_links = 5;
   VenueAccountMap venue_account_map = 6;
@@ -1367,8 +1373,8 @@ message ConnectivityLink {
   repeated ConnectivityUser users = 4;
 }
 
-// A user a connectivity plugin is made available to.
-// TODO(name): the approved text names the field `users`, not this message.
+// A user a connectivity plugin is made available to: a person, a service
+// account or a user group (W11.21).
 message ConnectivityUser {
   oneof user {
     // A person, by the deployment-local subject.
@@ -1388,8 +1394,6 @@ message VenueAccountMap {
 }
 
 // One account's code at one connectivity plugin: a code once per plugin.
-// TODO(name): the approved text names the field `mappings`, not this
-// message.
 message VenueAccountMapping {
   string connectivity_instance_id = 1;
   string venue_account_code = 2;
@@ -1736,7 +1740,8 @@ enum RefusalReason {
   // existing account the deployment admin has not granted the plugin's
   // instance: nothing linked. The admin asks a deployment admin to grant it.
   // From contract v22 also an `ems`'s venue account mapping naming such an
-  // account (W11.22), sent with ABORTED.
+  // account (W11.22), with the same status (the order-path plan's protos,
+  // point 6, ruled 2026-10-12).
   REFUSAL_REASON_ACCOUNT_NOT_LINKABLE = 16;
 
   // The order path's refusals (W11, contract v22; step 5's "Refusals"),
@@ -1899,6 +1904,16 @@ message CallAsServiceAccountRequest {
   // text, kept as the prepared change's reason when prepared. Not the act's
   // own reason field, which its arguments carry where the act takes one.
   string reason = 4;
+
+  // The algorithm the autonomous work runs, one of the identifiers the
+  // version declares (PluginDeclaration.algorithms; contract v22, the
+  // order-path plan's refresh, Q24, and its protos' point 3, ruled
+  // 2026-10-12): kept in the assertion the dashboard makes for the call
+  // (CallerClaims.algorithm_id), checked and stamped by the sidecar on every
+  // command the act sends (MessageMeta.algorithm_id), and copied by the book
+  // to each entry's ServiceAccountActor. One the version does not declare
+  // is refused INVALID_ARGUMENT, naming `algorithm_id`. Empty names none.
+  string algorithm_id = 5;
 }
 
 message CallAsServiceAccountReply {
