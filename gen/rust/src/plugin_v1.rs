@@ -1943,7 +1943,9 @@ pub struct ListTradingInstructionsParams {
 pub struct ListTradingInstructionsResult {
     #[prost(message, repeated, tag = "1")]
     pub instructions: ::prost::alloc::vec::Vec<TradingInstruction>,
-    /// The control partition's sequence they were read at.
+    /// The control partition's sequence they were read at. Kept (the product
+    /// owner, 2026-10-12) with an invariant: it equals the control partition's
+    /// head in the reply's `as_of`, so a reader may take either.
     #[prost(uint64, tag = "2")]
     pub control_sequence: u64,
     #[prost(message, optional, tag = "3")]
