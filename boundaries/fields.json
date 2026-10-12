@@ -13327,7 +13327,7 @@
       "unit": "numbers in the control partition",
       "empty": "never 0 once an instruction was set",
       "intent": "says where in the control partition they were read",
-      "meaning": "the control partition's sequence",
+      "meaning": "the control partition's sequence; it always equals the control partition's head in the reply's as_of",
       "not_meaning": "a time",
       "filled": "decided",
       "filled_by": "bor",
