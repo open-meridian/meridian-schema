@@ -1226,14 +1226,17 @@ message CallerClaims {
   string algorithm_id = 21;
 
   // The connectivity plugin instances this user may route through for the
-  // calling ems (W4.9, W11.8, W11.21; contract v22; approved 2026-10-12):
-  // computed by the dashboard at admission from the conductor's links
+  // calling plugin, an ems or a connectivity plugin (W4.9, W11.8, W11.21;
+  // contract v22; approved 2026-10-12): computed by the dashboard at
+  // admission, the same way for either, from the conductor's links
   // (AccessRecords.connectivity_links) and the person's user groups, logins
-  // or the service account's identity. The ems's sidecar checks a
-  // CreatePlacement's connectivity instance against it and stamps
-  // MessageMeta.connectivity_allowed. It tells the ems which connectivity
-  // plugins the user may use, never their groups. Empty in an assertion
-  // for any other plugin, and for a user who may route through none.
+  // or the service account's identity. The calling plugin's sidecar checks
+  // a CreatePlacement's connectivity instance against it -- for a
+  // connectivity plugin's direct order, its own instance -- and stamps
+  // MessageMeta.connectivity_allowed. It tells the plugin which
+  // connectivity plugins the user may use, never their groups. Empty in an
+  // assertion for any other plugin, and for a user who may route through
+  // none.
   repeated string connectivity_instance_ids = 22;
 }
 
