@@ -1355,8 +1355,8 @@ message AccountScopeDelivery {
 
 // A connectivity plugin instance's availability, the `ems` it is linked to
 // and its users (W11.21; ruled 2026-10-10; contract v22). Kept by the
-// conductor, each change its own record (meridian-core's
-// ConnectivityLinkChange).
+// conductor, each change its own record, a ConnectivityLinkChange the
+// conductor keeps and no proto carries (decisions/031).
 message ConnectivityLink {
   string connectivity_instance_id = 1;
 
