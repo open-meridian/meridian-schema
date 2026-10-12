@@ -9220,7 +9220,7 @@
       ],
       "empty": "never unspecified",
       "intent": "says the level it was set at",
-      "meaning": "from the claims; an entry is lifted only at the level that set it",
+      "meaning": "as the dashboard stamped it on the set command from the setter's claims; an entry is lifted only at the level that set it",
       "not_meaning": "a person",
       "filled": "stamped",
       "filled_by": "bor",
@@ -9231,9 +9231,9 @@
     {
       "name": "meridian.v1.TradingInstruction.covers",
       "type": "repeated text",
-      "empty": "empty unless the target is a user group",
+      "empty": "empty in v22, a user group's instruction included: a known limit until v27's accounts and onboarding resolve a group's persons",
       "intent": "names the persons a group's instruction covers",
-      "meaning": "their deployment-local subjects, resolved by core when set and whenever membership changes",
+      "meaning": "their deployment-local subjects, resolved by core when set and whenever membership changes, from v27; carried empty in v22",
       "not_meaning": "the group's ID",
       "filled": "derived",
       "filled_by": "bor",
@@ -12296,6 +12296,33 @@
       "meaning": "the setter's words",
       "not_meaning": "a code",
       "filled": "entered",
+      "filled_by": "dashboard",
+      "since": "v22",
+      "stability": "preview",
+      "store": "bor"
+    },
+    {
+      "name": "meridian.v1.SetTradingInstructionRequest.setter_level",
+      "type": "enum SetterLevel",
+      "allowed": [
+        {
+          "value": "SETTER_LEVEL_UNSPECIFIED",
+          "meaning": "not said"
+        },
+        {
+          "value": "SETTER_LEVEL_DEPLOYMENT_ADMIN",
+          "meaning": "set by a deployment admin"
+        },
+        {
+          "value": "SETTER_LEVEL_PLUGIN_ADMIN",
+          "meaning": "set by a plugin's admin, within their plugin"
+        }
+      ],
+      "empty": "never unspecified",
+      "intent": "says the level the instruction is set at",
+      "meaning": "stamped by the dashboard from the setter's claims, never entered, so the book records the instruction at that level and lifts an entry only at the level that set it (W11.15)",
+      "not_meaning": "a person",
+      "filled": "stamped",
       "filled_by": "dashboard",
       "since": "v22",
       "stability": "preview",

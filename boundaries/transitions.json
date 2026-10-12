@@ -644,6 +644,20 @@
       "refusal": [
         "REFUSAL_REASON_ORDER_STATE"
       ]
+    },
+    {
+      "row": "i7",
+      "from": [
+        "ORDER_STATE_PROPOSED"
+      ],
+      "cause": "a day order never released: its day ends, by the deployment's clock (actor the system), awaiting check or approval included",
+      "caused_by": [
+        "bor"
+      ],
+      "to": [
+        "ORDER_STATE_EXPIRED"
+      ],
+      "refusal": []
     }
   ]
 }
