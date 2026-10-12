@@ -7282,9 +7282,10 @@ message DatasetDeclaration {
   // The settlement calendar its business dates follow, its `CAL-` ID
   // (W10.1; spec/settlement-calendars-are-core-reference-data, requirement
   // 15; the lake's Q28; contract v22), beside day_time_zone and
-  // day_end_minute. A daily value dated on a day it says is closed is
-  // recorded as reported and flagged, never refused. Empty names none, as
-  // before.
+  // day_end_minute. In v22 the lake keeps it and applies nothing by it; a
+  // daily value dated on a day it says is closed is flagged from v23 (W10.4,
+  // ruled 2026-10-12), recorded as reported and never refused. Empty names
+  // none, as before.
   string calendar_id = 12;
 }
 

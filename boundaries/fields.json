@@ -29002,7 +29002,7 @@
       "type": "text",
       "empty": "empty names none, as before",
       "intent": "names the settlement calendar the dataset's business dates follow (W10.1)",
-      "meaning": "its `CAL-` ID, beside day_time_zone and day_end_minute; a daily value dated on a day it says is closed is recorded as reported and flagged, never refused",
+      "meaning": "its `CAL-` ID, beside day_time_zone and day_end_minute; in v22 kept and applied to nothing, a daily value on a day it says is closed recorded as reported and not flagged until v23 (W10.4)",
       "not_meaning": "a venue's trading hours, or a rule applied to the rows",
       "filled": "as-reported",
       "filled_by": "data",
