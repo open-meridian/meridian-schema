@@ -2122,10 +2122,16 @@ message Provenance {
 
   // The rule that derived it, by name, as the plugin documents it.
   string rule = 6;
+
+  // On a value core computed (PROVENANCE_KIND_COMPUTED, contract v22): the
+  // rule and each calendar, with their versions, the date read worked it
+  // out on (W3.20; the calendars spec's Q10). Never on another kind.
+  DateBasis date_basis = 7;
 }
 
-// The four kinds of provenance (requirement 32), the same meanings as an
-// instrument value's source (v10's InstrumentValueSource).
+// The kinds of provenance (requirement 32), the same meanings as an
+// instrument value's source (v10's InstrumentValueSource), and from v22 a
+// value core computed.
 // A mirror of meridian.v1.ProvenanceKind.
 enum ProvenanceKind {
   // Not said; refused.
@@ -2138,6 +2144,61 @@ enum ProvenanceKind {
   PROVENANCE_KIND_SUPPLIED = 3;
   // Derived by a named rule in the plugin's code.
   PROVENANCE_KIND_DERIVED = 4;
+  // Computed by core, with its basis (contract v22): a date the date read
+  // worked out from the settlement calendars, since it is not the plugin's
+  // own rule (W3.20; the calendars spec's Q10).
+  PROVENANCE_KIND_COMPUTED = 5;
+}
+
+// What a date was computed on (W3.20; spec/settlement-calendars-are-core-
+// reference-data, requirement 8; contract v22): the rule and its version,
+// and each calendar and its version, so anything recording the date can
+// record its basis with it, and the same inputs and versions always give
+// the same date. Plugin-facing, since a plugin's Provenance and its
+// execution's settlement date carry one; the records are core's
+// (meridian-core's reference.proto).
+// A mirror of meridian.v1.DateBasis.
+message DateBasis {
+  // Empty for a date worked out on calendars alone: a roll, a
+  // business-day check.
+  DateRuleRef rule = 1;
+
+  repeated CalendarRef calendars = 2;
+}
+
+// A date rule by its kind, subject and version: a rule has no ID of its own
+// (the calendars spec's Q11).
+// TODO(name): the approved text names the fields `rule`, `kind`, `subject`
+// and `version`, not this message.
+// A mirror of meridian.v1.DateRuleRef.
+message DateRuleRef {
+  DateRuleKind kind = 1;
+
+  // As the platform names it: `US/equity`, a country and an asset class;
+  // `EUR/USD`, a pair.
+  string subject = 2;
+
+  int64 version = 3;
+}
+
+// Which date rule (contract v22).
+// A mirror of meridian.v1.DateRuleKind.
+enum DateRuleKind {
+  DATE_RULE_KIND_UNSPECIFIED = 0;
+  // A market's settlement-date rule, for a country and an asset class.
+  DATE_RULE_KIND_SETTLEMENT = 1;
+  // A currency pair's spot-date rule, its tenor-date rule on it.
+  DATE_RULE_KIND_SPOT = 2;
+}
+
+// A calendar at one version.
+// TODO(name): the approved text names the fields, not this message.
+// A mirror of meridian.v1.CalendarRef.
+message CalendarRef {
+  // "CAL-...", the platform's ID, never reused.
+  string calendar_id = 1;
+
+  int64 version = 2;
 }
 
 // Which side of an instrument a holding or a custodial position is on.
@@ -3236,6 +3297,8 @@ enum LotSource {
   // Opened by an adjustment resolving a break (Q28). Step 5 adds the
   // book's own trade, slice D a transfer in.
   LOT_SOURCE_ADJUSTMENT = 2;
+  // TODO(name): from v22 a reported fill opens a lot (W11.13), and the
+  // approved text names no LotSource value for it.
 }
 
 // What a journal entry records beside its JournalRef and ChangeCause.
@@ -3246,7 +3309,9 @@ message EntryMeta {
 
   // An open list a reader takes as data (Q19): in v8 opening-balance,
   // placeholder-moved (instrument-merged from v10), figures-recorded, break-recorded, break-handled,
-  // break-resolved, break-closed, adjustment, reversal, attribute-set.
+  // break-resolved, break-closed, adjustment, reversal, attribute-set; from
+  // v22 order-proposed, order-recorded, order-released, execution-recorded
+  // among the order path's (W11.13).
   string kind = 2;
 
   Actor actor = 3;
@@ -3294,6 +3359,10 @@ message Actor {
     // dashboard admitted (W4.15, W9.8; contract v21), from the envelope the
     // sidecar stamped. Never a person, nor the plugin's own finding.
     ServiceAccountActor service_account = 3;
+    // The venue, through the connectivity plugin reporting what it did
+    // (W11.2, W11.9 to W11.12; step 5's Q24; contract v22): a fact, never a
+    // person's act, and never refused for the state it arrives in.
+    VenueActor venue = 4;
   }
 }
 
@@ -3329,6 +3398,28 @@ message ServiceAccountActor {
   // acted, as the sidecar stamped it; a later change of owner leaves it as
   // it was.
   string owner_subject = 2;
+
+  // The algorithm the command named, one of the identifiers the plugin's
+  // version declares (PluginDeclaration.algorithms, W4.1, W4.9; v21's Q16,
+  // the order-path plan's refresh, Q24; contract v22): stable across
+  // versions, so `reporting` reads it for the decision-maker and executor a
+  // regime asks for. Empty where the command named none, and before v22.
+  string algorithm_id = 3;
+}
+
+// The venue an act is a fact of (W11, contract v22).
+// TODO(name): `VenueActor` follows PersonActor, SystemActor and
+// ServiceAccountActor; the approved text names the arm `venue` but not its
+// message.
+// A mirror of meridian.v1.VenueActor.
+message VenueActor {
+  // The connectivity plugin instance that reported it, as its sidecar
+  // stamped it.
+  string instance_id = 1;
+
+  // The venue, the venue master's ID, where the plugin names it; empty
+  // where it does not.
+  string venue_id = 2;
 }
 
 // A mirror of meridian.v1.ReferenceVersion.
@@ -3386,6 +3477,12 @@ message BookPosition {
 
   FreeBasis free_basis = 16;
 
+  // The sleeve within the account (W9's invariants; the order-path plan's
+  // refresh, Q33; contract v22): a position is keyed by account,
+  // instrument, side and sleeve. Empty for the account's unsleeved part, as
+  // every position before v22 is.
+  string sleeve = 17;
+
   // Retired in the domain message, and never reused.
   reserved 13;
   reserved "placeholder";
@@ -3408,6 +3505,9 @@ message Lot {
   repeated JournalRef relieved_by = 6;
 
   repeated JournalRef adjusted_by = 7;
+
+  // Its position's sleeve (contract v22); empty for the unsleeved part.
+  string sleeve = 8;
 }
 
 // One encumbrance of a position, as the book holds it.
@@ -3588,9 +3688,29 @@ message BreakCause {
     bool none_found = 6;
     // The custodian's activity that explains it (contract v14).
     ActivityRef activity = 8;
+    // The date read's check of a pending value date (W3.20, W9.4; contract
+    // v22): beside BREAK_CAUSE_CATEGORY_VALUE_DATE_NOT_BUSINESS_DAY.
+    DateCheck date_check = 9;
   }
 
   string note = 7;
+}
+
+// What the date read found of one date (W3.20, W9.4; the calendars spec's
+// requirement 14; contract v22): the date, the calendars and their versions
+// it was checked on, and why the day is closed.
+// TODO(name): the approved text names the field `date_check`, not its
+// message, nor the enum or fields saying why the day is closed.
+// A mirror of meridian.v1.DateCheck.
+message DateCheck {
+  // ISO 8601.
+  string date = 1;
+
+  // Each calendar it was checked on, with its version.
+  repeated CalendarRef calendars = 2;
+
+  // TODO(name): why the day is closed -- a weekend, a named holiday, or
+  // outside coverage -- and the holiday's name as the source gives it.
 }
 
 // A mirror of meridian.v1.BreakCauseCategory.
@@ -3606,6 +3726,11 @@ enum BreakCauseCategory {
   // Income the custodian reinvested in units, which the book has not
   // booked: a money market fund's monthly dividend (contract v14).
   BREAK_CAUSE_CATEGORY_INCOME_REINVESTED = 8;
+  // A pending value date that is not a business day on its calendars
+  // (W9.4; spec/settlement-calendars-are-core-reference-data, requirement 14
+  // and Q9; contract v22): the cause names the date read's check
+  // (BreakCause.date_check). The book never moves the date itself.
+  BREAK_CAUSE_CATEGORY_VALUE_DATE_NOT_BUSINESS_DAY = 9;
 }
 
 // A mirror of meridian.v1.PendingSettlementRef.
@@ -3709,6 +3834,13 @@ message AccountAttributes {
   // unset while none stands (Q21 of the sample operations plugin, ruled
   // 2026-10-01).
   OpeningBalance opening_balance = 5;
+
+  // Whether a release waits until every compliance plugin covering the
+  // account has answered on the order's version (W9.13, W11.6; step 5's Q5;
+  // contract v22). True for a new account and for every account the book
+  // held at the upgrade, recorded so (decisions/031); the book always
+  // states it, so false is a deployment admin's act with its reason.
+  bool waits_for_compliance = 6;
 }
 
 // A mirror of meridian.v1.LotReliefMethod.
@@ -3809,6 +3941,12 @@ message MovementLine {
 
   // A pending line's fail, where its source reports one.
   PendingState pending_state = 8;
+
+  // The sleeve within the account it moves (W9's invariants, the order-path
+  // plan's refresh, Q33; step 5's requirement 59; contract v22): a cash
+  // line's too. Empty for the account's unsleeved part, and on every line
+  // before v22.
+  string sleeve = 9;
 }
 
 // A mirror of meridian.v1.SettlementBucket.
@@ -4384,6 +4522,14 @@ message DatasetDeclaration {
   // that is not one venue's, which is the consolidated view. A row naming
   // no venue is the dataset's view.
   string venue_id = 11;
+
+  // The settlement calendar its business dates follow, its `CAL-` ID
+  // (W10.1; spec/settlement-calendars-are-core-reference-data, requirement
+  // 15; the lake's Q28; contract v22), beside day_time_zone and
+  // day_end_minute. A daily value dated on a day it says is closed is
+  // recorded as reported and flagged, never refused. Empty names none, as
+  // before.
+  string calendar_id = 12;
 }
 
 // How a dataset's rows arrive (the lake intent's Q9 and Q10).

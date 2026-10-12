@@ -10,8 +10,11 @@
 // This service is a plugin's lifecycle and what it learns from the deployment:
 // registering, liveness, leaving, its settings, who may use it, its account
 // scope, the tickets it files for a person (contract v13), at the edge
-// the moves of its raw records (contract v16), and a data plugin's catalogue of
-// datasets in its declaration (contract v18). Its access to
+// the moves of its raw records (contract v16), a data plugin's catalogue of
+// datasets in its declaration (contract v18), and from contract v22 the
+// algorithm identifiers a version declares, a connectivity plugin's `ems` and
+// an `ems`'s venue account map beside its scope, and the order path's
+// refusal codes. Its access to
 // the bus is not here. Since contract v2 that is the typed
 // operations of meridian.plugin.v1, one per matrix row a role may take and
 // generated from the matrix; the generic publish, subscribe and call are gone,
@@ -105,7 +108,7 @@ message RegisterRequest {
   reserved "instance_id", "role", "tags";
 
   // The contract version the plugin was built against, as `v<N>`. This
-  // schema is contract v21, and a plugin built from it declares "v21".
+  // schema is contract v22, and a plugin built from it declares "v22".
   //
   // Required. A sidecar admits it when it lies between the sidecar's floor
   // and its own version, and otherwise refuses it naming both (W4.1): a
@@ -258,6 +261,26 @@ message PluginDeclaration {
   // The datasets it serves the lake (W8.1, W10.4; contract v18): only on a
   // version holding `data`, refused otherwise. Unset serves none.
   Catalogue catalogue = 4;
+
+  // The algorithm identifiers its autonomous work may name (W4.1, W4.9;
+  // v21's Q16, the order-path plan's refresh, Q24; contract v22): each
+  // stable across versions, with a description. A command a service account
+  // sends naming one this version does not declare is refused
+  // INVALID_ARGUMENT, naming the field; the book puts the one named on the
+  // entry's ServiceAccountActor. Empty declares none.
+  repeated AlgorithmDeclaration algorithms = 5;
+}
+
+// One algorithm identifier a version declares (contract v22).
+// TODO(name): the approved text names the field `algorithms`, not this
+// message.
+message AlgorithmDeclaration {
+  // Stable across versions and reinstalls: what `reporting` maps to a
+  // regime's decision-maker and executor.
+  string algorithm_id = 1;
+
+  // What it is, for a person reading the plugin's page. Plain text.
+  string description = 2;
 }
 
 // A data plugin's catalogue: the datasets it serves the lake (spec/the-lake, "The
@@ -315,6 +338,14 @@ message DatasetDeclaration {
   // that is not one venue's, which is the consolidated view. A row naming
   // no venue is the dataset's view.
   string venue_id = 11;
+
+  // The settlement calendar its business dates follow, its `CAL-` ID
+  // (W10.1; spec/settlement-calendars-are-core-reference-data, requirement
+  // 15; the lake's Q28; contract v22), beside day_time_zone and
+  // day_end_minute. A daily value dated on a day it says is closed is
+  // recorded as reported and flagged, never refused. Empty names none, as
+  // before.
+  string calendar_id = 12;
 }
 
 // How a dataset's rows arrive (the lake intent's Q9 and Q10).
@@ -908,10 +939,16 @@ message Provenance {
 
   // The rule that derived it, by name, as the plugin documents it.
   string rule = 6;
+
+  // On a value core computed (PROVENANCE_KIND_COMPUTED, contract v22): the
+  // rule and each calendar, with their versions, the date read worked it
+  // out on (W3.20; the calendars spec's Q10). Never on another kind.
+  DateBasis date_basis = 7;
 }
 
-// The four kinds of provenance (requirement 32), the same meanings as an
-// instrument value's source (v10's InstrumentValueSource).
+// The kinds of provenance (requirement 32), the same meanings as an
+// instrument value's source (v10's InstrumentValueSource), and from v22 a
+// value core computed.
 enum ProvenanceKind {
   // Not said; refused.
   PROVENANCE_KIND_UNSPECIFIED = 0;
@@ -923,6 +960,53 @@ enum ProvenanceKind {
   PROVENANCE_KIND_SUPPLIED = 3;
   // Derived by a named rule in the plugin's code.
   PROVENANCE_KIND_DERIVED = 4;
+  // Computed by core, with its basis (contract v22): a date the date read
+  // worked out from the settlement calendars, since it is not the plugin's
+  // own rule (W3.20; the calendars spec's Q10).
+  PROVENANCE_KIND_COMPUTED = 5;
+}
+
+// What a date was computed on (W3.20; spec/settlement-calendars-are-core-
+// reference-data, requirement 8; contract v22): the rule and its version,
+// and each calendar and its version, so anything recording the date can
+// record its basis with it, and the same inputs and versions always give
+// the same date. Plugin-facing, since a plugin's Provenance and its
+// execution's settlement date carry one; the records are core's
+// (meridian-core's reference.proto).
+message DateBasis {
+  // Empty for a date worked out on calendars alone: a roll, a
+  // business-day check.
+  DateRuleRef rule = 1;
+  repeated CalendarRef calendars = 2;
+}
+
+// Which date rule (contract v22).
+enum DateRuleKind {
+  DATE_RULE_KIND_UNSPECIFIED = 0;
+  // A market's settlement-date rule, for a country and an asset class.
+  DATE_RULE_KIND_SETTLEMENT = 1;
+  // A currency pair's spot-date rule, its tenor-date rule on it.
+  DATE_RULE_KIND_SPOT = 2;
+}
+
+// A date rule by its kind, subject and version: a rule has no ID of its own
+// (the calendars spec's Q11).
+// TODO(name): the approved text names the fields `rule`, `kind`, `subject`
+// and `version`, not this message.
+message DateRuleRef {
+  DateRuleKind kind = 1;
+  // As the platform names it: `US/equity`, a country and an asset class;
+  // `EUR/USD`, a pair.
+  string subject = 2;
+  int64 version = 3;
+}
+
+// A calendar at one version.
+// TODO(name): the approved text names the fields, not this message.
+message CalendarRef {
+  // "CAL-...", the platform's ID, never reused.
+  string calendar_id = 1;
+  int64 version = 2;
 }
 
 // A write marked as a backfill (requirement 27): a field a contract revision
@@ -1249,6 +1333,68 @@ message AccountScopeDelivery {
   // external account the plugin reported and none of these names is
   // unlinked, and its rows are refused (Refusal).
   repeated LinkedExternalAccount links = 3;
+
+  // Contract v22 (W4.11, W11.21, W11.22; the order-path plan's refresh,
+  // Q26). For a connectivity plugin: its link to its one `ems`. It holds no
+  // permission-derived scope and no links of its own: its read and write
+  // scope above is the accounts that `ems` mapped venue account codes to on
+  // it, and empty while it is linked to none. For an `ems`: the
+  // connectivity plugins linked to it, who may route through each, and its
+  // venue account map. Sent again on every change to any of them.
+  // TODO(name): these three fields' names are not in the approved text.
+  ConnectivityLink connectivity_link = 4;
+  repeated ConnectivityLink connectivity_links = 5;
+  VenueAccountMap venue_account_map = 6;
+}
+
+// A connectivity plugin instance's availability, the `ems` it is linked to
+// and its users (W11.21; ruled 2026-10-10; contract v22). Kept by the
+// conductor, each change its own record (meridian-core's
+// ConnectivityLinkChange).
+message ConnectivityLink {
+  string connectivity_instance_id = 1;
+
+  // Made available by a deployment admin; nothing is by default.
+  bool available = 2;
+
+  // The one `ems` instance it is linked to, by its admin; empty while
+  // unlinked.
+  string ems_instance_id = 3;
+
+  // Who may route through it, made available by the `ems`'s admin: a
+  // placement for any other user is refused
+  // REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED.
+  repeated ConnectivityUser users = 4;
+}
+
+// A user a connectivity plugin is made available to.
+// TODO(name): the approved text names the field `users`, not this message.
+message ConnectivityUser {
+  oneof user {
+    // A person, by the deployment-local subject.
+    string subject = 1;
+    string service_account_id = 2;
+    string user_group_id = 3;
+  }
+}
+
+// An `ems`'s map of book accounts to the venue account codes they trade
+// under at its connectivity plugins (W11.22; contract v22): what the `ems`
+// sets in the venue's account field, and what the sidecar stamps a venue
+// fact's account by (`venue-account-map`).
+message VenueAccountMap {
+  string ems_instance_id = 1;
+  repeated VenueAccountMapping mappings = 2;
+}
+
+// One account's code at one connectivity plugin: a code once per plugin.
+// TODO(name): the approved text names the field `mappings`, not this
+// message.
+message VenueAccountMapping {
+  string connectivity_instance_id = 1;
+  string venue_account_code = 2;
+  // An account the deployment admin granted the `ems`'s instance (W6.30).
+  string account_id = 3;
 }
 
 // One of the plugin's external accounts, as linked.
@@ -1589,7 +1735,56 @@ enum RefusalReason {
   // FAILED_PRECONDITION (W6.4, W6.30, contract v20). A link naming an
   // existing account the deployment admin has not granted the plugin's
   // instance: nothing linked. The admin asks a deployment admin to grant it.
+  // From contract v22 also an `ems`'s venue account mapping naming such an
+  // account (W11.22), sent with ABORTED.
   REFUSAL_REASON_ACCOUNT_NOT_LINKABLE = 16;
+
+  // The order path's refusals (W11, contract v22; step 5's "Refusals"),
+  // each sent with ABORTED: the book, or the conductor for the link, answered
+  // with a refusal of its own. A command refused changes nothing, but for
+  // REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED on a placement, which is
+  // recorded. A venue's fact is never refused for its state.
+
+  // A release whose allocation instruction does not sum to the ordered
+  // quantity (W11.6; principle 1, ordered equals allocated).
+  REFUSAL_REASON_ALLOCATION_UNBALANCED = 17;
+
+  // A release of an order whose approval required stands unapproved
+  // (W11.6).
+  REFUSAL_REASON_APPROVAL_REQUIRED = 18;
+
+  // A release while a check's block stands without an override (W11.6).
+  REFUSAL_REASON_CHECK_BLOCKS = 19;
+
+  // A placement, a claim or a change by other than the claimant of a
+  // claimed order (W11.3, W11.7, W11.8, W11.9); a cancel by anyone who may
+  // write the account is admitted past a claim (Q4), and so is a
+  // connectivity plugin's report of a cancel it sent under a stop.
+  REFUSAL_REASON_CLAIMED = 20;
+
+  // A command the order's or the placement's state does not allow, by the
+  // transition table (decisions/035): a placement or a child order under an
+  // order not released, a quantity change that is not the proposer's or an
+  // alignment, an acknowledgement of does not tie out, a use of an expired
+  // locate.
+  REFUSAL_REASON_ORDER_STATE = 21;
+
+  // A new record reusing an identifier already in use (W11.1; step 5,
+  // "Refusals").
+  REFUSAL_REASON_IDENTIFIER_IN_USE = 22;
+
+  // A placement naming a connectivity plugin not linked to the placing
+  // `ems`, or not made available to the user the command acts for, a
+  // person or a service account (W11.8; ruled 2026-10-10, the order-path
+  // plan's refresh, Q30); refused and recorded, an entry naming the placing
+  // `ems`, the instance asked for, the actor and the reason, heard by the
+  // `ems` and `compliance`. Also an `ems`'s venue account mapping at a
+  // connectivity plugin not linked to it (W11.22).
+  REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED = 23;
+
+  // A link of a connectivity plugin already linked to another `ems`
+  // (W11.21): each is linked to exactly one.
+  REFUSAL_REASON_CONNECTIVITY_LINKED = 24;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
