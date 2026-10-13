@@ -1350,18 +1350,14 @@ pub struct ProposeOrderResult {
     #[prost(string, tag = "4")]
     pub change_request_id: ::prost::alloc::string::String,
 }
-/// W11.2. A fact: never through the gate. By a connectivity plugin, its
-/// account stamped by the sidecar from the `ems`'s map
-/// (`venue-account-map`); or by the `oms`, for a person, naming the account.
+/// W11.2. A fact: never through the gate. By the `oms`, for a user, naming
+/// the account: a telephoned or outside order. A connectivity plugin records
+/// no order (ruled 2026-10-13).
 /// The params of RecordOrder: meridian.v1.RecordOrderRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RecordOrderParams {
-    /// Stamped from venue_account_code on a connectivity plugin's; empty,
-    /// never refused, where none is mapped, so the fact is kept unplaced.
     #[prost(string, tag = "1")]
     pub account_id: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub venue_account_code: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
     pub instrument_id: ::prost::alloc::string::String,
     #[prost(string, tag = "4")]
@@ -1380,8 +1376,6 @@ pub struct RecordOrderParams {
     pub venue_order_id: ::prost::alloc::string::String,
     #[prost(enumeration = "OrderOrigin", tag = "11")]
     pub origin: i32,
-    #[prost(message, optional, tag = "12")]
-    pub raw_record: ::core::option::Option<RawRecordRef>,
     #[prost(string, tag = "13")]
     pub idempotency_key: ::prost::alloc::string::String,
     /// W4.9: the person this is sent for, as the assertion the plugin was
@@ -1592,7 +1586,7 @@ pub struct SetWorkingConditionResult {
     #[prost(string, tag = "4")]
     pub change_request_id: ::prost::alloc::string::String,
 }
-/// W11.8. By the `ems`; or by a connectivity plugin, a direct order's.
+/// W11.8. By the `ems` alone (ruled 2026-10-13).
 /// The params of CreatePlacement: meridian.v1.CreatePlacementRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreatePlacementParams {
@@ -1760,8 +1754,9 @@ pub struct ReportExecutionParams {
     /// A done-away execution's order.
     #[prost(string, tag = "2")]
     pub order_id: ::prost::alloc::string::String,
-    /// Stamped from venue_account_code on a connectivity plugin's, as
-    /// RecordOrderRequest's is.
+    /// Stamped from venue_account_code on a connectivity plugin's
+    /// (`venue-account-map`); empty, never refused, where none is mapped, so
+    /// the fact is kept unplaced. Named on an entry for a person.
     #[prost(string, tag = "3")]
     pub account_id: ::prost::alloc::string::String,
     #[prost(string, tag = "4")]
@@ -5158,6 +5153,11 @@ pub struct Placement {
     /// (requirement 34): external references, never keys.
     #[prost(string, repeated, tag = "25")]
     pub venue_order_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Its own change requests, each with its PlacementChange and tracked to
+    /// its outcome (W11.9; approved 2026-10-13), so its connectivity plugin
+    /// hears each on the placement. The order's stay on the order.
+    #[prost(message, repeated, tag = "26")]
+    pub change_requests: ::prost::alloc::vec::Vec<ChangeRequest>,
 }
 /// A strategy for the venue to work (step 6's Q11): the kinds name which of
 /// a broker's strategies, described in its catalogue on FIXatdl's model
@@ -5358,7 +5358,7 @@ pub struct UnplacedFact {
     /// plugin, counted on its connectivity plugin's admin view.
     #[prost(string, tag = "2")]
     pub account_id: ::prost::alloc::string::String,
-    /// The kind of fact, as data: `execution`, `placement`, `charge`, `order`.
+    /// The kind of fact, as data: `execution`, `placement`, `charge`, `locate`.
     #[prost(string, tag = "3")]
     pub fact_kind: ::prost::alloc::string::String,
     #[prost(enumeration = "UnplacedReason", tag = "4")]
@@ -5373,7 +5373,7 @@ pub struct UnplacedFact {
     /// Its latest entry: the one that kept it, or the one that placed it.
     #[prost(message, optional, tag = "13")]
     pub last_change: ::core::option::Option<JournalRef>,
-    #[prost(oneof = "unplaced_fact::Fact", tags = "7, 8, 9, 10, 11")]
+    #[prost(oneof = "unplaced_fact::Fact", tags = "7, 8, 9, 11")]
     pub fact: ::core::option::Option<unplaced_fact::Fact>,
 }
 /// Nested message and enum types in `UnplacedFact`.
@@ -5386,8 +5386,6 @@ pub mod unplaced_fact {
         Placement(super::ReportPlacementRequest),
         #[prost(message, tag = "9")]
         Charge(super::ReportChargeRequest),
-        #[prost(message, tag = "10")]
-        Order(super::RecordOrderRequest),
         #[prost(message, tag = "11")]
         Locate(super::RecordLocateRequest),
     }
@@ -5404,8 +5402,9 @@ pub struct ReportExecutionRequest {
     /// A done-away execution's order.
     #[prost(string, tag = "2")]
     pub order_id: ::prost::alloc::string::String,
-    /// Stamped from venue_account_code on a connectivity plugin's, as
-    /// RecordOrderRequest's is.
+    /// Stamped from venue_account_code on a connectivity plugin's
+    /// (`venue-account-map`); empty, never refused, where none is mapped, so
+    /// the fact is kept unplaced. Named on an entry for a person.
     #[prost(string, tag = "3")]
     pub account_id: ::prost::alloc::string::String,
     #[prost(string, tag = "4")]
@@ -5509,41 +5508,6 @@ pub struct ReportChargeRequest {
     pub settlement_date: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "5")]
     pub raw_record: ::core::option::Option<RawRecordRef>,
-}
-/// W11.2. A fact: never through the gate. By a connectivity plugin, its
-/// account stamped by the sidecar from the `ems`'s map
-/// (`venue-account-map`); or by the `oms`, for a person, naming the account.
-/// A mirror of meridian.v1.RecordOrderRequest.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct RecordOrderRequest {
-    /// Stamped from venue_account_code on a connectivity plugin's; empty,
-    /// never refused, where none is mapped, so the fact is kept unplaced.
-    #[prost(string, tag = "1")]
-    pub account_id: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub venue_account_code: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub instrument_id: ::prost::alloc::string::String,
-    #[prost(string, tag = "4")]
-    pub sleeve: ::prost::alloc::string::String,
-    #[prost(enumeration = "Side", tag = "5")]
-    pub side: i32,
-    #[prost(message, optional, tag = "6")]
-    pub quantity: ::core::option::Option<Decimal>,
-    #[prost(enumeration = "OrderType", tag = "7")]
-    pub order_type: i32,
-    #[prost(message, optional, tag = "8")]
-    pub limit_price: ::core::option::Option<Money>,
-    #[prost(enumeration = "TimeInForce", tag = "9")]
-    pub time_in_force: i32,
-    #[prost(string, tag = "10")]
-    pub venue_order_id: ::prost::alloc::string::String,
-    #[prost(enumeration = "OrderOrigin", tag = "11")]
-    pub origin: i32,
-    #[prost(message, optional, tag = "12")]
-    pub raw_record: ::core::option::Option<RawRecordRef>,
-    #[prost(string, tag = "13")]
-    pub idempotency_key: ::prost::alloc::string::String,
 }
 /// W11.18. By the fund's connectivity plugin; the answer later on the same
 /// record as its own entry.
@@ -8268,9 +8232,6 @@ impl ExecutionInstruction {
 pub enum OrderOrigin {
     /// An order the book created: proposed (W11.1).
     Unspecified = 0,
-    /// A venue-originated order: a liquidation, auto-deleveraging, one a drop
-    /// copy shows; actor the venue.
-    Venue = 1,
     /// A telephoned or outside order, recorded by the `oms` for a person.
     Telephoned = 2,
 }
@@ -8282,7 +8243,6 @@ impl OrderOrigin {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Self::Unspecified => "ORDER_ORIGIN_UNSPECIFIED",
-            Self::Venue => "ORDER_ORIGIN_VENUE",
             Self::Telephoned => "ORDER_ORIGIN_TELEPHONED",
         }
     }
@@ -8290,7 +8250,6 @@ impl OrderOrigin {
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "ORDER_ORIGIN_UNSPECIFIED" => Some(Self::Unspecified),
-            "ORDER_ORIGIN_VENUE" => Some(Self::Venue),
             "ORDER_ORIGIN_TELEPHONED" => Some(Self::Telephoned),
             _ => None,
         }
@@ -9237,11 +9196,8 @@ pub enum UnplacedReason {
     /// It names a placement the book does not hold.
     UnknownPlacement = 1,
     /// Its venue account code maps to no account on the sending connectivity
-    /// plugin (W11.2, W11.22).
+    /// plugin (W11.22).
     UnmappedVenueAccount = 2,
-    /// Its instrument's record is incomplete (W11.2; the order-path plan's
-    /// Q18).
-    InstrumentIncomplete = 3,
 }
 impl UnplacedReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -9253,7 +9209,6 @@ impl UnplacedReason {
             Self::Unspecified => "UNPLACED_REASON_UNSPECIFIED",
             Self::UnknownPlacement => "UNPLACED_REASON_UNKNOWN_PLACEMENT",
             Self::UnmappedVenueAccount => "UNPLACED_REASON_UNMAPPED_VENUE_ACCOUNT",
-            Self::InstrumentIncomplete => "UNPLACED_REASON_INSTRUMENT_INCOMPLETE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -9262,7 +9217,6 @@ impl UnplacedReason {
             "UNPLACED_REASON_UNSPECIFIED" => Some(Self::Unspecified),
             "UNPLACED_REASON_UNKNOWN_PLACEMENT" => Some(Self::UnknownPlacement),
             "UNPLACED_REASON_UNMAPPED_VENUE_ACCOUNT" => Some(Self::UnmappedVenueAccount),
-            "UNPLACED_REASON_INSTRUMENT_INCOMPLETE" => Some(Self::InstrumentIncomplete),
             _ => None,
         }
     }

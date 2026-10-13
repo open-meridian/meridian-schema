@@ -96,11 +96,11 @@ pub struct MessageMeta {
     #[prost(bool, tag = "10")]
     pub account_scope_applies: bool,
     /// Set by the sidecar on every CreatePlacement it sends for its plugin, an
-    /// `ems`'s or, for a direct order, a connectivity plugin's, and never by a
-    /// plugin or a core component (W4.9, W11.8; contract v22; approved
-    /// 2026-10-12): its verdict on the connectivity link, true when the
-    /// placement's connectivity plugin is linked to the stamped ems instance
-    /// (or is the sending connectivity plugin itself), its link not withdrawn,
+    /// `ems` (a connectivity plugin creates no placement, ruled 2026-10-13),
+    /// and never by a plugin or a core component (W4.9, W11.8; contract v22;
+    /// approved 2026-10-12): its verdict on the connectivity link, true when
+    /// the placement's connectivity plugin is linked to the stamped ems
+    /// instance, its link not withdrawn,
     /// and the acting user -- the person, the service account, or a user group
     /// they are in -- among the link's users: the placement's connectivity
     /// instance is in the caller's CallerClaims.connectivity_instance_ids,
@@ -1159,13 +1159,11 @@ pub struct CallerClaims {
     #[prost(string, tag = "21")]
     pub algorithm_id: ::prost::alloc::string::String,
     /// The connectivity plugin instances this user may route through for the
-    /// calling plugin, an ems or a connectivity plugin (W4.9, W11.8, W11.21;
-    /// contract v22; approved 2026-10-12): computed by the dashboard at
-    /// admission, the same way for either, from the conductor's links
+    /// calling ems (W4.9, W11.8, W11.21; contract v22; approved 2026-10-12):
+    /// computed by the dashboard at admission from the conductor's links
     /// (AccessRecords.connectivity_links) and the person's user groups, logins
-    /// or the service account's identity. The calling plugin's sidecar checks
-    /// a CreatePlacement's connectivity instance against it -- for a
-    /// connectivity plugin's direct order, its own instance -- and stamps
+    /// or the service account's identity. The ems's sidecar checks a
+    /// CreatePlacement's connectivity instance against it and stamps
     /// MessageMeta.connectivity_allowed. It tells the plugin which
     /// connectivity plugins the user may use, never their groups. Empty in an
     /// assertion for any other plugin, and for a user who may route through
@@ -1289,7 +1287,9 @@ pub struct AccountScopeDelivery {
     #[prost(message, repeated, tag = "3")]
     pub links: ::prost::alloc::vec::Vec<LinkedExternalAccount>,
     /// Contract v22 (W4.11, W11.21, W11.22; the order-path plan's refresh,
-    /// Q26). For a connectivity plugin: its link to its one `ems`. It holds no
+    /// Q26). For a connectivity plugin: its link to its one `ems`, and the
+    /// mappings that `ems` made on it (venue_account_map), from which its
+    /// sidecar stamps a fill's or a locate's account. It holds no
     /// permission-derived scope and no links of its own: its read and write
     /// scope above is the accounts that `ems` mapped venue account codes to on
     /// it, and empty while it is linked to none. For an `ems`: the

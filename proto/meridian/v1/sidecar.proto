@@ -1227,13 +1227,11 @@ message CallerClaims {
   string algorithm_id = 21;
 
   // The connectivity plugin instances this user may route through for the
-  // calling plugin, an ems or a connectivity plugin (W4.9, W11.8, W11.21;
-  // contract v22; approved 2026-10-12): computed by the dashboard at
-  // admission, the same way for either, from the conductor's links
+  // calling ems (W4.9, W11.8, W11.21; contract v22; approved 2026-10-12):
+  // computed by the dashboard at admission from the conductor's links
   // (AccessRecords.connectivity_links) and the person's user groups, logins
-  // or the service account's identity. The calling plugin's sidecar checks
-  // a CreatePlacement's connectivity instance against it -- for a
-  // connectivity plugin's direct order, its own instance -- and stamps
+  // or the service account's identity. The ems's sidecar checks a
+  // CreatePlacement's connectivity instance against it and stamps
   // MessageMeta.connectivity_allowed. It tells the plugin which
   // connectivity plugins the user may use, never their groups. Empty in an
   // assertion for any other plugin, and for a user who may route through
@@ -1357,7 +1355,9 @@ message AccountScopeDelivery {
   repeated LinkedExternalAccount links = 3;
 
   // Contract v22 (W4.11, W11.21, W11.22; the order-path plan's refresh,
-  // Q26). For a connectivity plugin: its link to its one `ems`. It holds no
+  // Q26). For a connectivity plugin: its link to its one `ems`, and the
+  // mappings that `ems` made on it (venue_account_map), from which its
+  // sidecar stamps a fill's or a locate's account. It holds no
   // permission-derived scope and no links of its own: its read and write
   // scope above is the accounts that `ems` mapped venue account codes to on
   // it, and empty while it is linked to none. For an `ems`: the
