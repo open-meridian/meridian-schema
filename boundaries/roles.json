@@ -86,6 +86,7 @@
         "hears": [
           "AccountAttributeChanged",
           "PlacementUpdated",
+          "ExecutionRecorded",
           "TradingInstructionChanged"
         ]
       }
@@ -158,6 +159,7 @@
           "ComputeDate",
           "ListPrices",
           "ListBars",
+          "ListOutcomes",
           "ListDatasets"
         ],
         "hears": [
@@ -171,7 +173,8 @@
           "TradingInstructionChanged",
           "LocateUpdated",
           "PricesRecorded",
-          "BarsRecorded"
+          "BarsRecorded",
+          "OutcomesRecorded"
         ]
       }
     },
@@ -338,6 +341,7 @@
           "RecordBars",
           "RecordTrades",
           "RecordQuotes",
+          "RecordOutcomes",
           "DeclineWant"
         ],
         "reads": [
@@ -414,7 +418,9 @@
           "CreatePlacement",
           "RequestPlacementChange",
           "ReportExecution",
-          "MapVenueAccount"
+          "MapVenueAccount",
+          "AcceptExecution",
+          "DontKnowExecution"
         ],
         "reads": [
           "ResolveInstrument",
@@ -635,7 +641,8 @@
           "ListOrders",
           "ReadOrderHistory",
           "ReadCalendar",
-          "ComputeDate"
+          "ComputeDate",
+          "ListOutcomes"
         ],
         "hears": [
           "StatementRecorded",
@@ -649,7 +656,8 @@
           "AccountAttributeChanged",
           "OrderUpdated",
           "ExecutionRecorded",
-          "UnplacedFactRecorded"
+          "UnplacedFactRecorded",
+          "OutcomesRecorded"
         ]
       }
     },
@@ -715,6 +723,7 @@
           "ComputeDate",
           "ListPrices",
           "ListBars",
+          "ListOutcomes",
           "ListDatasets"
         ],
         "hears": [
@@ -727,7 +736,8 @@
           "TradingInstructionChanged",
           "LocateUpdated",
           "PricesRecorded",
-          "BarsRecorded"
+          "BarsRecorded",
+          "OutcomesRecorded"
         ]
       }
     },
@@ -787,6 +797,7 @@
           "ComputeDate",
           "ListPrices",
           "ListBars",
+          "ListOutcomes",
           "ListDatasets"
         ],
         "hears": [
@@ -797,7 +808,8 @@
           "OrderUpdated",
           "ExecutionRecorded",
           "PricesRecorded",
-          "BarsRecorded"
+          "BarsRecorded",
+          "OutcomesRecorded"
         ]
       }
     },
@@ -907,18 +919,33 @@
           "ListBars",
           "ListTrades",
           "ListQuotes",
+          "ListOutcomes",
           "ListDatasets"
         ],
         "hears": [
           "PricesRecorded",
           "BarsRecorded",
           "TradesRecorded",
-          "QuotesRecorded"
+          "QuotesRecorded",
+          "OutcomesRecorded"
         ]
       }
     }
   ],
   "operations": [
+    {
+      "name": "AcceptExecution",
+      "step": "W11.23",
+      "title": "Accept an unmatched execution to an order",
+      "kind": "command",
+      "topic": "platform.book.command.accept-execution",
+      "roles": {
+        "publishes": [
+          "ems"
+        ]
+      },
+      "stability": "preview"
+    },
     {
       "name": "AccountAttributeChanged",
       "step": "W9.8",
@@ -1119,6 +1146,19 @@
       "stability": "preview"
     },
     {
+      "name": "DontKnowExecution",
+      "step": "W11.24",
+      "title": "Answer an unmatched execution DK",
+      "kind": "command",
+      "topic": "platform.book.command.dont-know-execution",
+      "roles": {
+        "publishes": [
+          "ems"
+        ]
+      },
+      "stability": "preview"
+    },
+    {
       "name": "ExecutionRecorded",
       "step": "W11.13",
       "title": "Journal each act, and publish what changed",
@@ -1127,6 +1167,7 @@
       "roles": {
         "hears": [
           "compliance",
+          "connectivity",
           "ems",
           "oms",
           "operations",
@@ -1309,6 +1350,23 @@
       "stability": "preview"
     },
     {
+      "name": "ListOutcomes",
+      "step": "W10.6",
+      "title": "Read prices, bars, trades and quotes, point in time, by source",
+      "kind": "query",
+      "topic": "platform.lake.query.list-outcomes",
+      "roles": {
+        "reads": [
+          "compliance",
+          "operations",
+          "portfolio",
+          "reporting",
+          "signal"
+        ]
+      },
+      "stability": "preview"
+    },
+    {
       "name": "ListPositions",
       "step": "W9.10",
       "title": "Read positions",
@@ -1468,6 +1526,23 @@
           "operations",
           "portfolio",
           "reporting"
+        ]
+      },
+      "stability": "preview"
+    },
+    {
+      "name": "OutcomesRecorded",
+      "step": "W10.5",
+      "title": "Record, sequence and publish each row",
+      "kind": "event",
+      "topic": "platform.lake.{dataset}.event.outcomes-recorded",
+      "roles": {
+        "hears": [
+          "compliance",
+          "operations",
+          "portfolio",
+          "reporting",
+          "signal"
         ]
       },
       "stability": "preview"
@@ -1784,6 +1859,19 @@
       "roles": {
         "publishes": [
           "oms"
+        ]
+      },
+      "stability": "preview"
+    },
+    {
+      "name": "RecordOutcomes",
+      "step": "W10.4",
+      "title": "Record prices, bars, trades and quotes in batches",
+      "kind": "command",
+      "topic": "platform.lake.command.record-outcomes",
+      "roles": {
+        "publishes": [
+          "data"
         ]
       },
       "stability": "preview"

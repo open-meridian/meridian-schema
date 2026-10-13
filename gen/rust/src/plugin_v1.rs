@@ -1813,6 +1813,18 @@ pub struct ReportExecutionParams {
     pub liquidity_indicator: i32,
     #[prost(string, tag = "31")]
     pub uti_generated_by: ::prost::alloc::string::String,
+    /// Contract v23 (W11.11): a fill on no order and no placement names its
+    /// instrument, its side and the venue's order ID (FIX 37), each required
+    /// when no placement is named; and the venue's client order ID (FIX 11)
+    /// where the venue sent one, which FIX requires back on BN and Q.
+    #[prost(string, tag = "32")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "Side", tag = "33")]
+    pub side: i32,
+    #[prost(string, tag = "34")]
+    pub venue_order_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "35")]
+    pub venue_client_order_id: ::prost::alloc::string::String,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -1964,6 +1976,11 @@ pub struct ListOrdersParams {
     pub page_size: i32,
     #[prost(string, tag = "4")]
     pub cursor: ::prost::alloc::string::String,
+    /// Contract v23 (W11.17): only executions in this state; unspecified,
+    /// every one. Unmatched leaves out an execution a later one supersedes,
+    /// and a bust.
+    #[prost(enumeration = "ExecutionState", tag = "5")]
+    pub execution_state: i32,
 }
 /// Each kind of record the order path delivers, in its own list, so a
 /// catch-up after a gap or a loss reads the records its row carries: an
@@ -2174,6 +2191,87 @@ pub struct MapVenueAccountResult {
     pub ems_instance_id: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "2")]
     pub mappings: ::prost::alloc::vec::Vec<VenueAccountMapping>,
+}
+/// W11.23 (contract v23). By the `ems`, for a person or its service account:
+/// 1 to 500 unmatched executions of one account, instrument and side,
+/// accepted to an existing order or to a new order made from them.
+/// The params of AcceptExecution: meridian.v1.AcceptExecutionRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AcceptExecutionParams {
+    #[prost(string, repeated, tag = "1")]
+    pub execution_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Kept on the accept's entry.
+    #[prost(string, tag = "4")]
+    pub note: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+    #[prost(oneof = "accept_execution_params::Order", tags = "2, 3")]
+    pub order: ::core::option::Option<accept_execution_params::Order>,
+}
+/// Nested message and enum types in `AcceptExecutionParams`.
+pub mod accept_execution_params {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Order {
+        /// An order the accepting `ems` may place against: released, working or
+        /// filled, never ended.
+        #[prost(string, tag = "2")]
+        OrderId(::prost::alloc::string::String),
+        /// A new order made from the fills, at filled, never gated.
+        #[prost(message, tag = "3")]
+        NewOrder(super::NewOrderFromExecutions),
+    }
+}
+/// An accept's answer (W11.23): each execution matched, the order and the
+/// placement it linked them to.
+/// The result of AcceptExecution: meridian.v1.AcceptExecutionReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AcceptExecutionResult {
+    #[prost(message, repeated, tag = "1")]
+    pub executions: ::prost::alloc::vec::Vec<Execution>,
+    #[prost(message, optional, tag = "2")]
+    pub order: ::core::option::Option<Order>,
+    #[prost(message, optional, tag = "3")]
+    pub placement: ::core::option::Option<Placement>,
+    #[prost(message, optional, tag = "4")]
+    pub journal: ::core::option::Option<JournalRef>,
+}
+/// W11.24 (contract v23). By the `ems`, for a person or its service account:
+/// 1 to 500 unmatched executions answered don't know, with a reason, and
+/// text when the reason is DK_REASON_OTHER.
+/// The params of DontKnowExecution: meridian.v1.DontKnowExecutionRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DontKnowExecutionParams {
+    #[prost(string, repeated, tag = "1")]
+    pub execution_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(enumeration = "DkReason", tag = "2")]
+    pub reason: i32,
+    #[prost(string, tag = "3")]
+    pub text: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// A DK's answer (W11.24).
+/// The result of DontKnowExecution: meridian.v1.DontKnowExecutionReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DontKnowExecutionResult {
+    #[prost(message, repeated, tag = "1")]
+    pub executions: ::prost::alloc::vec::Vec<Execution>,
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
 }
 /// W3.14: which venue a set of identifiers names on a date, in the venues the
 /// deployment holds.
@@ -2452,6 +2550,40 @@ pub struct RecordQuotesResult {
     #[prost(message, optional, tag = "4")]
     pub watermark: ::core::option::Option<Watermark>,
 }
+/// A batch of outcomes, recorded whole or refused naming the item and field:
+/// 1 to 500 (contract v23).
+/// The params of RecordOutcomes: meridian.v1.RecordOutcomesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordOutcomesParams {
+    #[prost(message, repeated, tag = "1")]
+    pub outcomes: ::prost::alloc::vec::Vec<Outcome>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// What a batch did, once it committed.
+/// The result of RecordOutcomes: meridian.v1.RecordObservationsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordOutcomesResult {
+    /// Rows recorded for the first time.
+    #[prost(uint32, tag = "1")]
+    pub recorded: u32,
+    /// Rows recorded as a new version of a row key held.
+    #[prost(uint32, tag = "2")]
+    pub restated: u32,
+    /// Rows identical to the version in force, which changed nothing.
+    #[prost(uint32, tag = "3")]
+    pub unchanged: u32,
+    /// The dataset's sequence once the batch committed.
+    #[prost(message, optional, tag = "4")]
+    pub watermark: ::core::option::Option<Watermark>,
+}
 /// Prices for subjects, at one of: the latest in force at a valid time
 /// (`at_ns`, 0 for now); a business date; or a valid-time range, from
 /// inclusive to exclusive. Exactly one is given; none is the latest now. The
@@ -2641,6 +2773,32 @@ pub struct ListQuotesResult {
     #[prost(string, tag = "5")]
     pub next_cursor: ::prost::alloc::string::String,
 }
+/// Outcomes for event contracts' instruments (contract v23): the version in
+/// force of each, or as of a recorded time before a restatement; or the
+/// versions recorded after a watermark, whatever their valid time, which is
+/// how a reader that lost some catches up. No business date is asked.
+/// The params of ListOutcomes: meridian.v1.ListOutcomesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListOutcomesParams {
+    /// 1 to 500.
+    #[prost(message, repeated, tag = "1")]
+    pub subjects: ::prost::alloc::vec::Vec<SubjectRef>,
+    /// The watermark the reader last saw: the versions each dataset partition
+    /// it names recorded after its sequence there.
+    #[prost(message, optional, tag = "2")]
+    pub after_watermark: ::core::option::Option<Watermark>,
+    /// The recorded-time cut-off, 0 for now: what the lake knew then.
+    #[prost(int64, tag = "3")]
+    pub as_of_ns: i64,
+}
+/// The result of ListOutcomes: meridian.v1.ListOutcomesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListOutcomesResult {
+    #[prost(message, repeated, tag = "1")]
+    pub outcomes: ::prost::alloc::vec::Vec<Outcome>,
+    #[prost(message, optional, tag = "2")]
+    pub watermark: ::core::option::Option<Watermark>,
+}
 /// What a data plugin cannot serve of a want, per subject, with its reason. It
 /// stands for the date or range the want asked, or for the latest where it
 /// asked the latest, and for nothing else (contract v19): a later want of
@@ -2713,7 +2871,7 @@ pub struct Delivery {
     pub meta: ::core::option::Option<DeliveryMeta>,
     #[prost(
         oneof = "delivery::Item",
-        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37"
+        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38"
     )]
     pub item: ::core::option::Option<delivery::Item>,
 }
@@ -2779,6 +2937,8 @@ pub mod delivery {
         #[prost(message, tag = "32")]
         PlacementUpdated(super::PlacementUpdatedEvent),
         /// W11.13: platform.book.event.execution-recorded.
+        /// Reaches a connectivity plugin only at the instance its
+        /// execution.raw_record.instance_id names (matrix/directed.tsv).
         #[prost(message, tag = "33")]
         ExecutionRecorded(super::ExecutionRecordedEvent),
         /// W11.13: platform.book.event.unplaced-fact-recorded.
@@ -2793,6 +2953,9 @@ pub mod delivery {
         /// W11.20: platform.config.event.venue-catalogue.
         #[prost(message, tag = "37")]
         ReportVenueCatalogue(super::VenueCatalogueEvent),
+        /// W10.5: platform.lake.{dataset}.event.outcomes-recorded.
+        #[prost(message, tag = "38")]
+        OutcomesRecorded(super::OutcomesRecordedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -5302,6 +5465,19 @@ pub struct Execution {
     /// Who generated the UTI.
     #[prost(string, tag = "35")]
     pub uti_generated_by: ::prost::alloc::string::String,
+    /// Contract v23 (W11.11, W11.23, W11.24). Its state, derived from the
+    /// journal.
+    #[prost(enumeration = "ExecutionState", tag = "36")]
+    pub state: i32,
+    /// The venue's order ID (FIX 37), as the venue states it: set on a fill
+    /// reported on no placement, so the plugin can answer its venue.
+    #[prost(string, tag = "37")]
+    pub venue_order_id: ::prost::alloc::string::String,
+    /// On a DK: the reason, and the text the `ems` sent.
+    #[prost(enumeration = "DkReason", tag = "38")]
+    pub dk_reason: i32,
+    #[prost(string, tag = "39")]
+    pub dk_text: ::prost::alloc::string::String,
 }
 /// An execution's finality: a level, and when it reached it.
 /// A mirror of meridian.v1.Finality.
@@ -5461,6 +5637,18 @@ pub struct ReportExecutionRequest {
     pub liquidity_indicator: i32,
     #[prost(string, tag = "31")]
     pub uti_generated_by: ::prost::alloc::string::String,
+    /// Contract v23 (W11.11): a fill on no order and no placement names its
+    /// instrument, its side and the venue's order ID (FIX 37), each required
+    /// when no placement is named; and the venue's client order ID (FIX 11)
+    /// where the venue sent one, which FIX requires back on BN and Q.
+    #[prost(string, tag = "32")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "Side", tag = "33")]
+    pub side: i32,
+    #[prost(string, tag = "34")]
+    pub venue_order_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "35")]
+    pub venue_client_order_id: ::prost::alloc::string::String,
 }
 /// W11.10. A fact, each with the raw record it was converted from.
 /// A mirror of meridian.v1.ReportPlacementRequest.
@@ -5652,6 +5840,11 @@ pub struct VenueCatalogue {
     pub strategies: ::prost::alloc::vec::Vec<VenueStrategy>,
     #[prost(message, repeated, tag = "5")]
     pub eligibility: ::prost::alloc::vec::Vec<VenueEligibility>,
+    /// Contract v23 (W11.20, W11.23, W11.24): what the connectivity plugin
+    /// sends its venue when the `ems` accepts a venue-originated fill or
+    /// answers it DK. Unspecified, as a v22 catalogue is, reads as none.
+    #[prost(enumeration = "ExecutionAcknowledgement", tag = "6")]
+    pub execution_acknowledgement: i32,
 }
 /// An order type the venue offers, with the times in force it takes.
 /// A mirror of meridian.v1.VenueOrderType.
@@ -5738,6 +5931,16 @@ pub struct VenueAccountMapping {
     /// An account the deployment admin granted the `ems`'s instance (W6.30).
     #[prost(string, tag = "3")]
     pub account_id: ::prost::alloc::string::String,
+}
+/// What the accept adds to the order the fills make (W11.23): the rest is
+/// the fills'.
+/// A mirror of meridian.v1.NewOrderFromExecutions.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NewOrderFromExecutions {
+    #[prost(string, tag = "1")]
+    pub sleeve: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub note: ::prost::alloc::string::String,
 }
 /// The venue master's record of one venue (W1.16). The platform mints its ID;
 /// a deployment keeps what it pulled (W3.5) and answers it (W3.14).
@@ -5976,6 +6179,12 @@ pub struct ObservationMeta {
     /// known: 0 to 16.
     #[prost(message, repeated, tag = "14")]
     pub unconverted: ::prost::alloc::vec::Vec<AsReported>,
+    /// Contract v23 (W10.4): set only when a daily value's business date is a
+    /// closed day of its dataset's calendar, or outside its coverage -- the
+    /// date, each calendar with its version, the reason and the holiday's
+    /// name. Recorded as reported, never refused. Decided by the lake.
+    #[prost(message, optional, tag = "15")]
+    pub closed_day: ::core::option::Option<DateCheck>,
 }
 /// One entity a row is about.
 /// A mirror of meridian.v1.SubjectRef.
@@ -6132,6 +6341,31 @@ pub struct Quote {
     #[prost(enumeration = "QuoteCharacteristic", repeated, tag = "6")]
     pub characteristics: ::prost::alloc::vec::Vec<i32>,
 }
+/// An event contract's outcome, as its venue determined it, at one stage
+/// (W10.4; the lake plan's "vL1c"). One row key per contract: each change of
+/// stage is a new version under it. Valid from the determination's time, an
+/// event SourceTime, with no business date: an outcome is not a daily value.
+/// A mirror of meridian.v1.Outcome.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Outcome {
+    #[prost(message, optional, tag = "1")]
+    pub meta: ::core::option::Option<ObservationMeta>,
+    /// What the instrument pays, in the platform's words.
+    #[prost(enumeration = "OutcomeDetermination", tag = "2")]
+    pub determination: i32,
+    /// The venue's stage of the determination.
+    #[prost(enumeration = "OutcomeStage", tag = "3")]
+    pub stage: i32,
+    /// What one contract settles at, in the payout asset: always set.
+    #[prost(message, optional, tag = "4")]
+    pub settlement_value: ::core::option::Option<Money>,
+    /// When the venue paid out; 0 until then.
+    #[prost(int64, tag = "5")]
+    pub settled_at_ns: i64,
+    /// The venue's own word for the determination, as reported.
+    #[prost(message, optional, tag = "6")]
+    pub determination_as_reported: ::core::option::Option<AsReported>,
+}
 /// Which datasets a read is answered from (the intent's Q4): exactly one of
 /// the deployment's default, named datasets, or every entitled dataset side by
 /// side. None set is the default.
@@ -6193,6 +6427,14 @@ pub struct DatasetRef {
     pub unconverted_count: u64,
     #[prost(uint64, tag = "7")]
     pub miss_count: u64,
+    /// Contract v23 (W10.9): the rows the lake keeps of the dataset flagged on
+    /// a closed day of its calendar, a weekend or a holiday; and those flagged
+    /// outside its coverage, counted apart. 0 in a read's answer and on an
+    /// entitlements change.
+    #[prost(uint64, tag = "8")]
+    pub closed_day_count: u64,
+    #[prost(uint64, tag = "9")]
+    pub outside_coverage_count: u64,
 }
 /// One dataset a data plugin serves. Its identity in a deployment is the instance
 /// and its key (spec/the-lake, Q19).
@@ -6600,6 +6842,15 @@ pub struct VenueCatalogueEvent {
     /// Stamped by the sidecar, whatever the plugin sent.
     #[prost(string, tag = "2")]
     pub publisher_instance_id: ::prost::alloc::string::String,
+}
+/// An outcome the lake recorded, on its dataset's subject (contract v23).
+/// Never conflated: every version is delivered, and a reader that lost some
+/// catches up from the lake by the watermark it last saw (ListOutcomes).
+/// A mirror of meridian.v1.OutcomesRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OutcomesRecordedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub outcome: ::core::option::Option<Outcome>,
 }
 /// An account's kind (contract v11): one coarse kind, the platform's own
 /// words, never a venue's.
@@ -8234,6 +8485,9 @@ pub enum OrderOrigin {
     Unspecified = 0,
     /// A telephoned or outside order, recorded by the `oms` for a person.
     Telephoned = 2,
+    /// An order made from venue-originated fills the `ems` accepted (W11.23;
+    /// contract v23): entered after the trade, filled, never gated.
+    AcceptedExecution = 3,
 }
 impl OrderOrigin {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -8244,6 +8498,7 @@ impl OrderOrigin {
         match self {
             Self::Unspecified => "ORDER_ORIGIN_UNSPECIFIED",
             Self::Telephoned => "ORDER_ORIGIN_TELEPHONED",
+            Self::AcceptedExecution => "ORDER_ORIGIN_ACCEPTED_EXECUTION",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -8251,6 +8506,7 @@ impl OrderOrigin {
         match value {
             "ORDER_ORIGIN_UNSPECIFIED" => Some(Self::Unspecified),
             "ORDER_ORIGIN_TELEPHONED" => Some(Self::Telephoned),
+            "ORDER_ORIGIN_ACCEPTED_EXECUTION" => Some(Self::AcceptedExecution),
             _ => None,
         }
     }
@@ -9028,6 +9284,96 @@ impl LiquidityIndicator {
         }
     }
 }
+/// Where an execution stands between the venue and the `ems` (W11.11, W11.23,
+/// W11.24; decisions/035 as amended at contract v23): derived from the
+/// journal as an order's status is, never stored; its transitions are the
+/// transition table's e-rows.
+/// A mirror of meridian.v1.ExecutionState.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ExecutionState {
+    Unspecified = 0,
+    /// A fill on no order and no placement, its account mapped, waiting for
+    /// the `ems` to accept it or answer it DK; one a bust or a correction
+    /// supersedes stays unmatched, and is answered no more.
+    Unmatched = 1,
+    /// On a placement: every fill v22 records, and an accepted one.
+    Matched = 2,
+    /// Answered don't know: recorded and closed, never moving a position.
+    DontKnow = 3,
+}
+impl ExecutionState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "EXECUTION_STATE_UNSPECIFIED",
+            Self::Unmatched => "EXECUTION_STATE_UNMATCHED",
+            Self::Matched => "EXECUTION_STATE_MATCHED",
+            Self::DontKnow => "EXECUTION_STATE_DONT_KNOW",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "EXECUTION_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "EXECUTION_STATE_UNMATCHED" => Some(Self::Unmatched),
+            "EXECUTION_STATE_MATCHED" => Some(Self::Matched),
+            "EXECUTION_STATE_DONT_KNOW" => Some(Self::DontKnow),
+            _ => None,
+        }
+    }
+}
+/// Why the `ems` does not know a fill, mirroring FIX's DKReason (127)
+/// (W11.24; contract v23).
+/// A mirror of meridian.v1.DkReason.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DkReason {
+    Unspecified = 0,
+    UnknownInstrument = 1,
+    WrongSide = 2,
+    QuantityExceedsOrder = 3,
+    NoMatchingOrder = 4,
+    PriceExceedsLimit = 5,
+    CalculationDifference = 6,
+    /// With text, as FIX requires Text (58) when DKReason is Other.
+    Other = 7,
+}
+impl DkReason {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DK_REASON_UNSPECIFIED",
+            Self::UnknownInstrument => "DK_REASON_UNKNOWN_INSTRUMENT",
+            Self::WrongSide => "DK_REASON_WRONG_SIDE",
+            Self::QuantityExceedsOrder => "DK_REASON_QUANTITY_EXCEEDS_ORDER",
+            Self::NoMatchingOrder => "DK_REASON_NO_MATCHING_ORDER",
+            Self::PriceExceedsLimit => "DK_REASON_PRICE_EXCEEDS_LIMIT",
+            Self::CalculationDifference => "DK_REASON_CALCULATION_DIFFERENCE",
+            Self::Other => "DK_REASON_OTHER",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DK_REASON_UNSPECIFIED" => Some(Self::Unspecified),
+            "DK_REASON_UNKNOWN_INSTRUMENT" => Some(Self::UnknownInstrument),
+            "DK_REASON_WRONG_SIDE" => Some(Self::WrongSide),
+            "DK_REASON_QUANTITY_EXCEEDS_ORDER" => Some(Self::QuantityExceedsOrder),
+            "DK_REASON_NO_MATCHING_ORDER" => Some(Self::NoMatchingOrder),
+            "DK_REASON_PRICE_EXCEEDS_LIMIT" => Some(Self::PriceExceedsLimit),
+            "DK_REASON_CALCULATION_DIFFERENCE" => Some(Self::CalculationDifference),
+            "DK_REASON_OTHER" => Some(Self::Other),
+            _ => None,
+        }
+    }
+}
 /// A mirror of meridian.v1.ApprovalDecision.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -9418,6 +9764,46 @@ impl BorrowStatus {
             "BORROW_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
             "BORROW_STATUS_EASY_TO_BORROW" => Some(Self::EasyToBorrow),
             "BORROW_STATUS_HARD_TO_BORROW" => Some(Self::HardToBorrow),
+            _ => None,
+        }
+    }
+}
+/// The acknowledgement a venue takes of an execution it originated (W11.20;
+/// contract v23). Never a record of one sent: FIX answers BN with nothing.
+/// A mirror of meridian.v1.ExecutionAcknowledgement.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ExecutionAcknowledgement {
+    /// Not said: read as EXECUTION_ACKNOWLEDGEMENT_NONE, the venue not told.
+    Unspecified = 0,
+    /// The venue takes neither message: nothing is sent at an accept or a DK.
+    None = 1,
+    /// FIX's ExecutionAcknowledgement (35=BN): ExecAckStatus (1036) Accepted
+    /// at an accept, Don't know / Rejected with DKReason (127) at a DK.
+    Bn = 2,
+    /// FIX's DontKnowTrade (35=Q) at a DK, and nothing at an accept.
+    DontKnowTrade = 3,
+}
+impl ExecutionAcknowledgement {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "EXECUTION_ACKNOWLEDGEMENT_UNSPECIFIED",
+            Self::None => "EXECUTION_ACKNOWLEDGEMENT_NONE",
+            Self::Bn => "EXECUTION_ACKNOWLEDGEMENT_BN",
+            Self::DontKnowTrade => "EXECUTION_ACKNOWLEDGEMENT_DONT_KNOW_TRADE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "EXECUTION_ACKNOWLEDGEMENT_UNSPECIFIED" => Some(Self::Unspecified),
+            "EXECUTION_ACKNOWLEDGEMENT_NONE" => Some(Self::None),
+            "EXECUTION_ACKNOWLEDGEMENT_BN" => Some(Self::Bn),
+            "EXECUTION_ACKNOWLEDGEMENT_DONT_KNOW_TRADE" => Some(Self::DontKnowTrade),
             _ => None,
         }
     }
@@ -9990,6 +10376,83 @@ impl QuoteCharacteristic {
             "QUOTE_CHARACTERISTIC_UNSPECIFIED" => Some(Self::Unspecified),
             "QUOTE_CHARACTERISTIC_INDICATIVE" => Some(Self::Indicative),
             "QUOTE_CHARACTERISTIC_HALTED" => Some(Self::Halted),
+            _ => None,
+        }
+    }
+}
+/// What an event contract's instrument pays (the lake plan's "vL1c", item 1).
+/// A mirror of meridian.v1.OutcomeDetermination.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum OutcomeDetermination {
+    /// Refused.
+    Unspecified = 0,
+    /// Its full payout.
+    Pays = 1,
+    PaysNothing = 2,
+    /// Part of its payout: a scalar result, or a resolution at half.
+    PaysPart = 3,
+}
+impl OutcomeDetermination {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "OUTCOME_DETERMINATION_UNSPECIFIED",
+            Self::Pays => "OUTCOME_DETERMINATION_PAYS",
+            Self::PaysNothing => "OUTCOME_DETERMINATION_PAYS_NOTHING",
+            Self::PaysPart => "OUTCOME_DETERMINATION_PAYS_PART",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "OUTCOME_DETERMINATION_UNSPECIFIED" => Some(Self::Unspecified),
+            "OUTCOME_DETERMINATION_PAYS" => Some(Self::Pays),
+            "OUTCOME_DETERMINATION_PAYS_NOTHING" => Some(Self::PaysNothing),
+            "OUTCOME_DETERMINATION_PAYS_PART" => Some(Self::PaysPart),
+            _ => None,
+        }
+    }
+}
+/// The venue's stage of a determination (item 2).
+/// A mirror of meridian.v1.OutcomeStage.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum OutcomeStage {
+    /// Refused.
+    Unspecified = 0,
+    /// Proposed and open to challenge.
+    Proposed = 1,
+    /// Determined; an amended determination is a new version here.
+    Determined = 2,
+    Disputed = 3,
+    Final = 4,
+}
+impl OutcomeStage {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "OUTCOME_STAGE_UNSPECIFIED",
+            Self::Proposed => "OUTCOME_STAGE_PROPOSED",
+            Self::Determined => "OUTCOME_STAGE_DETERMINED",
+            Self::Disputed => "OUTCOME_STAGE_DISPUTED",
+            Self::Final => "OUTCOME_STAGE_FINAL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "OUTCOME_STAGE_UNSPECIFIED" => Some(Self::Unspecified),
+            "OUTCOME_STAGE_PROPOSED" => Some(Self::Proposed),
+            "OUTCOME_STAGE_DETERMINED" => Some(Self::Determined),
+            "OUTCOME_STAGE_DISPUTED" => Some(Self::Disputed),
+            "OUTCOME_STAGE_FINAL" => Some(Self::Final),
             _ => None,
         }
     }
@@ -11585,6 +12048,66 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W11.23: platform.book.command.accept-execution (command; preview).
+        pub async fn accept_execution(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AcceptExecutionParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::AcceptExecutionResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/AcceptExecution",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "AcceptExecution",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.24: platform.book.command.dont-know-execution (command; preview).
+        pub async fn dont_know_execution(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DontKnowExecutionParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::DontKnowExecutionResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/DontKnowExecution",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "DontKnowExecution",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W3.14: platform.reference.query.resolve-venue (query; preview).
         pub async fn resolve_venue(
             &mut self,
@@ -11816,6 +12339,36 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W10.4: platform.lake.command.record-outcomes (command; preview).
+        pub async fn record_outcomes(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordOutcomesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordOutcomesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordOutcomes",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "RecordOutcomes",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W10.6: platform.lake.query.list-prices (query; preview).
         pub async fn list_prices(
             &mut self,
@@ -11918,6 +12471,36 @@ pub mod plugin_operations_client {
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new("meridian.plugin.v1.PluginOperations", "ListQuotes"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W10.6: platform.lake.query.list-outcomes (query; preview).
+        pub async fn list_outcomes(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListOutcomesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListOutcomesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListOutcomes",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListOutcomes",
+                    ),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -12392,6 +12975,22 @@ pub mod plugin_operations_server {
             tonic::Response<super::MapVenueAccountResult>,
             tonic::Status,
         >;
+        /// W11.23: platform.book.command.accept-execution (command; preview).
+        async fn accept_execution(
+            &self,
+            request: tonic::Request<super::AcceptExecutionParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::AcceptExecutionResult>,
+            tonic::Status,
+        >;
+        /// W11.24: platform.book.command.dont-know-execution (command; preview).
+        async fn dont_know_execution(
+            &self,
+            request: tonic::Request<super::DontKnowExecutionParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::DontKnowExecutionResult>,
+            tonic::Status,
+        >;
         /// W3.14: platform.reference.query.resolve-venue (query; preview).
         async fn resolve_venue(
             &self,
@@ -12453,6 +13052,14 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordQuotesResult>,
             tonic::Status,
         >;
+        /// W10.4: platform.lake.command.record-outcomes (command; preview).
+        async fn record_outcomes(
+            &self,
+            request: tonic::Request<super::RecordOutcomesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordOutcomesResult>,
+            tonic::Status,
+        >;
         /// W10.6: platform.lake.query.list-prices (query; preview).
         async fn list_prices(
             &self,
@@ -12480,6 +13087,14 @@ pub mod plugin_operations_server {
             request: tonic::Request<super::ListQuotesParams>,
         ) -> std::result::Result<
             tonic::Response<super::ListQuotesResult>,
+            tonic::Status,
+        >;
+        /// W10.6: platform.lake.query.list-outcomes (query; preview).
+        async fn list_outcomes(
+            &self,
+            request: tonic::Request<super::ListOutcomesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListOutcomesResult>,
             tonic::Status,
         >;
         /// W10.7: platform.lake.command.decline-want (command; preview).
@@ -14844,6 +15459,101 @@ pub mod plugin_operations_server {
                     };
                     Box::pin(fut)
                 }
+                "/meridian.plugin.v1.PluginOperations/AcceptExecution" => {
+                    #[allow(non_camel_case_types)]
+                    struct AcceptExecutionSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::AcceptExecutionParams>
+                    for AcceptExecutionSvc<T> {
+                        type Response = super::AcceptExecutionResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AcceptExecutionParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::accept_execution(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = AcceptExecutionSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/DontKnowExecution" => {
+                    #[allow(non_camel_case_types)]
+                    struct DontKnowExecutionSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::DontKnowExecutionParams>
+                    for DontKnowExecutionSvc<T> {
+                        type Response = super::DontKnowExecutionResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DontKnowExecutionParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::dont_know_execution(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DontKnowExecutionSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/meridian.plugin.v1.PluginOperations/ResolveVenue" => {
                     #[allow(non_camel_case_types)]
                     struct ResolveVenueSvc<T: PluginOperations>(pub Arc<T>);
@@ -15213,6 +15923,52 @@ pub mod plugin_operations_server {
                     };
                     Box::pin(fut)
                 }
+                "/meridian.plugin.v1.PluginOperations/RecordOutcomes" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordOutcomesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordOutcomesParams>
+                    for RecordOutcomesSvc<T> {
+                        type Response = super::RecordOutcomesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordOutcomesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_outcomes(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordOutcomesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/meridian.plugin.v1.PluginOperations/ListPrices" => {
                     #[allow(non_camel_case_types)]
                     struct ListPricesSvc<T: PluginOperations>(pub Arc<T>);
@@ -15378,6 +16134,52 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListQuotesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListOutcomes" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListOutcomesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListOutcomesParams>
+                    for ListOutcomesSvc<T> {
+                        type Response = super::ListOutcomesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListOutcomesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_outcomes(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListOutcomesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

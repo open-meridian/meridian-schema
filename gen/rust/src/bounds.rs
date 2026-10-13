@@ -66,6 +66,14 @@ pub const LIST_ACCOUNT_FIGURES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0
 /// meridian.v1.ListAccountAttributesRequest.page_size: bounds a page
 pub const LIST_ACCOUNT_ATTRIBUTES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
+/// meridian.v1.AcceptExecutionRequest.execution_ids: names the unmatched
+/// executions accepted (W11.23)
+pub const ACCEPT_EXECUTION_REQUEST_EXECUTION_IDS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.DontKnowExecutionRequest.execution_ids: names the unmatched
+/// executions answered DK (W11.24)
+pub const DONT_KNOW_EXECUTION_REQUEST_EXECUTION_IDS_COUNT: Count = Count { least: 1, most: 500 };
+
 /// meridian.v1.ListOrdersRequest.page_size: bounds a page
 pub const LIST_ORDERS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
@@ -252,6 +260,14 @@ pub const SOURCE_PRIORITY_DATASETS_COUNT: Count = Count { least: 0, most: 16 };
 
 /// meridian.v1.SetSourcePriorityRequest.datasets: replaces the order whole
 pub const SET_SOURCE_PRIORITY_REQUEST_DATASETS_COUNT: Count = Count { least: 0, most: 16 };
+
+/// meridian.v1.RecordOutcomesRequest.outcomes: carries a batch of outcomes
+/// (W10.4)
+pub const RECORD_OUTCOMES_REQUEST_OUTCOMES_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListOutcomesRequest.subjects: names the event contracts'
+/// instruments a read is about (W10.6)
+pub const LIST_OUTCOMES_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
 
 /// meridian.v1.AsReported.scheme: says whose vocabulary a value as reported
 /// is in

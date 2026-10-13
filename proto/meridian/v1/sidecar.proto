@@ -108,7 +108,7 @@ message RegisterRequest {
   reserved "instance_id", "role", "tags";
 
   // The contract version the plugin was built against, as `v<N>`. This
-  // schema is contract v22, and a plugin built from it declares "v22".
+  // schema is contract v23, and a plugin built from it declares "v23".
   //
   // Required. A sidecar admits it when it lies between the sidecar's floor
   // and its own version, and otherwise refuses it naming both (W4.1): a
@@ -1805,6 +1805,22 @@ enum RefusalReason {
   // A link of a connectivity plugin already linked to another `ems`
   // (W11.21): each is linked to exactly one.
   REFUSAL_REASON_CONNECTIVITY_LINKED = 24;
+
+  // Venue-originated fills' refusals (W11.23, W11.24; contract v23), each
+  // sent with ABORTED; a command refused changes nothing.
+
+  // An accept past the order's ordered quantity (W11.23): the trader
+  // accepts to a new order instead, or `portfolio` upsizes first.
+  REFUSAL_REASON_QUANTITY_EXCEEDS_ORDER = 25;
+
+  // An accept or a DK of an execution not unmatched -- answered already --
+  // or one a bust or a correction supersedes (W11.23, W11.24; the
+  // transition table's e3 to e6).
+  REFUSAL_REASON_EXECUTION_STATE = 26;
+
+  // An accept of fills of more than one account, instrument or side, or a
+  // fill's side the order's opposite (W11.23).
+  REFUSAL_REASON_EXECUTIONS_DIFFER = 27;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

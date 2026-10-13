@@ -154,7 +154,7 @@ impl SubjectKind {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v22, and a plugin built from it declares "v22".
+    /// schema is contract v23, and a plugin built from it declares "v23".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -2318,6 +2318,16 @@ pub enum RefusalReason {
     /// A link of a connectivity plugin already linked to another `ems`
     /// (W11.21): each is linked to exactly one.
     ConnectivityLinked = 24,
+    /// An accept past the order's ordered quantity (W11.23): the trader
+    /// accepts to a new order instead, or `portfolio` upsizes first.
+    QuantityExceedsOrder = 25,
+    /// An accept or a DK of an execution not unmatched -- answered already --
+    /// or one a bust or a correction supersedes (W11.23, W11.24; the
+    /// transition table's e3 to e6).
+    ExecutionState = 26,
+    /// An accept of fills of more than one account, instrument or side, or a
+    /// fill's side the order's opposite (W11.23).
+    ExecutionsDiffer = 27,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2353,6 +2363,9 @@ impl RefusalReason {
             Self::IdentifierInUse => "REFUSAL_REASON_IDENTIFIER_IN_USE",
             Self::ConnectivityNotAllowed => "REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED",
             Self::ConnectivityLinked => "REFUSAL_REASON_CONNECTIVITY_LINKED",
+            Self::QuantityExceedsOrder => "REFUSAL_REASON_QUANTITY_EXCEEDS_ORDER",
+            Self::ExecutionState => "REFUSAL_REASON_EXECUTION_STATE",
+            Self::ExecutionsDiffer => "REFUSAL_REASON_EXECUTIONS_DIFFER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2389,6 +2402,9 @@ impl RefusalReason {
                 Some(Self::ConnectivityNotAllowed)
             }
             "REFUSAL_REASON_CONNECTIVITY_LINKED" => Some(Self::ConnectivityLinked),
+            "REFUSAL_REASON_QUANTITY_EXCEEDS_ORDER" => Some(Self::QuantityExceedsOrder),
+            "REFUSAL_REASON_EXECUTION_STATE" => Some(Self::ExecutionState),
+            "REFUSAL_REASON_EXECUTIONS_DIFFER" => Some(Self::ExecutionsDiffer),
             _ => None,
         }
     }

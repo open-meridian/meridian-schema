@@ -110,6 +110,10 @@ service PluginOperations {
   rpc ReadVenueCatalogue(ReadVenueCatalogueParams) returns (ReadVenueCatalogueResult);
   // W11.22: platform.config.command.map-venue-account (command; preview).
   rpc MapVenueAccount(MapVenueAccountParams) returns (MapVenueAccountResult);
+  // W11.23: platform.book.command.accept-execution (command; preview).
+  rpc AcceptExecution(AcceptExecutionParams) returns (AcceptExecutionResult);
+  // W11.24: platform.book.command.dont-know-execution (command; preview).
+  rpc DontKnowExecution(DontKnowExecutionParams) returns (DontKnowExecutionResult);
   // W3.14: platform.reference.query.resolve-venue (query; preview).
   rpc ResolveVenue(ResolveVenueParams) returns (ResolveVenueResult);
   // W3.15: platform.reference.event.venue-missing (event; preview).
@@ -126,6 +130,8 @@ service PluginOperations {
   rpc RecordTrades(RecordTradesParams) returns (RecordTradesResult);
   // W10.4: platform.lake.command.record-quotes (command; preview).
   rpc RecordQuotes(RecordQuotesParams) returns (RecordQuotesResult);
+  // W10.4: platform.lake.command.record-outcomes (command; preview).
+  rpc RecordOutcomes(RecordOutcomesParams) returns (RecordOutcomesResult);
   // W10.6: platform.lake.query.list-prices (query; preview).
   rpc ListPrices(ListPricesParams) returns (ListPricesResult);
   // W10.6: platform.lake.query.list-bars (query; preview).
@@ -134,6 +140,8 @@ service PluginOperations {
   rpc ListTrades(ListTradesParams) returns (ListTradesResult);
   // W10.6: platform.lake.query.list-quotes (query; preview).
   rpc ListQuotes(ListQuotesParams) returns (ListQuotesResult);
+  // W10.6: platform.lake.query.list-outcomes (query; preview).
+  rpc ListOutcomes(ListOutcomesParams) returns (ListOutcomesResult);
   // W10.7: platform.lake.command.decline-want (command; preview).
   rpc DeclineWant(DeclineWantParams) returns (DeclineWantResult);
   // W10.9: platform.lake.query.list-datasets (query; preview).
@@ -1914,6 +1922,18 @@ message ReportExecutionParams {
 
   string uti_generated_by = 31;
 
+  // Contract v23 (W11.11): a fill on no order and no placement names its
+  // instrument, its side and the venue's order ID (FIX 37), each required
+  // when no placement is named; and the venue's client order ID (FIX 11)
+  // where the venue sent one, which FIX requires back on BN and Q.
+  string instrument_id = 32;
+
+  Side side = 33;
+
+  string venue_order_id = 34;
+
+  string venue_client_order_id = 35;
+
   // Retired in the domain message, and never reused.
   reserved 22;
   reserved "derivative_terms";
@@ -2060,6 +2080,11 @@ message ListOrdersParams {
   int32 page_size = 3;
 
   string cursor = 4;
+
+  // Contract v23 (W11.17): only executions in this state; unspecified,
+  // every one. Unmatched leaves out an execution a later one supersedes,
+  // and a bust.
+  ExecutionState execution_state = 5;
 }
 
 // Each kind of record the order path delivers, in its own list, so a
@@ -2268,6 +2293,76 @@ message MapVenueAccountResult {
   string ems_instance_id = 1;
 
   repeated VenueAccountMapping mappings = 2;
+}
+
+// W11.23 (contract v23). By the `ems`, for a person or its service account:
+// 1 to 500 unmatched executions of one account, instrument and side,
+// accepted to an existing order or to a new order made from them.
+// The params of AcceptExecution: meridian.v1.AcceptExecutionRequest, less what the sidecar sets.
+message AcceptExecutionParams {
+  repeated string execution_ids = 1;
+
+  oneof order {
+    // An order the accepting `ems` may place against: released, working or
+    // filled, never ended.
+    string order_id = 2;
+    // A new order made from the fills, at filled, never gated.
+    NewOrderFromExecutions new_order = 3;
+  }
+
+  // Kept on the accept's entry.
+  string note = 4;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// An accept's answer (W11.23): each execution matched, the order and the
+// placement it linked them to.
+// The result of AcceptExecution: meridian.v1.AcceptExecutionReply.
+message AcceptExecutionResult {
+  repeated Execution executions = 1;
+
+  Order order = 2;
+
+  Placement placement = 3;
+
+  JournalRef journal = 4;
+}
+
+// W11.24 (contract v23). By the `ems`, for a person or its service account:
+// 1 to 500 unmatched executions answered don't know, with a reason, and
+// text when the reason is DK_REASON_OTHER.
+// The params of DontKnowExecution: meridian.v1.DontKnowExecutionRequest, less what the sidecar sets.
+message DontKnowExecutionParams {
+  repeated string execution_ids = 1;
+
+  DkReason reason = 2;
+
+  string text = 3;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// A DK's answer (W11.24).
+// The result of DontKnowExecution: meridian.v1.DontKnowExecutionReply.
+message DontKnowExecutionResult {
+  repeated Execution executions = 1;
+
+  JournalRef journal = 2;
 }
 
 // W3.14: which venue a set of identifiers names on a date, in the venues the
@@ -2526,6 +2621,38 @@ message RecordQuotesResult {
   Watermark watermark = 4;
 }
 
+// A batch of outcomes, recorded whole or refused naming the item and field:
+// 1 to 500 (contract v23).
+// The params of RecordOutcomes: meridian.v1.RecordOutcomesRequest, less what the sidecar sets.
+message RecordOutcomesParams {
+  repeated Outcome outcomes = 1;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordOutcomes: meridian.v1.RecordObservationsReply.
+message RecordOutcomesResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
 // Prices for subjects, at one of: the latest in force at a valid time
 // (`at_ns`, 0 for now); a business date; or a valid-time range, from
 // inclusive to exclusive. Exactly one is given; none is the latest now. The
@@ -2707,6 +2834,30 @@ message ListQuotesResult {
   string next_cursor = 5;
 }
 
+// Outcomes for event contracts' instruments (contract v23): the version in
+// force of each, or as of a recorded time before a restatement; or the
+// versions recorded after a watermark, whatever their valid time, which is
+// how a reader that lost some catches up. No business date is asked.
+// The params of ListOutcomes: meridian.v1.ListOutcomesRequest, less what the sidecar sets.
+message ListOutcomesParams {
+  // 1 to 500.
+  repeated SubjectRef subjects = 1;
+
+  // The watermark the reader last saw: the versions each dataset partition
+  // it names recorded after its sequence there.
+  Watermark after_watermark = 2;
+
+  // The recorded-time cut-off, 0 for now: what the lake knew then.
+  int64 as_of_ns = 3;
+}
+
+// The result of ListOutcomes: meridian.v1.ListOutcomesReply.
+message ListOutcomesResult {
+  repeated Outcome outcomes = 1;
+
+  Watermark watermark = 2;
+}
+
 // What a data plugin cannot serve of a want, per subject, with its reason. It
 // stands for the date or range the want asked, or for the latest where it
 // asked the latest, and for nothing else (contract v19): a later want of
@@ -2817,6 +2968,8 @@ message Delivery {
     // placement.connectivity_instance_id names (matrix/directed.tsv).
     PlacementUpdatedEvent placement_updated = 32;
     // W11.13: platform.book.event.execution-recorded.
+    // Reaches a connectivity plugin only at the instance its
+    // execution.raw_record.instance_id names (matrix/directed.tsv).
     ExecutionRecordedEvent execution_recorded = 33;
     // W11.13: platform.book.event.unplaced-fact-recorded.
     UnplacedFactRecordedEvent unplaced_fact_recorded = 34;
@@ -2826,6 +2979,8 @@ message Delivery {
     LocateUpdatedEvent locate_updated = 36;
     // W11.20: platform.config.event.venue-catalogue.
     VenueCatalogueEvent report_venue_catalogue = 37;
+    // W10.5: platform.lake.{dataset}.event.outcomes-recorded.
+    OutcomesRecordedEvent outcomes_recorded = 38;
   }
 }
 
@@ -5391,6 +5546,9 @@ enum OrderOrigin {
   ORDER_ORIGIN_UNSPECIFIED = 0;
   // A telephoned or outside order, recorded by the `oms` for a person.
   ORDER_ORIGIN_TELEPHONED = 2;
+  // An order made from venue-originated fills the `ems` accepted (W11.23;
+  // contract v23): entered after the trade, filled, never gated.
+  ORDER_ORIGIN_ACCEPTED_EXECUTION = 3;
 }
 
 // An order's status: its state, its conditions and its quantities, each
@@ -5942,6 +6100,19 @@ message Execution {
   // Who generated the UTI.
   string uti_generated_by = 35;
 
+  // Contract v23 (W11.11, W11.23, W11.24). Its state, derived from the
+  // journal.
+  ExecutionState state = 36;
+
+  // The venue's order ID (FIX 37), as the venue states it: set on a fill
+  // reported on no placement, so the plugin can answer its venue.
+  string venue_order_id = 37;
+
+  // On a DK: the reason, and the text the `ems` sent.
+  DkReason dk_reason = 38;
+
+  string dk_text = 39;
+
   // Retired in the domain message, and never reused.
   reserved 25;
   reserved "derivative_terms";
@@ -6023,6 +6194,38 @@ enum LiquidityIndicator {
   LIQUIDITY_INDICATOR_MAKER = 1;
   // Removed liquidity.
   LIQUIDITY_INDICATOR_TAKER = 2;
+}
+
+// Where an execution stands between the venue and the `ems` (W11.11, W11.23,
+// W11.24; decisions/035 as amended at contract v23): derived from the
+// journal as an order's status is, never stored; its transitions are the
+// transition table's e-rows.
+// A mirror of meridian.v1.ExecutionState.
+enum ExecutionState {
+  EXECUTION_STATE_UNSPECIFIED = 0;
+  // A fill on no order and no placement, its account mapped, waiting for
+  // the `ems` to accept it or answer it DK; one a bust or a correction
+  // supersedes stays unmatched, and is answered no more.
+  EXECUTION_STATE_UNMATCHED = 1;
+  // On a placement: every fill v22 records, and an accepted one.
+  EXECUTION_STATE_MATCHED = 2;
+  // Answered don't know: recorded and closed, never moving a position.
+  EXECUTION_STATE_DONT_KNOW = 3;
+}
+
+// Why the `ems` does not know a fill, mirroring FIX's DKReason (127)
+// (W11.24; contract v23).
+// A mirror of meridian.v1.DkReason.
+enum DkReason {
+  DK_REASON_UNSPECIFIED = 0;
+  DK_REASON_UNKNOWN_INSTRUMENT = 1;
+  DK_REASON_WRONG_SIDE = 2;
+  DK_REASON_QUANTITY_EXCEEDS_ORDER = 3;
+  DK_REASON_NO_MATCHING_ORDER = 4;
+  DK_REASON_PRICE_EXCEEDS_LIMIT = 5;
+  DK_REASON_CALCULATION_DIFFERENCE = 6;
+  // With text, as FIX requires Text (58) when DKReason is Other.
+  DK_REASON_OTHER = 7;
 }
 
 // A fee with no fill, on its placement (W11.12): it moves cash, pending to
@@ -6218,6 +6421,18 @@ message ReportExecutionRequest {
   LiquidityIndicator liquidity_indicator = 30;
 
   string uti_generated_by = 31;
+
+  // Contract v23 (W11.11): a fill on no order and no placement names its
+  // instrument, its side and the venue's order ID (FIX 37), each required
+  // when no placement is named; and the venue's client order ID (FIX 11)
+  // where the venue sent one, which FIX requires back on BN and Q.
+  string instrument_id = 32;
+
+  Side side = 33;
+
+  string venue_order_id = 34;
+
+  string venue_client_order_id = 35;
 
   // Retired in the domain message, and never reused.
   reserved 22;
@@ -6437,6 +6652,11 @@ message VenueCatalogue {
   repeated VenueStrategy strategies = 4;
 
   repeated VenueEligibility eligibility = 5;
+
+  // Contract v23 (W11.20, W11.23, W11.24): what the connectivity plugin
+  // sends its venue when the `ems` accepts a venue-originated fill or
+  // answers it DK. Unspecified, as a v22 catalogue is, reads as none.
+  ExecutionAcknowledgement execution_acknowledgement = 6;
 }
 
 // An order type the venue offers, with the times in force it takes.
@@ -6538,6 +6758,21 @@ enum BorrowStatus {
   BORROW_STATUS_HARD_TO_BORROW = 2;
 }
 
+// The acknowledgement a venue takes of an execution it originated (W11.20;
+// contract v23). Never a record of one sent: FIX answers BN with nothing.
+// A mirror of meridian.v1.ExecutionAcknowledgement.
+enum ExecutionAcknowledgement {
+  // Not said: read as EXECUTION_ACKNOWLEDGEMENT_NONE, the venue not told.
+  EXECUTION_ACKNOWLEDGEMENT_UNSPECIFIED = 0;
+  // The venue takes neither message: nothing is sent at an accept or a DK.
+  EXECUTION_ACKNOWLEDGEMENT_NONE = 1;
+  // FIX's ExecutionAcknowledgement (35=BN): ExecAckStatus (1036) Accepted
+  // at an accept, Don't know / Rejected with DKReason (127) at a DK.
+  EXECUTION_ACKNOWLEDGEMENT_BN = 2;
+  // FIX's DontKnowTrade (35=Q) at a DK, and nothing at an accept.
+  EXECUTION_ACKNOWLEDGEMENT_DONT_KNOW_TRADE = 3;
+}
+
 // One account's code at one connectivity plugin: a code once per plugin.
 // A mirror of meridian.v1.VenueAccountMapping.
 message VenueAccountMapping {
@@ -6547,6 +6782,15 @@ message VenueAccountMapping {
 
   // An account the deployment admin granted the `ems`'s instance (W6.30).
   string account_id = 3;
+}
+
+// What the accept adds to the order the fills make (W11.23): the rest is
+// the fills'.
+// A mirror of meridian.v1.NewOrderFromExecutions.
+message NewOrderFromExecutions {
+  string sleeve = 1;
+
+  string note = 2;
 }
 
 // The venue master's record of one venue (W1.16). The platform mints its ID;
@@ -6849,6 +7093,12 @@ message ObservationMeta {
   // Each vendor value that failed conversion, beside a field left not
   // known: 0 to 16.
   repeated AsReported unconverted = 14;
+
+  // Contract v23 (W10.4): set only when a daily value's business date is a
+  // closed day of its dataset's calendar, or outside its coverage -- the
+  // date, each calendar with its version, the reason and the holiday's
+  // name. Recorded as reported, never refused. Decided by the lake.
+  DateCheck closed_day = 15;
 }
 
 // One entity a row is about.
@@ -7116,6 +7366,55 @@ enum QuoteCharacteristic {
   QUOTE_CHARACTERISTIC_HALTED = 2;
 }
 
+// An event contract's outcome, as its venue determined it, at one stage
+// (W10.4; the lake plan's "vL1c"). One row key per contract: each change of
+// stage is a new version under it. Valid from the determination's time, an
+// event SourceTime, with no business date: an outcome is not a daily value.
+// A mirror of meridian.v1.Outcome.
+message Outcome {
+  ObservationMeta meta = 1;
+
+  // What the instrument pays, in the platform's words.
+  OutcomeDetermination determination = 2;
+
+  // The venue's stage of the determination.
+  OutcomeStage stage = 3;
+
+  // What one contract settles at, in the payout asset: always set.
+  Money settlement_value = 4;
+
+  // When the venue paid out; 0 until then.
+  int64 settled_at_ns = 5;
+
+  // The venue's own word for the determination, as reported.
+  AsReported determination_as_reported = 6;
+}
+
+// What an event contract's instrument pays (the lake plan's "vL1c", item 1).
+// A mirror of meridian.v1.OutcomeDetermination.
+enum OutcomeDetermination {
+  // Refused.
+  OUTCOME_DETERMINATION_UNSPECIFIED = 0;
+  // Its full payout.
+  OUTCOME_DETERMINATION_PAYS = 1;
+  OUTCOME_DETERMINATION_PAYS_NOTHING = 2;
+  // Part of its payout: a scalar result, or a resolution at half.
+  OUTCOME_DETERMINATION_PAYS_PART = 3;
+}
+
+// The venue's stage of a determination (item 2).
+// A mirror of meridian.v1.OutcomeStage.
+enum OutcomeStage {
+  // Refused.
+  OUTCOME_STAGE_UNSPECIFIED = 0;
+  // Proposed and open to challenge.
+  OUTCOME_STAGE_PROPOSED = 1;
+  // Determined; an amended determination is a new version here.
+  OUTCOME_STAGE_DETERMINED = 2;
+  OUTCOME_STAGE_DISPUTED = 3;
+  OUTCOME_STAGE_FINAL = 4;
+}
+
 // Which datasets a read is answered from (the intent's Q4): exactly one of
 // the deployment's default, named datasets, or every entitled dataset side by
 // side. None set is the default.
@@ -7195,6 +7494,14 @@ message DatasetRef {
   uint64 unconverted_count = 6;
 
   uint64 miss_count = 7;
+
+  // Contract v23 (W10.9): the rows the lake keeps of the dataset flagged on
+  // a closed day of its calendar, a weekend or a holiday; and those flagged
+  // outside its coverage, counted apart. 0 in a read's answer and on an
+  // entitlements change.
+  uint64 closed_day_count = 8;
+
+  uint64 outside_coverage_count = 9;
 }
 
 // One dataset a data plugin serves. Its identity in a deployment is the instance
@@ -7597,4 +7904,12 @@ message VenueCatalogueEvent {
 
   // Stamped by the sidecar, whatever the plugin sent.
   string publisher_instance_id = 2;
+}
+
+// An outcome the lake recorded, on its dataset's subject (contract v23).
+// Never conflated: every version is delivered, and a reader that lost some
+// catches up from the lake by the watermark it last saw (ListOutcomes).
+// A mirror of meridian.v1.OutcomesRecordedEvent.
+message OutcomesRecordedEvent {
+  Outcome outcome = 1;
 }
