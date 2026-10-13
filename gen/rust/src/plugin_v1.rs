@@ -1327,6 +1327,12 @@ pub struct ProposeOrderParams {
     pub expire_time_ns: i64,
     #[prost(enumeration = "ExecutionInstruction", repeated, tag = "34")]
     pub execution_instructions: ::prost::alloc::vec::Vec<i32>,
+    /// Contract v23 (W11.1): an FX order's quote currency, by its cash
+    /// instrument's ID. One naming the order's own instrument is refused
+    /// INVALID_ARGUMENT naming `quote_currency`; a limit or stop priced in
+    /// another currency INVALID_ARGUMENT naming `limit_price` or `stop_price`.
+    #[prost(string, tag = "35")]
+    pub quote_currency: ::prost::alloc::string::String,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -2271,6 +2277,64 @@ pub struct DontKnowExecutionResult {
     #[prost(message, repeated, tag = "1")]
     pub executions: ::prost::alloc::vec::Vec<Execution>,
     #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+}
+/// W11.25 (contract v23). By a connectivity plugin whose venue rolls a spot
+/// position at its daily cut: the account's pending lines in the pair move
+/// from one value date to the next by one entry, `value-date-rolled`;
+/// answered with FactReply.
+/// The params of ReportValueDateRoll: meridian.v1.ReportValueDateRollRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportValueDateRollParams {
+    #[prost(string, tag = "2")]
+    pub venue_account_code: ::prost::alloc::string::String,
+    /// The pair's two cash instruments, as the date read's spot inputs name it.
+    #[prost(string, repeated, tag = "3")]
+    pub pair: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// ISO 8601: the value date left, and the date read's answer moved to,
+    /// with its basis.
+    #[prost(string, tag = "4")]
+    pub from_value_date: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub to_value_date: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "6")]
+    pub value_date_basis: ::core::option::Option<DateBasis>,
+    #[prost(int64, tag = "7")]
+    pub rolled_at_ns: i64,
+    /// The `CHG-` IDs of the roll's financing charges, each reported first.
+    #[prost(string, repeated, tag = "8")]
+    pub charge_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "9")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    #[prost(string, tag = "10")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// A fact's answer: each record it changed, or the unplaced fact kept.
+/// The result of ReportValueDateRoll: meridian.v1.FactReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportValueDateRollResult {
+    #[prost(message, optional, tag = "1")]
+    pub placement: ::core::option::Option<Placement>,
+    #[prost(message, optional, tag = "2")]
+    pub execution: ::core::option::Option<Execution>,
+    #[prost(message, optional, tag = "3")]
+    pub order: ::core::option::Option<Order>,
+    #[prost(message, optional, tag = "4")]
+    pub charge: ::core::option::Option<Charge>,
+    #[prost(message, optional, tag = "5")]
+    pub unplaced: ::core::option::Option<UnplacedFact>,
+    #[prost(message, optional, tag = "6")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "7")]
     pub journal: ::core::option::Option<JournalRef>,
 }
 /// W3.14: which venue a set of identifiers names on a date, in the venues the
@@ -4977,6 +5041,11 @@ pub struct Order {
     /// On a pair: the dealt currency, by its cash instrument's ID.
     #[prost(string, tag = "11")]
     pub dealt_currency: ::prost::alloc::string::String,
+    /// Contract v23 (W11.1): on an FX order, the pair's quote currency by its
+    /// cash instrument's ID, so with the order's instrument, the base
+    /// currency's, it names the pair; a limit or stop is in it.
+    #[prost(string, tag = "44")]
+    pub quote_currency: ::prost::alloc::string::String,
     /// A slot of optional legs (FX swaps, spreads; step 5's Q26).
     #[prost(message, repeated, tag = "12")]
     pub legs: ::prost::alloc::vec::Vec<Leg>,
@@ -5478,6 +5547,11 @@ pub struct Execution {
     pub dk_reason: i32,
     #[prost(string, tag = "39")]
     pub dk_text: ::prost::alloc::string::String,
+    /// The venue's client order ID (FIX 11), copied from the report of a fill
+    /// on no placement where the venue sent one, which FIX requires back on BN
+    /// and Q.
+    #[prost(string, tag = "40")]
+    pub venue_client_order_id: ::prost::alloc::string::String,
 }
 /// An execution's finality: a level, and when it reached it.
 /// A mirror of meridian.v1.Finality.
@@ -9226,6 +9300,11 @@ pub enum FeeKind {
     Cancel = 2,
     /// Gas, on an on-chain venue.
     Network = 3,
+    /// Contract v23 (the OANDA batch's item 2): a rolling position's financing,
+    /// charged at each roll (W11.12); and the broker's commission on a fill, as
+    /// FIX keeps it apart in Commission (12) and CommType (13).
+    Financing = 4,
+    Commission = 5,
 }
 impl FeeKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -9238,6 +9317,8 @@ impl FeeKind {
             Self::Exchange => "FEE_KIND_EXCHANGE",
             Self::Cancel => "FEE_KIND_CANCEL",
             Self::Network => "FEE_KIND_NETWORK",
+            Self::Financing => "FEE_KIND_FINANCING",
+            Self::Commission => "FEE_KIND_COMMISSION",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -9247,6 +9328,8 @@ impl FeeKind {
             "FEE_KIND_EXCHANGE" => Some(Self::Exchange),
             "FEE_KIND_CANCEL" => Some(Self::Cancel),
             "FEE_KIND_NETWORK" => Some(Self::Network),
+            "FEE_KIND_FINANCING" => Some(Self::Financing),
+            "FEE_KIND_COMMISSION" => Some(Self::Commission),
             _ => None,
         }
     }
@@ -12108,6 +12191,36 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W11.25: platform.book.command.report-value-date-roll (command; preview).
+        pub async fn report_value_date_roll(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReportValueDateRollParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportValueDateRollResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReportValueDateRoll",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReportValueDateRoll",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W3.14: platform.reference.query.resolve-venue (query; preview).
         pub async fn resolve_venue(
             &mut self,
@@ -12989,6 +13102,14 @@ pub mod plugin_operations_server {
             request: tonic::Request<super::DontKnowExecutionParams>,
         ) -> std::result::Result<
             tonic::Response<super::DontKnowExecutionResult>,
+            tonic::Status,
+        >;
+        /// W11.25: platform.book.command.report-value-date-roll (command; preview).
+        async fn report_value_date_roll(
+            &self,
+            request: tonic::Request<super::ReportValueDateRollParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportValueDateRollResult>,
             tonic::Status,
         >;
         /// W3.14: platform.reference.query.resolve-venue (query; preview).
@@ -15539,6 +15660,55 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = DontKnowExecutionSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReportValueDateRoll" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReportValueDateRollSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReportValueDateRollParams>
+                    for ReportValueDateRollSvc<T> {
+                        type Response = super::ReportValueDateRollResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReportValueDateRollParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::report_value_date_roll(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReportValueDateRollSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

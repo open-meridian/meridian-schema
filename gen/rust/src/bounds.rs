@@ -66,6 +66,10 @@ pub const LIST_ACCOUNT_FIGURES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0
 /// meridian.v1.ListAccountAttributesRequest.page_size: bounds a page
 pub const LIST_ACCOUNT_ATTRIBUTES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
+/// meridian.v1.ReportValueDateRollRequest.pair: names the currency pair whose
+/// spot position rolled
+pub const REPORT_VALUE_DATE_ROLL_REQUEST_PAIR_COUNT: Count = Count { least: 2, most: 2 };
+
 /// meridian.v1.AcceptExecutionRequest.execution_ids: names the unmatched
 /// executions accepted (W11.23)
 pub const ACCEPT_EXECUTION_REQUEST_EXECUTION_IDS_COUNT: Count = Count { least: 1, most: 500 };

@@ -2294,7 +2294,8 @@ pub enum RefusalReason {
     /// A release while a check's block stands without an override (W11.6).
     CheckBlocks = 19,
     /// A placement, a claim or a change by other than the claimant of a
-    /// claimed order (W11.3, W11.7, W11.8, W11.9); a cancel by anyone who may
+    /// claimed order (W11.3, W11.7, W11.8, W11.9), and from v23 an accept onto
+    /// it (W11.23); a cancel by anyone who may
     /// write the account is admitted past a claim (Q4), and so is a
     /// connectivity plugin's report of a cancel it sent under a stop.
     Claimed = 20,
@@ -2318,15 +2319,17 @@ pub enum RefusalReason {
     /// A link of a connectivity plugin already linked to another `ems`
     /// (W11.21): each is linked to exactly one.
     ConnectivityLinked = 24,
-    /// An accept past the order's ordered quantity (W11.23): the trader
-    /// accepts to a new order instead, or `portfolio` upsizes first.
+    /// An accept whose quantity, added to what the order has filled already,
+    /// is past its ordered quantity (W11.23): the trader accepts to a new order
+    /// instead, or `portfolio` upsizes first.
     QuantityExceedsOrder = 25,
     /// An accept or a DK of an execution not unmatched -- answered already --
     /// or one a bust or a correction supersedes (W11.23, W11.24; the
     /// transition table's e3 to e6).
     ExecutionState = 26,
-    /// An accept of fills of more than one account, instrument or side, or a
-    /// fill's side the order's opposite (W11.23).
+    /// An accept of fills of more than one account, instrument, side,
+    /// connectivity plugin or trade date, or a fill's side the order's opposite
+    /// (W11.23).
     ExecutionsDiffer = 27,
 }
 impl RefusalReason {

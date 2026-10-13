@@ -71,6 +71,7 @@
           "ReportCharge",
           "RecordLocate",
           "ReportVenueCatalogue",
+          "ReportValueDateRoll",
           "ReportMissingVenue"
         ],
         "reads": [
@@ -2023,6 +2024,19 @@
         ]
       },
       "stability": "stable"
+    },
+    {
+      "name": "ReportValueDateRoll",
+      "step": "W11.25",
+      "title": "Report a value-date roll",
+      "kind": "command",
+      "topic": "platform.book.command.report-value-date-roll",
+      "roles": {
+        "publishes": [
+          "connectivity"
+        ]
+      },
+      "stability": "preview"
     },
     {
       "name": "ReportVenueCatalogue",
