@@ -90,6 +90,18 @@ pub const LIST_TRADING_INSTRUCTIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { lea
 /// meridian.v1.ListLocatesRequest.page_size: bounds a page
 pub const LIST_LOCATES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
+/// meridian.v1.BookOrderRequest.execution_ids: names the executions to book
+/// (W11.27)
+pub const BOOK_ORDER_REQUEST_EXECUTION_IDS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListBookingsRequest.page_size: bounds a page (approved
+/// 2026-10-14)
+pub const LIST_BOOKINGS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ListAlertsRequest.page_size: bounds a page (approved
+/// 2026-10-14)
+pub const LIST_ALERTS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
 /// meridian.v1.AccountRecord.custodian: says where the account is held, for a
 /// person to find it by
 pub const ACCOUNT_RECORD_CUSTODIAN_LENGTH: Length = Length { least: 0, most: 200 };

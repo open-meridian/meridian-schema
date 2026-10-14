@@ -154,7 +154,7 @@ impl SubjectKind {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v23, and a plugin built from it declares "v23".
+    /// schema is contract v24, and a plugin built from it declares "v24".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -2331,6 +2331,18 @@ pub enum RefusalReason {
     /// connectivity plugin or trade date, or a fill's side the order's opposite
     /// (W11.23).
     ExecutionsDiffer = 27,
+    /// A booking whose allocations do not sum exactly to the executions it
+    /// books, in quantity, gross and each fee kind (transitions b1, b2, b7).
+    BookingUnbalanced = 28,
+    /// A booking naming an account the order's allocation instruction does not
+    /// name and that is not marked an error account (W9.13; transitions b1,
+    /// b2, b7).
+    AccountNotInstructed = 29,
+    /// A proposal, or an accept of venue-originated fills, naming an
+    /// instrument whose record is provisional while the deployment's setting
+    /// allows_local_record_orders is off (W11.1, W11.23, W11.36; contract
+    /// v24, the one-ID model); sent with ABORTED, nothing recorded.
+    LocalRecordNotAllowed = 30,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2369,6 +2381,9 @@ impl RefusalReason {
             Self::QuantityExceedsOrder => "REFUSAL_REASON_QUANTITY_EXCEEDS_ORDER",
             Self::ExecutionState => "REFUSAL_REASON_EXECUTION_STATE",
             Self::ExecutionsDiffer => "REFUSAL_REASON_EXECUTIONS_DIFFER",
+            Self::BookingUnbalanced => "REFUSAL_REASON_BOOKING_UNBALANCED",
+            Self::AccountNotInstructed => "REFUSAL_REASON_ACCOUNT_NOT_INSTRUCTED",
+            Self::LocalRecordNotAllowed => "REFUSAL_REASON_LOCAL_RECORD_NOT_ALLOWED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2408,6 +2423,11 @@ impl RefusalReason {
             "REFUSAL_REASON_QUANTITY_EXCEEDS_ORDER" => Some(Self::QuantityExceedsOrder),
             "REFUSAL_REASON_EXECUTION_STATE" => Some(Self::ExecutionState),
             "REFUSAL_REASON_EXECUTIONS_DIFFER" => Some(Self::ExecutionsDiffer),
+            "REFUSAL_REASON_BOOKING_UNBALANCED" => Some(Self::BookingUnbalanced),
+            "REFUSAL_REASON_ACCOUNT_NOT_INSTRUCTED" => Some(Self::AccountNotInstructed),
+            "REFUSAL_REASON_LOCAL_RECORD_NOT_ALLOWED" => {
+                Some(Self::LocalRecordNotAllowed)
+            }
             _ => None,
         }
     }
