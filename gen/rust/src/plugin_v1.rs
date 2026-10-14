@@ -622,6 +622,13 @@ pub struct ResolveIdentifierResult {
     /// record, and is not minted. Until v10, true meant a placeholder.
     #[prost(bool, tag = "4")]
     pub minted: bool,
+    /// Contract v24 (W3.1, W3.7; decisions/037, point 2 as amended): the
+    /// record answered is the deployment's provisional LCL- record -- the
+    /// platform not reached within the bounded ask, its staff to review the
+    /// request, or no open identifier to ask by -- naming its template, asked
+    /// again on reconnect or once it has an open identifier.
+    #[prost(bool, tag = "5")]
+    pub provisional: bool,
 }
 /// A resolution missed. A fact, not a request.
 ///
@@ -1343,6 +1350,13 @@ pub struct ProposeOrderParams {
     /// another currency INVALID_ARGUMENT naming `limit_price` or `stop_price`.
     #[prost(string, tag = "35")]
     pub quote_currency: ::prost::alloc::string::String,
+    /// Contract v24 (W11.1; the order-path plan's v24 item 6): the `oms`'s
+    /// block order, in the allocation account, naming its members, each a
+    /// released order of one instrument and side in no other live block
+    /// (REFUSAL_REASON_ORDER_STATE). Released on creation, its quantity the
+    /// sum of its members' idle quantities.
+    #[prost(string, repeated, tag = "36")]
+    pub block_member_order_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -2347,6 +2361,351 @@ pub struct ReportValueDateRollResult {
     #[prost(message, optional, tag = "7")]
     pub journal: ::core::option::Option<JournalRef>,
 }
+/// W11.26: an order's allocation instruction amended, with a reason;
+/// answered with OrderReply.
+/// The params of SetAllocationInstruction: meridian.v1.SetAllocationInstructionRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetAllocationInstructionParams {
+    #[prost(string, tag = "1")]
+    pub order_id: ::prost::alloc::string::String,
+    /// The whole instruction; refused REFUSAL_REASON_ORDER_STATE where an
+    /// account's amount falls below what its live bookings allocate.
+    #[prost(message, optional, tag = "2")]
+    pub allocation_instruction: ::core::option::Option<AllocationInstruction>,
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of SetAllocationInstruction: meridian.v1.OrderReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetAllocationInstructionResult {
+    #[prost(message, optional, tag = "1")]
+    pub order: ::core::option::Option<Order>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+    /// On a change request: the one it opened.
+    #[prost(string, tag = "4")]
+    pub change_request_id: ::prost::alloc::string::String,
+}
+/// W11.27: book an explicit list of executions on one order.
+/// The params of BookOrder: meridian.v1.BookOrderRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BookOrderParams {
+    #[prost(string, tag = "1")]
+    pub order_id: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "2")]
+    pub execution_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "3")]
+    pub allocations: ::prost::alloc::vec::Vec<Allocation>,
+    /// Handed off in the same act where the check passes, and booked where it
+    /// does not, as FIX's Ready-To-Book (AllocType, 626) in one step.
+    #[prost(bool, tag = "4")]
+    pub hand_off: bool,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of BookOrder: meridian.v1.BookingReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BookOrderResult {
+    #[prost(message, optional, tag = "1")]
+    pub booking: ::core::option::Option<Booking>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+}
+/// W11.28: hand a booked or held booking off to `operations`, or close a
+/// client's booking the firm does not settle.
+/// The params of HandOffBooking: meridian.v1.HandOffBookingRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HandOffBookingParams {
+    #[prost(string, tag = "1")]
+    pub booking_id: ::prost::alloc::string::String,
+    /// The client's allocations close, any error-account allocation on it
+    /// handed off to the firm's operations in the same act.
+    #[prost(bool, tag = "2")]
+    pub close: bool,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of HandOffBooking: meridian.v1.BookingReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HandOffBookingResult {
+    #[prost(message, optional, tag = "1")]
+    pub booking: ::core::option::Option<Booking>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+}
+/// W11.29: cancel a booking before its hand-off, or replace its allocations
+/// after it.
+/// The params of CorrectBooking: meridian.v1.CorrectBookingRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CorrectBookingParams {
+    /// As FIX's RefAllocID (72) names the allocation it replaces.
+    #[prost(string, tag = "1")]
+    pub booking_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "BookingCorrectionKind", tag = "2")]
+    pub kind: i32,
+    /// The whole set on a replace, as FIX's allocation Replace carries it;
+    /// empty on a cancel.
+    #[prost(message, repeated, tag = "3")]
+    pub allocations: ::prost::alloc::vec::Vec<Allocation>,
+    /// Empty: the trade date; empty on a cancel.
+    #[prost(string, tag = "4")]
+    pub effective_date: ::prost::alloc::string::String,
+    /// As FIX's AllocCancReplaceReason (796) records why.
+    #[prost(string, tag = "5")]
+    pub reason: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of CorrectBooking: meridian.v1.BookingReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CorrectBookingResult {
+    #[prost(message, optional, tag = "1")]
+    pub booking: ::core::option::Option<Booking>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+}
+/// W11.31: the bookings in the reader's scope, as of now or changed since a
+/// watermark, filtered by state.
+/// The params of ListBookings: meridian.v1.ListBookingsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListBookingsParams {
+    /// Empty: every account in the reader's scope.
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// Only records whose last change is above it (W4.3).
+    #[prost(message, optional, tag = "2")]
+    pub since: ::core::option::Option<Watermark>,
+    /// Unspecified: every state.
+    #[prost(enumeration = "BookingState", tag = "3")]
+    pub state: i32,
+    #[prost(int32, tag = "4")]
+    pub page_size: i32,
+    #[prost(string, tag = "5")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListBookings: meridian.v1.ListBookingsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListBookingsResult {
+    #[prost(message, repeated, tag = "1")]
+    pub bookings: ::prost::alloc::vec::Vec<Booking>,
+    #[prost(message, optional, tag = "2")]
+    pub as_of: ::core::option::Option<Watermark>,
+    #[prost(string, tag = "3")]
+    pub next_cursor: ::prost::alloc::string::String,
+}
+/// W11.32: a prime's answer to a give-up, from `connectivity` or
+/// `confirmation`; a fact, answered with FactReply.
+/// The params of ReportGiveUp: meridian.v1.ReportGiveUpRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportGiveUpParams {
+    /// One the book does not hold keeps the fact unplaced.
+    #[prost(string, tag = "1")]
+    pub execution_id: ::prost::alloc::string::String,
+    /// Empty where no allocation is booked.
+    #[prost(string, tag = "2")]
+    pub allocation_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "GiveUpAnswer", tag = "3")]
+    pub answer: i32,
+    #[prost(string, tag = "4")]
+    pub prime_reference: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "6")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// A fact's answer: each record it changed, or the unplaced fact kept.
+/// The result of ReportGiveUp: meridian.v1.FactReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportGiveUpResult {
+    #[prost(message, optional, tag = "1")]
+    pub placement: ::core::option::Option<Placement>,
+    #[prost(message, optional, tag = "2")]
+    pub execution: ::core::option::Option<Execution>,
+    #[prost(message, optional, tag = "3")]
+    pub order: ::core::option::Option<Order>,
+    #[prost(message, optional, tag = "4")]
+    pub charge: ::core::option::Option<Charge>,
+    #[prost(message, optional, tag = "5")]
+    pub unplaced: ::core::option::Option<UnplacedFact>,
+    #[prost(message, optional, tag = "6")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "7")]
+    pub journal: ::core::option::Option<JournalRef>,
+}
+/// W11.33: a cross between two sleeves of one account, the `oms`'s.
+/// The params of RecordSleeveCross: meridian.v1.RecordSleeveCrossRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordSleeveCrossParams {
+    #[prost(message, optional, tag = "1")]
+    pub sleeve_cross: ::core::option::Option<SleeveCross>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of RecordSleeveCross: meridian.v1.SleeveCrossReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordSleeveCrossResult {
+    #[prost(message, optional, tag = "1")]
+    pub sleeve_cross: ::core::option::Option<SleeveCross>,
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+}
+/// W11.34: `compliance`'s own alert.
+/// The params of RaiseAlert: meridian.v1.RaiseAlertRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RaiseAlertParams {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "AlertKind", tag = "2")]
+    pub kind: i32,
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub subject: ::core::option::Option<AlertSubject>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of RaiseAlert: meridian.v1.AlertReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RaiseAlertResult {
+    #[prost(message, optional, tag = "1")]
+    pub alert: ::core::option::Option<Alert>,
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+}
+/// W11.34: an alert acknowledged, for a person, with a reason.
+/// The params of AcknowledgeAlert: meridian.v1.AcknowledgeAlertRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AcknowledgeAlertParams {
+    #[prost(string, tag = "1")]
+    pub alert_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub reason: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of AcknowledgeAlert: meridian.v1.AlertReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AcknowledgeAlertResult {
+    #[prost(message, optional, tag = "1")]
+    pub alert: ::core::option::Option<Alert>,
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+}
+/// W11.35: the alerts in the reader's scope, as of now or changed since a
+/// watermark, filtered by state and kind.
+/// The params of ListAlerts: meridian.v1.ListAlertsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAlertsParams {
+    /// Empty: every account in the reader's scope.
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// Unspecified: every state.
+    #[prost(enumeration = "AlertState", tag = "2")]
+    pub state: i32,
+    /// Only records whose last change is above it (W4.3).
+    #[prost(message, optional, tag = "3")]
+    pub since: ::core::option::Option<Watermark>,
+    #[prost(int32, tag = "4")]
+    pub page_size: i32,
+    #[prost(string, tag = "5")]
+    pub cursor: ::prost::alloc::string::String,
+    /// Unspecified: every kind.
+    #[prost(enumeration = "AlertKind", tag = "6")]
+    pub kind: i32,
+}
+/// The result of ListAlerts: meridian.v1.ListAlertsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAlertsResult {
+    #[prost(message, repeated, tag = "1")]
+    pub alerts: ::prost::alloc::vec::Vec<Alert>,
+    #[prost(message, optional, tag = "2")]
+    pub as_of: ::core::option::Option<Watermark>,
+    #[prost(string, tag = "3")]
+    pub next_cursor: ::prost::alloc::string::String,
+}
+/// W11.37: the setting read.
+/// The params of ReadLocalRecordOrders: meridian.v1.ReadLocalRecordOrdersRequest, less what the sidecar sets.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReadLocalRecordOrdersParams {}
+/// The escape hatch's setting in force (W11.36, W11.37).
+/// The result of ReadLocalRecordOrders: meridian.v1.LocalRecordOrdersSetting.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReadLocalRecordOrdersResult {
+    #[prost(bool, tag = "1")]
+    pub allows_local_record_orders: bool,
+    /// Orders not ended whose instrument's record is provisional, as of the
+    /// answer, for the deployment: a count naming no account and no order.
+    #[prost(int64, tag = "2")]
+    pub open_order_count: i64,
+}
 /// W3.14: which venue a set of identifiers names on a date, in the venues the
 /// deployment holds.
 /// The params of ResolveVenue: meridian.v1.ResolveVenueRequest, less what the sidecar sets.
@@ -2471,6 +2830,88 @@ pub struct ComputeDateResult {
     /// calendar named.
     #[prost(bool, tag = "4")]
     pub business_day: bool,
+}
+/// W3.22: the replacements the instrument store recorded after a sequence,
+/// unscoped reference data every plugin role reads.
+/// The params of ListReplacements: meridian.v1.ListReplacementsRequest, less what the sidecar sets.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListReplacementsParams {
+    /// The last sequence the reader saw; zero reads every replacement.
+    #[prost(int64, tag = "1")]
+    pub after_sequence: i64,
+}
+/// The result of ListReplacements: meridian.v1.ListReplacementsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListReplacementsResult {
+    /// Each as its instrument-replaced delivery carried it, in sequence.
+    #[prost(message, repeated, tag = "1")]
+    pub replacements: ::prost::alloc::vec::Vec<InstrumentReplacedEvent>,
+    /// The next read's after_sequence: the sequence asked after, when none
+    /// since.
+    #[prost(int64, tag = "2")]
+    pub sequence: i64,
+}
+/// W3.23: a `reference` plugin's offer of a record's template fields.
+/// The params of OfferTemplateFields: meridian.v1.OfferTemplateFieldsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OfferTemplateFieldsParams {
+    /// A record the deployment holds, followed through its replacement.
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub template_id: ::prost::alloc::string::String,
+    /// A version the catalogue holds; one it does not is refused naming it.
+    #[prost(string, tag = "3")]
+    pub template_version: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "4")]
+    pub fields: ::prost::alloc::vec::Vec<TemplateFieldValue>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of OfferTemplateFields: meridian.v1.OfferTemplateFieldsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OfferTemplateFieldsResult {
+    /// At its new version, the values kept as offers.
+    #[prost(message, optional, tag = "1")]
+    pub instrument: ::core::option::Option<InstrumentRecord>,
+}
+/// W3.24: the templates the store holds, unscoped reference data.
+/// The params of ListTemplates: meridian.v1.ListTemplatesRequest, less what the sidecar sets.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListTemplatesParams {
+    /// Unspecified lists every class.
+    #[prost(enumeration = "AssetClass", tag = "1")]
+    pub asset_class: i32,
+}
+/// The result of ListTemplates: meridian.v1.ListTemplatesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListTemplatesResult {
+    /// Each at its latest version.
+    #[prost(message, repeated, tag = "1")]
+    pub templates: ::prost::alloc::vec::Vec<SecurityTemplate>,
+}
+/// W3.24: one template, at a version.
+/// The params of ReadTemplate: meridian.v1.ReadTemplateRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadTemplateParams {
+    #[prost(string, tag = "1")]
+    pub template_id: ::prost::alloc::string::String,
+    /// Empty reads the latest.
+    #[prost(string, tag = "2")]
+    pub template_version: ::prost::alloc::string::String,
+}
+/// The result of ReadTemplate: meridian.v1.ReadTemplateReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadTemplateResult {
+    #[prost(message, optional, tag = "1")]
+    pub template: ::core::option::Option<SecurityTemplate>,
 }
 /// A batch of prices, recorded whole or refused naming the item and field:
 /// 1 to 500.
@@ -2945,7 +3386,7 @@ pub struct Delivery {
     pub meta: ::core::option::Option<DeliveryMeta>,
     #[prost(
         oneof = "delivery::Item",
-        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38"
+        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41"
     )]
     pub item: ::core::option::Option<delivery::Item>,
 }
@@ -3030,6 +3471,15 @@ pub mod delivery {
         /// W10.5: platform.lake.{dataset}.event.outcomes-recorded.
         #[prost(message, tag = "38")]
         OutcomesRecorded(super::OutcomesRecordedEvent),
+        /// W3.8: platform.reference.event.instrument-replaced.
+        #[prost(message, tag = "39")]
+        ReplaceMergedInstrument(super::InstrumentReplacedEvent),
+        /// W11.30: platform.book.event.booking-updated.
+        #[prost(message, tag = "40")]
+        BookingUpdated(super::BookingUpdatedEvent),
+        /// W11.35: platform.book.event.alert-changed.
+        #[prost(message, tag = "41")]
+        AlertChanged(super::AlertChangedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -3959,6 +4409,30 @@ pub struct InstrumentRecord {
     /// record whose type is binary event contract.
     #[prost(message, optional, tag = "17")]
     pub binary_event_contract: ::core::option::Option<BinaryEventContract>,
+    /// Contract v24 (W3.7; decisions/037, point 2 as amended 2026-10-14; the
+    /// one-ID model): the deployment's own local record -- the platform
+    /// unreachable, the request waiting for its staff, or, at the current
+    /// stage, no open identifier to ask by. It names its template, may be
+    /// incomplete, is a local line in the book, never priced, and an order on
+    /// it the escape hatch (W9.1, W11). False on a record named by the
+    /// platform's INS- ID, or keyed before v10.
+    #[prost(bool, tag = "18")]
+    pub provisional: bool,
+    /// Contract v24 (W3.7, W3.24): the platform's template the record is held
+    /// to, a class's base template where its type has none; empty on a record
+    /// kept before v24 and not yet migrated, and on one whose source stated no
+    /// class ("class needed").
+    #[prost(string, tag = "19")]
+    pub template_id: ::prost::alloc::string::String,
+    /// A published version, immutable; empty where template_id is.
+    #[prost(string, tag = "20")]
+    pub template_version: ::prost::alloc::string::String,
+    /// Contract v24 (W3.7): each required field of its template the record
+    /// does not hold, by its path in the template (TemplateField.path); empty
+    /// on a complete record and on every INS- record the platform minted.
+    /// Never a gate on asking the platform.
+    #[prost(string, repeated, tag = "21")]
+    pub missing_fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Where a value in force on a deployment's record came from (W3,
 /// requirements 1 and 3).
@@ -4782,6 +5256,18 @@ pub struct AccountAttributes {
     /// states it, so false is a deployment admin's act with its reason.
     #[prost(bool, tag = "6")]
     pub waits_for_compliance: bool,
+    /// Contract v24 (W9.13; the order-path plan's v24 item 10): a booking may
+    /// allocate to it without the instruction naming it, each allocation
+    /// carrying its reason and ErrorCause and raising an alert (W11.27,
+    /// W11.34). A deployment admin's mark; unmarking is recorded, and past
+    /// allocations keep their flag.
+    #[prost(bool, tag = "7")]
+    pub error_account: bool,
+    /// Contract v24 (W9.13; the order-path plan's v24 item 7): a block order's
+    /// account, with no statement to reconcile against, flat once booked; a
+    /// balance left after booking holds the booking (W11.28).
+    #[prost(bool, tag = "8")]
+    pub allocation_account: bool,
 }
 /// The account's standing opening balance, set by the book when it journals
 /// W9.1 and cleared when it is reversed (Q21 of the sample operations plugin,
@@ -5147,6 +5633,15 @@ pub struct Order {
     pub charges: ::prost::alloc::vec::Vec<Charge>,
     #[prost(message, optional, tag = "39")]
     pub last_change: ::core::option::Option<JournalRef>,
+    /// Contract v24 (W11.1; the order-path plan's v24 item 6): on a block
+    /// order, its members as proposed -- released orders of one instrument and
+    /// side, each in no other live block. Empty on any other order.
+    #[prost(string, repeated, tag = "45")]
+    pub block_member_order_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Contract v24 (W11.33): each sleeve cross that filled the order; its
+    /// filled quantity counts each, and no execution is minted for one.
+    #[prost(string, repeated, tag = "46")]
+    pub sleeve_cross_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// The people on an order, a placement or an entered execution (requirement
 /// 29). Each a person who has signed in (W6.1) or a service account.
@@ -5562,6 +6057,10 @@ pub struct Execution {
     /// and Q.
     #[prost(string, tag = "40")]
     pub venue_client_order_id: ::prost::alloc::string::String,
+    /// Contract v24 (W11.32): each prime's answer to a give-up of the
+    /// execution, in the order recorded; a rejection moves no position.
+    #[prost(message, repeated, tag = "41")]
+    pub give_up_answers: ::prost::alloc::vec::Vec<GiveUpRecord>,
 }
 /// An execution's finality: a level, and when it reached it.
 /// A mirror of meridian.v1.Finality.
@@ -5581,6 +6080,27 @@ pub struct Fee {
     /// Signed; a rebate negative.
     #[prost(message, optional, tag = "2")]
     pub amount: ::core::option::Option<Money>,
+    /// Contract v24 (W11.27; the order-path plan's v24 item 4): the `oms`'s
+    /// choice by its policy. A capitalised fee enters the lot's cost on a buy;
+    /// every fee stays its own cash line either way.
+    #[prost(bool, tag = "3")]
+    pub capitalised: bool,
+}
+/// A prime's answer to a give-up (W11.32), its own record, as FIX sends each
+/// AllocationReport (AS) as its own message.
+/// A mirror of meridian.v1.GiveUpRecord.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GiveUpRecord {
+    #[prost(enumeration = "GiveUpAnswer", tag = "1")]
+    pub answer: i32,
+    /// As reported, FIX's SecondaryAllocID (793).
+    #[prost(string, tag = "2")]
+    pub prime_reference: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+    /// Its entry in the account's partition.
+    #[prost(message, optional, tag = "4")]
+    pub entry: ::core::option::Option<EntryMeta>,
 }
 /// A fee with no fill, on its placement (W11.12): it moves cash, pending to
 /// its settlement date, and counts toward no quantity.
@@ -6065,6 +6585,177 @@ pub struct NewOrderFromExecutions {
     #[prost(string, tag = "2")]
     pub note: ::prost::alloc::string::String,
 }
+/// One account's part of a booking (W11.27).
+/// A mirror of meridian.v1.Allocation.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Allocation {
+    /// `ALC-` and a ULID, minted by the book even for one account, never
+    /// reused (FIX IndividualAllocID, 467); empty on a command.
+    #[prost(string, tag = "1")]
+    pub allocation_id: ::prost::alloc::string::String,
+    /// An account the allocation instruction names, or one marked an error
+    /// account (W9.13).
+    #[prost(string, tag = "2")]
+    pub account_id: ::prost::alloc::string::String,
+    /// The instruction line's sleeve, the order's own the default; empty for
+    /// the account's unsleeved part.
+    #[prost(string, tag = "3")]
+    pub sleeve: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// The price the account's confirmation states.
+    #[prost(message, optional, tag = "5")]
+    pub average_price: ::core::option::Option<Money>,
+    /// Quantity times average price, as the `oms` rounds it; the residual on a
+    /// named allocation.
+    #[prost(message, optional, tag = "6")]
+    pub gross_amount: ::core::option::Option<Money>,
+    /// Each kind summing exactly to the executions' fees of that kind.
+    #[prost(message, repeated, tag = "7")]
+    pub fees: ::prost::alloc::vec::Vec<Fee>,
+    /// Derived from gross and fees, not checked by the book.
+    #[prost(message, optional, tag = "8")]
+    pub net_amount: ::core::option::Option<Money>,
+    /// The date `operations` reconciles the allocation by, superseding the
+    /// fill's.
+    #[prost(string, tag = "9")]
+    pub intended_settlement_date: ::prost::alloc::string::String,
+    /// Priced at the average, as the SEC's average-price notation marks a
+    /// confirmation.
+    #[prost(bool, tag = "10")]
+    pub average_priced: bool,
+    /// The receiving account's own lots to relieve; empty, by the method.
+    #[prost(string, repeated, tag = "11")]
+    pub relieve_lot_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// A person's words, required on an error-account allocation
+    /// (REFUSAL_REASON_REASON_REQUIRED).
+    #[prost(string, tag = "12")]
+    pub reason: ::prost::alloc::string::String,
+    /// Unspecified unless the allocation is to an error account.
+    #[prost(enumeration = "ErrorCause", tag = "13")]
+    pub error_cause: i32,
+    /// Required with ERROR_CAUSE_OTHER (INVALID_ARGUMENT naming it), as FIX's
+    /// Text (58).
+    #[prost(string, tag = "14")]
+    pub error_text: ::prost::alloc::string::String,
+    /// Each prime's answer to a give-up of the allocation, in the order
+    /// recorded (W11.32).
+    #[prost(message, repeated, tag = "15")]
+    pub give_up_answers: ::prost::alloc::vec::Vec<GiveUpRecord>,
+}
+/// A booking of an order's executions to their accounts (W11.27 to W11.30).
+/// A mirror of meridian.v1.Booking.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Booking {
+    /// `BKG-` and a ULID, minted by the book, never reused (decisions/035,
+    /// point 7); the reference the street echoes back.
+    #[prost(string, tag = "1")]
+    pub booking_id: ::prost::alloc::string::String,
+    /// The order's `ORD-` ID; a child's executions are booked as its parent's.
+    #[prost(string, tag = "2")]
+    pub order_id: ::prost::alloc::string::String,
+    /// The order's account, whose partition the booking is in; the allocation
+    /// account for a block.
+    #[prost(string, tag = "3")]
+    pub account_id: ::prost::alloc::string::String,
+    /// An explicit list on one order, sharing instrument, side, trade date and
+    /// settlement date, as FIX's AllocationInstruction (J) requires of NoExecs.
+    #[prost(string, repeated, tag = "4")]
+    pub execution_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// One per account, summing exactly to the executions booked in quantity,
+    /// gross and each fee kind.
+    #[prost(message, repeated, tag = "5")]
+    pub allocations: ::prost::alloc::vec::Vec<Allocation>,
+    /// Derived from its journal, never stored.
+    #[prost(enumeration = "BookingState", tag = "6")]
+    pub state: i32,
+    /// The book's words for what moved executed away from allocated, as FIX
+    /// keeps a rejection's reason in AllocRejCode (88); empty unless held.
+    #[prost(string, tag = "7")]
+    pub held_reason: ::prost::alloc::string::String,
+    /// Its latest entry, which a catch-up reads it by (W4.3).
+    #[prost(message, optional, tag = "8")]
+    pub last_change: ::core::option::Option<JournalRef>,
+}
+/// A cross between two sleeves of one account (W11.33), its tax and
+/// performance layers; no execution is minted for it.
+/// A mirror of meridian.v1.SleeveCross.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SleeveCross {
+    /// `SXC-` and a ULID, minted by the book, never reused.
+    #[prost(string, tag = "1")]
+    pub sleeve_cross_id: ::prost::alloc::string::String,
+    /// One account; a cross between accounts is an internal cross, a real
+    /// trade.
+    #[prost(string, tag = "2")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub instrument_id: ::prost::alloc::string::String,
+    /// Empty for the account's unsleeved part.
+    #[prost(string, tag = "4")]
+    pub giving_sleeve: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub receiving_sleeve: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "6")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// The plugin's choice (mid, last or close): each moved lot's performance
+    /// cost, never its tax basis.
+    #[prost(message, optional, tag = "7")]
+    pub cross_price: ::core::option::Option<Money>,
+    /// Which price and when, the plugin's words.
+    #[prost(string, tag = "8")]
+    pub price_source: ::prost::alloc::string::String,
+    /// Each order's filled quantity counts the cross.
+    #[prost(string, repeated, tag = "9")]
+    pub order_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag = "10")]
+    pub reason: ::prost::alloc::string::String,
+}
+/// What an alert is about: a booking and its allocation, or for
+/// `compliance`'s own an order or a position.
+/// A mirror of meridian.v1.AlertSubject.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AlertSubject {
+    #[prost(string, tag = "1")]
+    pub order_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub booking_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub allocation_id: ::prost::alloc::string::String,
+    /// An instrument and a side in the account, as a break names one (W9.4).
+    #[prost(message, optional, tag = "4")]
+    pub position: ::core::option::Option<PositionKey>,
+}
+/// A post-trade alert in an account's partition (W11.34), raised,
+/// acknowledged or cleared, never deleted; landed in the compliance spec's
+/// shape.
+/// A mirror of meridian.v1.Alert.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Alert {
+    /// `ALR-` and a ULID, minted by the book, never reused.
+    #[prost(string, tag = "1")]
+    pub alert_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "AlertKind", tag = "3")]
+    pub kind: i32,
+    #[prost(enumeration = "AlertState", tag = "4")]
+    pub state: i32,
+    /// The book's words or `compliance`'s.
+    #[prost(string, tag = "5")]
+    pub reason: ::prost::alloc::string::String,
+    /// What it is about.
+    #[prost(message, optional, tag = "6")]
+    pub subject: ::core::option::Option<AlertSubject>,
+    /// A held booking's: the moment the `operations` plugin's
+    /// affirmation_deadline falls on the trade date, in the deployment's time
+    /// zone; zero otherwise.
+    #[prost(int64, tag = "7")]
+    pub due_by: i64,
+    /// Its latest entry, which a catch-up reads it by (W4.3).
+    #[prost(message, optional, tag = "8")]
+    pub last_change: ::core::option::Option<JournalRef>,
+}
 /// The venue master's record of one venue (W1.16). The platform mints its ID;
 /// a deployment keeps what it pulled (W3.5) and answers it (W3.14).
 /// A mirror of meridian.v1.VenueRecord.
@@ -6227,6 +6918,100 @@ pub struct BusinessDayInputs {
     pub date: ::prost::alloc::string::String,
     #[prost(string, repeated, tag = "2")]
     pub calendars: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// A deployment's record was replaced by another (W3.8): from contract v10, a
+/// record a person merged into the one that stays (W3.13); before it, a
+/// placeholder by its INS- ID. Stores keyed by instrument move what they hold
+/// under it onto the one that stays (W3.9, W9.9); records of what was
+/// reported keep it.
+///
+/// From contract v24 also a provisional record resolved and a platform merge,
+/// each with its cause, heard by every role (W3.8) and caught up by
+/// ListReplacements (W3.22).
+/// A mirror of meridian.v1.InstrumentReplacedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstrumentReplacedEvent {
+    /// The record replaced.
+    #[prost(string, tag = "1")]
+    pub replaced_instrument_id: ::prost::alloc::string::String,
+    /// What replaces it.
+    #[prost(message, optional, tag = "2")]
+    pub instrument: ::core::option::Option<InstrumentRecord>,
+    #[prost(int64, tag = "3")]
+    pub replaced_at_ns: i64,
+    /// Contract v24 (W3.8): why it was replaced; unspecified only on a
+    /// replacement recorded before v24 and not yet backfilled.
+    #[prost(enumeration = "ReplacementCause", tag = "4")]
+    pub cause: i32,
+    /// Contract v24 (W3.22): monotonic per deployment; ListReplacements reads
+    /// after it. Zero only on a replacement recorded before v24.
+    #[prost(int64, tag = "5")]
+    pub sequence: i64,
+}
+/// A value at a template field's path, with its provenance (W3.4, W3.23).
+/// A mirror of meridian.v1.TemplateFieldValue.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TemplateFieldValue {
+    /// The field's path in the template; one the template lacks is refused
+    /// naming it.
+    #[prost(string, tag = "1")]
+    pub path: ::prost::alloc::string::String,
+    /// As the template's field type writes it.
+    #[prost(string, tag = "2")]
+    pub value: ::prost::alloc::string::String,
+    /// The source it was reconciled from; unset, the plugin's own source.
+    #[prost(message, optional, tag = "3")]
+    pub provenance: ::core::option::Option<Provenance>,
+}
+/// A security template (W1.24, W3.24; the intent's "security template"): the
+/// platform authors, versions and publishes it, and a deployment's store
+/// holds every version and never changes one.
+/// A mirror of meridian.v1.SecurityTemplate.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SecurityTemplate {
+    /// `TPL-`, the platform's, never a deployment's.
+    #[prost(string, tag = "1")]
+    pub template_id: ::prost::alloc::string::String,
+    /// Published and immutable; a change is a new version.
+    #[prost(string, tag = "2")]
+    pub template_version: ::prost::alloc::string::String,
+    /// The platform's words for it.
+    #[prost(string, tag = "3")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(enumeration = "AssetClass", tag = "4")]
+    pub asset_class: i32,
+    /// Unspecified for a class's base template.
+    #[prost(enumeration = "InstrumentType", tag = "5")]
+    pub instrument_type: i32,
+    /// True for the one template per asset class carrying identifiers, a
+    /// description and a currency; the platform mints no INS- record under it.
+    #[prost(bool, tag = "6")]
+    pub base: bool,
+    /// Its calculation package: the slot defined and empty until the template
+    /// calculations (row 6i').
+    #[prost(string, tag = "7")]
+    pub calculation: ::prost::alloc::string::String,
+    /// Each by its path, its type and whether it is required.
+    #[prost(message, repeated, tag = "8")]
+    pub fields: ::prost::alloc::vec::Vec<TemplateField>,
+    /// The identifier schemes it matches on, each by its scheme's spelling,
+    /// share_class_figi first.
+    #[prost(string, repeated, tag = "9")]
+    pub match_rule: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// One field of a template (W3.24).
+/// A mirror of meridian.v1.TemplateField.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TemplateField {
+    /// As an offer (TemplateFieldValue.path) and a missing field name it.
+    #[prost(string, tag = "1")]
+    pub path: ::prost::alloc::string::String,
+    /// One of the contract's types, as a dictionary entry's type is written.
+    #[prost(string, tag = "2")]
+    pub r#type: ::prost::alloc::string::String,
+    /// A record without it is incomplete, its missing fields listed (W3.7).
+    #[prost(bool, tag = "3")]
+    pub required: bool,
 }
 /// A price of one kind for one subject. An FX rate is the price of one
 /// currency's cash instrument in another (spec/the-lake, Q3); the lake never
@@ -6974,6 +7759,32 @@ pub struct VenueCatalogueEvent {
 pub struct OutcomesRecordedEvent {
     #[prost(message, optional, tag = "1")]
     pub outcome: ::core::option::Option<Outcome>,
+}
+/// W11.30: to `operations`, `oms`, `compliance`, `portfolio` and `reporting`
+/// within scope, by the account the booking is in.
+/// A mirror of meridian.v1.BookingUpdatedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BookingUpdatedEvent {
+    /// Its whole new state, safe to apply twice.
+    #[prost(message, optional, tag = "1")]
+    pub booking: ::core::option::Option<Booking>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "4")]
+    pub cause: ::core::option::Option<ChangeCause>,
+}
+/// W11.35: to `compliance`, `reporting`, `oms` and `operations` within scope.
+/// A mirror of meridian.v1.AlertChangedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AlertChangedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub alert: ::core::option::Option<Alert>,
+    #[prost(message, optional, tag = "2")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(message, optional, tag = "3")]
+    pub cause: ::core::option::Option<ChangeCause>,
 }
 /// An account's kind (contract v11): one coarse kind, the platform's own
 /// words, never a venue's.
@@ -7978,6 +8789,11 @@ pub enum BreakCategory {
     /// available and not available against the book's position, or an
     /// encumbrance against the book's of that kind, location and pledgee.
     Figure = 7,
+    /// Contract v24 (W9.3; the one-ID model, ruled 2026-10-14): a statement row
+    /// the street kept unresolved because its source is thinner than an
+    /// instrument record's minimum (W3.7). No instrument and no position: the
+    /// break names the street record by value. ISO 15022/20022's DSEC.
+    UnrecognizedSecurity = 8,
 }
 impl BreakCategory {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -7994,6 +8810,7 @@ impl BreakCategory {
             Self::BookOnly => "BREAK_CATEGORY_BOOK_ONLY",
             Self::StreetOnly => "BREAK_CATEGORY_STREET_ONLY",
             Self::Figure => "BREAK_CATEGORY_FIGURE",
+            Self::UnrecognizedSecurity => "BREAK_CATEGORY_UNRECOGNIZED_SECURITY",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -8007,6 +8824,7 @@ impl BreakCategory {
             "BREAK_CATEGORY_BOOK_ONLY" => Some(Self::BookOnly),
             "BREAK_CATEGORY_STREET_ONLY" => Some(Self::StreetOnly),
             "BREAK_CATEGORY_FIGURE" => Some(Self::Figure),
+            "BREAK_CATEGORY_UNRECOGNIZED_SECURITY" => Some(Self::UnrecognizedSecurity),
             _ => None,
         }
     }
@@ -9506,6 +10324,38 @@ impl DkReason {
         }
     }
 }
+/// A prime's answer to a give-up (W11.32), as FIX's AllocStatus (87).
+/// A mirror of meridian.v1.GiveUpAnswer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum GiveUpAnswer {
+    Unspecified = 0,
+    Accepted = 1,
+    /// The trade stays with the executing side; no position moves.
+    Rejected = 2,
+}
+impl GiveUpAnswer {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "GIVE_UP_ANSWER_UNSPECIFIED",
+            Self::Accepted => "GIVE_UP_ANSWER_ACCEPTED",
+            Self::Rejected => "GIVE_UP_ANSWER_REJECTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "GIVE_UP_ANSWER_UNSPECIFIED" => Some(Self::Unspecified),
+            "GIVE_UP_ANSWER_ACCEPTED" => Some(Self::Accepted),
+            "GIVE_UP_ANSWER_REJECTED" => Some(Self::Rejected),
+            _ => None,
+        }
+    }
+}
 /// A mirror of meridian.v1.ApprovalDecision.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -9947,6 +10797,213 @@ impl ExecutionAcknowledgement {
         }
     }
 }
+/// Why an allocation is to an error account (W11.27; the order-path plan's
+/// v24 item 10). FIX has no standard list.
+/// A mirror of meridian.v1.ErrorCause.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ErrorCause {
+    /// Not an error-account allocation.
+    Unspecified = 0,
+    /// The venue filled more than ordered; the excess booked to the error
+    /// account.
+    Overfill = 1,
+    ClientReneged = 2,
+    /// A venue-originated fill accepted to the wrong order (W11.23).
+    WrongAccept = 3,
+    /// The firm's own booking error.
+    BookingError = 4,
+    /// Another cause, which error_text says.
+    Other = 5,
+}
+impl ErrorCause {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ERROR_CAUSE_UNSPECIFIED",
+            Self::Overfill => "ERROR_CAUSE_OVERFILL",
+            Self::ClientReneged => "ERROR_CAUSE_CLIENT_RENEGED",
+            Self::WrongAccept => "ERROR_CAUSE_WRONG_ACCEPT",
+            Self::BookingError => "ERROR_CAUSE_BOOKING_ERROR",
+            Self::Other => "ERROR_CAUSE_OTHER",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ERROR_CAUSE_UNSPECIFIED" => Some(Self::Unspecified),
+            "ERROR_CAUSE_OVERFILL" => Some(Self::Overfill),
+            "ERROR_CAUSE_CLIENT_RENEGED" => Some(Self::ClientReneged),
+            "ERROR_CAUSE_WRONG_ACCEPT" => Some(Self::WrongAccept),
+            "ERROR_CAUSE_BOOKING_ERROR" => Some(Self::BookingError),
+            "ERROR_CAUSE_OTHER" => Some(Self::Other),
+            _ => None,
+        }
+    }
+}
+/// A booking's state (W11.30), derived from its journal, never stored.
+/// A mirror of meridian.v1.BookingState.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum BookingState {
+    Unspecified = 0,
+    /// Booked, its allocations tying out, not yet handed off or closed.
+    Booked = 1,
+    /// Executed no longer equals allocated -- a bust, a correction, a late
+    /// fill or a later fee since booking -- or a hand-off's check failed; its
+    /// reason in held_reason, and a held-booking alert raised.
+    Held = 2,
+    /// Handed off to `operations`, which owns each allocation's post-trade
+    /// life.
+    HandedOff = 3,
+    /// A client's booking the firm does not settle, closed, its error-account
+    /// allocations handed off.
+    Closed = 4,
+    /// Cancelled by the `oms` before the hand-off, so its executions may be
+    /// booked again.
+    Cancelled = 5,
+}
+impl BookingState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "BOOKING_STATE_UNSPECIFIED",
+            Self::Booked => "BOOKING_STATE_BOOKED",
+            Self::Held => "BOOKING_STATE_HELD",
+            Self::HandedOff => "BOOKING_STATE_HANDED_OFF",
+            Self::Closed => "BOOKING_STATE_CLOSED",
+            Self::Cancelled => "BOOKING_STATE_CANCELLED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "BOOKING_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "BOOKING_STATE_BOOKED" => Some(Self::Booked),
+            "BOOKING_STATE_HELD" => Some(Self::Held),
+            "BOOKING_STATE_HANDED_OFF" => Some(Self::HandedOff),
+            "BOOKING_STATE_CLOSED" => Some(Self::Closed),
+            "BOOKING_STATE_CANCELLED" => Some(Self::Cancelled),
+            _ => None,
+        }
+    }
+}
+/// A booking's correction (W11.29), as FIX's AllocTransType (71).
+/// A mirror of meridian.v1.BookingCorrectionKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum BookingCorrectionKind {
+    Unspecified = 0,
+    /// The `oms`'s, before the hand-off or closing.
+    Cancel = 1,
+    /// `operations`', after it, with the full new allocation set: a new
+    /// version, the state kept.
+    Replace = 2,
+}
+impl BookingCorrectionKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "BOOKING_CORRECTION_KIND_UNSPECIFIED",
+            Self::Cancel => "BOOKING_CORRECTION_KIND_CANCEL",
+            Self::Replace => "BOOKING_CORRECTION_KIND_REPLACE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "BOOKING_CORRECTION_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "BOOKING_CORRECTION_KIND_CANCEL" => Some(Self::Cancel),
+            "BOOKING_CORRECTION_KIND_REPLACE" => Some(Self::Replace),
+            _ => None,
+        }
+    }
+}
+/// What an alert is about (W11.34); v26 adds rule results to the same record.
+/// A mirror of meridian.v1.AlertKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AlertKind {
+    Unspecified = 0,
+    /// An allocation to an error account, raised by the book on each.
+    ErrorAccountBooking = 1,
+    /// A booking held, raised by the book and cleared by it at the hand-off
+    /// or closing.
+    BookingHeld = 2,
+    /// `compliance`'s own, through RaiseAlert.
+    Compliance = 3,
+}
+impl AlertKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ALERT_KIND_UNSPECIFIED",
+            Self::ErrorAccountBooking => "ALERT_KIND_ERROR_ACCOUNT_BOOKING",
+            Self::BookingHeld => "ALERT_KIND_BOOKING_HELD",
+            Self::Compliance => "ALERT_KIND_COMPLIANCE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ALERT_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "ALERT_KIND_ERROR_ACCOUNT_BOOKING" => Some(Self::ErrorAccountBooking),
+            "ALERT_KIND_BOOKING_HELD" => Some(Self::BookingHeld),
+            "ALERT_KIND_COMPLIANCE" => Some(Self::Compliance),
+            _ => None,
+        }
+    }
+}
+/// An alert's state (W11.34); nothing is deleted.
+/// A mirror of meridian.v1.AlertState.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AlertState {
+    Unspecified = 0,
+    /// Raised, by the book or by `compliance`.
+    Raised = 1,
+    /// Acknowledged by `compliance` for a person, with a reason; never
+    /// clearing it.
+    Acknowledged = 2,
+    /// Cleared by the book: a held booking handed off or closed.
+    Cleared = 3,
+}
+impl AlertState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ALERT_STATE_UNSPECIFIED",
+            Self::Raised => "ALERT_STATE_RAISED",
+            Self::Acknowledged => "ALERT_STATE_ACKNOWLEDGED",
+            Self::Cleared => "ALERT_STATE_CLEARED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ALERT_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "ALERT_STATE_RAISED" => Some(Self::Raised),
+            "ALERT_STATE_ACKNOWLEDGED" => Some(Self::Acknowledged),
+            "ALERT_STATE_CLEARED" => Some(Self::Cleared),
+            _ => None,
+        }
+    }
+}
 /// What kind of venue it is. A closed list, grown by revision.
 /// A mirror of meridian.v1.VenueKind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -10194,6 +11251,45 @@ impl DateOutcome {
             "DATE_OUTCOME_CALENDAR_NOT_HELD" => Some(Self::CalendarNotHeld),
             "DATE_OUTCOME_OUTSIDE_COVERAGE" => Some(Self::OutsideCoverage),
             "DATE_OUTCOME_RULE_NOT_HELD" => Some(Self::RuleNotHeld),
+            _ => None,
+        }
+    }
+}
+/// Why a record was replaced (W3.8, contract v24).
+/// A mirror of meridian.v1.ReplacementCause.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ReplacementCause {
+    /// A replacement before v24 whose facts are missing, recorded as a gap.
+    Unspecified = 0,
+    /// A person merged the record into the one that stays (W3.13).
+    Merged = 1,
+    /// A provisional record resolved to the platform's INS- record.
+    Resolved = 2,
+    /// The platform merged two INS- records, followed from the replacement
+    /// feed (W3.27).
+    PlatformMerged = 3,
+}
+impl ReplacementCause {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "REPLACEMENT_CAUSE_UNSPECIFIED",
+            Self::Merged => "REPLACEMENT_CAUSE_MERGED",
+            Self::Resolved => "REPLACEMENT_CAUSE_RESOLVED",
+            Self::PlatformMerged => "REPLACEMENT_CAUSE_PLATFORM_MERGED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "REPLACEMENT_CAUSE_UNSPECIFIED" => Some(Self::Unspecified),
+            "REPLACEMENT_CAUSE_MERGED" => Some(Self::Merged),
+            "REPLACEMENT_CAUSE_RESOLVED" => Some(Self::Resolved),
+            "REPLACEMENT_CAUSE_PLATFORM_MERGED" => Some(Self::PlatformMerged),
             _ => None,
         }
     }
@@ -11542,7 +12638,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.1: platform.book.command.propose-order (command; preview).
+        /// W11.1: platform.book.command.propose-order (command; stable).
         pub async fn propose_order(
             &mut self,
             request: impl tonic::IntoRequest<super::ProposeOrderParams>,
@@ -11572,7 +12668,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.2: platform.book.command.record-order (command; preview).
+        /// W11.2: platform.book.command.record-order (command; stable).
         pub async fn record_order(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordOrderParams>,
@@ -11599,7 +12695,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.3: platform.book.command.request-order-change (command; preview).
+        /// W11.3: platform.book.command.request-order-change (command; stable).
         pub async fn request_order_change(
             &mut self,
             request: impl tonic::IntoRequest<super::RequestOrderChangeParams>,
@@ -11629,7 +12725,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.4: platform.book.command.record-check (command; preview).
+        /// W11.4: platform.book.command.record-check (command; stable).
         pub async fn record_check(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordCheckParams>,
@@ -11656,7 +12752,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.5: platform.book.command.decide-approval (command; preview).
+        /// W11.5: platform.book.command.decide-approval (command; stable).
         pub async fn decide_approval(
             &mut self,
             request: impl tonic::IntoRequest<super::DecideApprovalParams>,
@@ -11686,7 +12782,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.6: platform.book.command.release-order (command; preview).
+        /// W11.6: platform.book.command.release-order (command; stable).
         pub async fn release_order(
             &mut self,
             request: impl tonic::IntoRequest<super::ReleaseOrderParams>,
@@ -11716,7 +12812,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.7: platform.book.command.set-working-condition (command; preview).
+        /// W11.7: platform.book.command.set-working-condition (command; stable).
         pub async fn set_working_condition(
             &mut self,
             request: impl tonic::IntoRequest<super::SetWorkingConditionParams>,
@@ -11746,7 +12842,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.8: platform.book.command.create-placement (command; preview).
+        /// W11.8: platform.book.command.create-placement (command; stable).
         pub async fn create_placement(
             &mut self,
             request: impl tonic::IntoRequest<super::CreatePlacementParams>,
@@ -11776,7 +12872,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.9: platform.book.command.request-placement-change (command; preview).
+        /// W11.9: platform.book.command.request-placement-change (command; stable).
         pub async fn request_placement_change(
             &mut self,
             request: impl tonic::IntoRequest<super::RequestPlacementChangeParams>,
@@ -11806,7 +12902,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.10: platform.book.command.report-placement (command; preview).
+        /// W11.10: platform.book.command.report-placement (command; stable).
         pub async fn report_placement(
             &mut self,
             request: impl tonic::IntoRequest<super::ReportPlacementParams>,
@@ -11836,7 +12932,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.11: platform.book.command.report-execution (command; preview).
+        /// W11.11: platform.book.command.report-execution (command; stable).
         pub async fn report_execution(
             &mut self,
             request: impl tonic::IntoRequest<super::ReportExecutionParams>,
@@ -11866,7 +12962,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.12: platform.book.command.report-charge (command; preview).
+        /// W11.12: platform.book.command.report-charge (command; stable).
         pub async fn report_charge(
             &mut self,
             request: impl tonic::IntoRequest<super::ReportChargeParams>,
@@ -11896,7 +12992,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.14: platform.book.command.acknowledge-flag (command; preview).
+        /// W11.14: platform.book.command.acknowledge-flag (command; stable).
         pub async fn acknowledge_flag(
             &mut self,
             request: impl tonic::IntoRequest<super::AcknowledgeFlagParams>,
@@ -11926,7 +13022,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.16: platform.book.query.list-trading-instructions (query; preview).
+        /// W11.16: platform.book.query.list-trading-instructions (query; stable).
         pub async fn list_trading_instructions(
             &mut self,
             request: impl tonic::IntoRequest<super::ListTradingInstructionsParams>,
@@ -11956,7 +13052,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.17: platform.book.query.list-orders (query; preview).
+        /// W11.17: platform.book.query.list-orders (query; stable).
         pub async fn list_orders(
             &mut self,
             request: impl tonic::IntoRequest<super::ListOrdersParams>,
@@ -11983,7 +13079,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.17: platform.book.query.order-history (query; preview).
+        /// W11.17: platform.book.query.order-history (query; stable).
         pub async fn read_order_history(
             &mut self,
             request: impl tonic::IntoRequest<super::ReadOrderHistoryParams>,
@@ -12013,7 +13109,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.18: platform.book.command.record-locate (command; preview).
+        /// W11.18: platform.book.command.record-locate (command; stable).
         pub async fn record_locate(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordLocateParams>,
@@ -12043,7 +13139,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.18: platform.book.query.list-locates (query; preview).
+        /// W11.18: platform.book.query.list-locates (query; stable).
         pub async fn list_locates(
             &mut self,
             request: impl tonic::IntoRequest<super::ListLocatesParams>,
@@ -12070,7 +13166,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.19: platform.book.command.record-locate-use (command; preview).
+        /// W11.19: platform.book.command.record-locate-use (command; stable).
         pub async fn record_locate_use(
             &mut self,
             request: impl tonic::IntoRequest<super::RecordLocateUseParams>,
@@ -12100,7 +13196,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.20: platform.config.event.venue-catalogue (event; preview).
+        /// W11.20: platform.config.event.venue-catalogue (event; stable).
         pub async fn report_venue_catalogue(
             &mut self,
             request: impl tonic::IntoRequest<super::ReportVenueCatalogueParams>,
@@ -12127,7 +13223,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.20: platform.config.query.venue-catalogue (query; preview).
+        /// W11.20: platform.config.query.venue-catalogue (query; stable).
         pub async fn read_venue_catalogue(
             &mut self,
             request: impl tonic::IntoRequest<super::ReadVenueCatalogueParams>,
@@ -12157,7 +13253,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.22: platform.config.command.map-venue-account (command; preview).
+        /// W11.22: platform.config.command.map-venue-account (command; stable).
         pub async fn map_venue_account(
             &mut self,
             request: impl tonic::IntoRequest<super::MapVenueAccountParams>,
@@ -12187,7 +13283,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.23: platform.book.command.accept-execution (command; preview).
+        /// W11.23: platform.book.command.accept-execution (command; stable).
         pub async fn accept_execution(
             &mut self,
             request: impl tonic::IntoRequest<super::AcceptExecutionParams>,
@@ -12217,7 +13313,7 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
-        /// W11.24: platform.book.command.dont-know-execution (command; preview).
+        /// W11.24: platform.book.command.dont-know-execution (command; stable).
         pub async fn dont_know_execution(
             &mut self,
             request: impl tonic::IntoRequest<super::DontKnowExecutionParams>,
@@ -12273,6 +13369,327 @@ pub mod plugin_operations_client {
                     GrpcMethod::new(
                         "meridian.plugin.v1.PluginOperations",
                         "ReportValueDateRoll",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.26: platform.book.command.set-allocation-instruction (command; preview).
+        pub async fn set_allocation_instruction(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SetAllocationInstructionParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetAllocationInstructionResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/SetAllocationInstruction",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "SetAllocationInstruction",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.27: platform.book.command.book-order (command; preview).
+        pub async fn book_order(
+            &mut self,
+            request: impl tonic::IntoRequest<super::BookOrderParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::BookOrderResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/BookOrder",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "BookOrder"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.28: platform.book.command.hand-off-booking (command; preview).
+        pub async fn hand_off_booking(
+            &mut self,
+            request: impl tonic::IntoRequest<super::HandOffBookingParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::HandOffBookingResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/HandOffBooking",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "HandOffBooking",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.29: platform.book.command.correct-booking (command; preview).
+        pub async fn correct_booking(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CorrectBookingParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::CorrectBookingResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/CorrectBooking",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "CorrectBooking",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.31: platform.book.query.list-bookings (query; preview).
+        pub async fn list_bookings(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListBookingsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListBookingsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListBookings",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListBookings",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.32: platform.book.command.report-give-up (command; preview).
+        pub async fn report_give_up(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReportGiveUpParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportGiveUpResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReportGiveUp",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReportGiveUp",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.33: platform.book.command.record-sleeve-cross (command; preview).
+        pub async fn record_sleeve_cross(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordSleeveCrossParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordSleeveCrossResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordSleeveCross",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "RecordSleeveCross",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.34: platform.book.command.raise-alert (command; preview).
+        pub async fn raise_alert(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RaiseAlertParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RaiseAlertResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RaiseAlert",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "RaiseAlert"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.34: platform.book.command.acknowledge-alert (command; preview).
+        pub async fn acknowledge_alert(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AcknowledgeAlertParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::AcknowledgeAlertResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/AcknowledgeAlert",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "AcknowledgeAlert",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.35: platform.book.query.list-alerts (query; preview).
+        pub async fn list_alerts(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListAlertsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAlertsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListAlerts",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "ListAlerts"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.37: platform.book.query.read-local-record-orders (query; preview).
+        pub async fn read_local_record_orders(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReadLocalRecordOrdersParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadLocalRecordOrdersResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReadLocalRecordOrders",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReadLocalRecordOrders",
                     ),
                 );
             self.inner.unary(req, path, codec).await
@@ -12388,6 +13805,126 @@ pub mod plugin_operations_client {
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new("meridian.plugin.v1.PluginOperations", "ComputeDate"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W3.22: platform.reference.query.list-replacements (query; preview).
+        pub async fn list_replacements(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListReplacementsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListReplacementsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListReplacements",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListReplacements",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W3.23: platform.reference.command.offer-template-fields (command; preview).
+        pub async fn offer_template_fields(
+            &mut self,
+            request: impl tonic::IntoRequest<super::OfferTemplateFieldsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::OfferTemplateFieldsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/OfferTemplateFields",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "OfferTemplateFields",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W3.24: platform.reference.query.list-templates (query; preview).
+        pub async fn list_templates(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListTemplatesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListTemplatesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListTemplates",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListTemplates",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W3.24: platform.reference.query.read-template (query; preview).
+        pub async fn read_template(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReadTemplateParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadTemplateResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReadTemplate",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReadTemplate",
+                    ),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -12971,7 +14508,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListAccountAttributesResult>,
             tonic::Status,
         >;
-        /// W11.1: platform.book.command.propose-order (command; preview).
+        /// W11.1: platform.book.command.propose-order (command; stable).
         async fn propose_order(
             &self,
             request: tonic::Request<super::ProposeOrderParams>,
@@ -12979,7 +14516,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ProposeOrderResult>,
             tonic::Status,
         >;
-        /// W11.2: platform.book.command.record-order (command; preview).
+        /// W11.2: platform.book.command.record-order (command; stable).
         async fn record_order(
             &self,
             request: tonic::Request<super::RecordOrderParams>,
@@ -12987,7 +14524,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordOrderResult>,
             tonic::Status,
         >;
-        /// W11.3: platform.book.command.request-order-change (command; preview).
+        /// W11.3: platform.book.command.request-order-change (command; stable).
         async fn request_order_change(
             &self,
             request: tonic::Request<super::RequestOrderChangeParams>,
@@ -12995,7 +14532,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RequestOrderChangeResult>,
             tonic::Status,
         >;
-        /// W11.4: platform.book.command.record-check (command; preview).
+        /// W11.4: platform.book.command.record-check (command; stable).
         async fn record_check(
             &self,
             request: tonic::Request<super::RecordCheckParams>,
@@ -13003,7 +14540,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordCheckResult>,
             tonic::Status,
         >;
-        /// W11.5: platform.book.command.decide-approval (command; preview).
+        /// W11.5: platform.book.command.decide-approval (command; stable).
         async fn decide_approval(
             &self,
             request: tonic::Request<super::DecideApprovalParams>,
@@ -13011,7 +14548,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::DecideApprovalResult>,
             tonic::Status,
         >;
-        /// W11.6: platform.book.command.release-order (command; preview).
+        /// W11.6: platform.book.command.release-order (command; stable).
         async fn release_order(
             &self,
             request: tonic::Request<super::ReleaseOrderParams>,
@@ -13019,7 +14556,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ReleaseOrderResult>,
             tonic::Status,
         >;
-        /// W11.7: platform.book.command.set-working-condition (command; preview).
+        /// W11.7: platform.book.command.set-working-condition (command; stable).
         async fn set_working_condition(
             &self,
             request: tonic::Request<super::SetWorkingConditionParams>,
@@ -13027,7 +14564,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::SetWorkingConditionResult>,
             tonic::Status,
         >;
-        /// W11.8: platform.book.command.create-placement (command; preview).
+        /// W11.8: platform.book.command.create-placement (command; stable).
         async fn create_placement(
             &self,
             request: tonic::Request<super::CreatePlacementParams>,
@@ -13035,7 +14572,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::CreatePlacementResult>,
             tonic::Status,
         >;
-        /// W11.9: platform.book.command.request-placement-change (command; preview).
+        /// W11.9: platform.book.command.request-placement-change (command; stable).
         async fn request_placement_change(
             &self,
             request: tonic::Request<super::RequestPlacementChangeParams>,
@@ -13043,7 +14580,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RequestPlacementChangeResult>,
             tonic::Status,
         >;
-        /// W11.10: platform.book.command.report-placement (command; preview).
+        /// W11.10: platform.book.command.report-placement (command; stable).
         async fn report_placement(
             &self,
             request: tonic::Request<super::ReportPlacementParams>,
@@ -13051,7 +14588,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ReportPlacementResult>,
             tonic::Status,
         >;
-        /// W11.11: platform.book.command.report-execution (command; preview).
+        /// W11.11: platform.book.command.report-execution (command; stable).
         async fn report_execution(
             &self,
             request: tonic::Request<super::ReportExecutionParams>,
@@ -13059,7 +14596,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ReportExecutionResult>,
             tonic::Status,
         >;
-        /// W11.12: platform.book.command.report-charge (command; preview).
+        /// W11.12: platform.book.command.report-charge (command; stable).
         async fn report_charge(
             &self,
             request: tonic::Request<super::ReportChargeParams>,
@@ -13067,7 +14604,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ReportChargeResult>,
             tonic::Status,
         >;
-        /// W11.14: platform.book.command.acknowledge-flag (command; preview).
+        /// W11.14: platform.book.command.acknowledge-flag (command; stable).
         async fn acknowledge_flag(
             &self,
             request: tonic::Request<super::AcknowledgeFlagParams>,
@@ -13075,7 +14612,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::AcknowledgeFlagResult>,
             tonic::Status,
         >;
-        /// W11.16: platform.book.query.list-trading-instructions (query; preview).
+        /// W11.16: platform.book.query.list-trading-instructions (query; stable).
         async fn list_trading_instructions(
             &self,
             request: tonic::Request<super::ListTradingInstructionsParams>,
@@ -13083,7 +14620,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListTradingInstructionsResult>,
             tonic::Status,
         >;
-        /// W11.17: platform.book.query.list-orders (query; preview).
+        /// W11.17: platform.book.query.list-orders (query; stable).
         async fn list_orders(
             &self,
             request: tonic::Request<super::ListOrdersParams>,
@@ -13091,7 +14628,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListOrdersResult>,
             tonic::Status,
         >;
-        /// W11.17: platform.book.query.order-history (query; preview).
+        /// W11.17: platform.book.query.order-history (query; stable).
         async fn read_order_history(
             &self,
             request: tonic::Request<super::ReadOrderHistoryParams>,
@@ -13099,7 +14636,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ReadOrderHistoryResult>,
             tonic::Status,
         >;
-        /// W11.18: platform.book.command.record-locate (command; preview).
+        /// W11.18: platform.book.command.record-locate (command; stable).
         async fn record_locate(
             &self,
             request: tonic::Request<super::RecordLocateParams>,
@@ -13107,7 +14644,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordLocateResult>,
             tonic::Status,
         >;
-        /// W11.18: platform.book.query.list-locates (query; preview).
+        /// W11.18: platform.book.query.list-locates (query; stable).
         async fn list_locates(
             &self,
             request: tonic::Request<super::ListLocatesParams>,
@@ -13115,7 +14652,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListLocatesResult>,
             tonic::Status,
         >;
-        /// W11.19: platform.book.command.record-locate-use (command; preview).
+        /// W11.19: platform.book.command.record-locate-use (command; stable).
         async fn record_locate_use(
             &self,
             request: tonic::Request<super::RecordLocateUseParams>,
@@ -13123,12 +14660,12 @@ pub mod plugin_operations_server {
             tonic::Response<super::RecordLocateUseResult>,
             tonic::Status,
         >;
-        /// W11.20: platform.config.event.venue-catalogue (event; preview).
+        /// W11.20: platform.config.event.venue-catalogue (event; stable).
         async fn report_venue_catalogue(
             &self,
             request: tonic::Request<super::ReportVenueCatalogueParams>,
         ) -> std::result::Result<tonic::Response<super::Published>, tonic::Status>;
-        /// W11.20: platform.config.query.venue-catalogue (query; preview).
+        /// W11.20: platform.config.query.venue-catalogue (query; stable).
         async fn read_venue_catalogue(
             &self,
             request: tonic::Request<super::ReadVenueCatalogueParams>,
@@ -13136,7 +14673,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::ReadVenueCatalogueResult>,
             tonic::Status,
         >;
-        /// W11.22: platform.config.command.map-venue-account (command; preview).
+        /// W11.22: platform.config.command.map-venue-account (command; stable).
         async fn map_venue_account(
             &self,
             request: tonic::Request<super::MapVenueAccountParams>,
@@ -13144,7 +14681,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::MapVenueAccountResult>,
             tonic::Status,
         >;
-        /// W11.23: platform.book.command.accept-execution (command; preview).
+        /// W11.23: platform.book.command.accept-execution (command; stable).
         async fn accept_execution(
             &self,
             request: tonic::Request<super::AcceptExecutionParams>,
@@ -13152,7 +14689,7 @@ pub mod plugin_operations_server {
             tonic::Response<super::AcceptExecutionResult>,
             tonic::Status,
         >;
-        /// W11.24: platform.book.command.dont-know-execution (command; preview).
+        /// W11.24: platform.book.command.dont-know-execution (command; stable).
         async fn dont_know_execution(
             &self,
             request: tonic::Request<super::DontKnowExecutionParams>,
@@ -13166,6 +14703,91 @@ pub mod plugin_operations_server {
             request: tonic::Request<super::ReportValueDateRollParams>,
         ) -> std::result::Result<
             tonic::Response<super::ReportValueDateRollResult>,
+            tonic::Status,
+        >;
+        /// W11.26: platform.book.command.set-allocation-instruction (command; preview).
+        async fn set_allocation_instruction(
+            &self,
+            request: tonic::Request<super::SetAllocationInstructionParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetAllocationInstructionResult>,
+            tonic::Status,
+        >;
+        /// W11.27: platform.book.command.book-order (command; preview).
+        async fn book_order(
+            &self,
+            request: tonic::Request<super::BookOrderParams>,
+        ) -> std::result::Result<tonic::Response<super::BookOrderResult>, tonic::Status>;
+        /// W11.28: platform.book.command.hand-off-booking (command; preview).
+        async fn hand_off_booking(
+            &self,
+            request: tonic::Request<super::HandOffBookingParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::HandOffBookingResult>,
+            tonic::Status,
+        >;
+        /// W11.29: platform.book.command.correct-booking (command; preview).
+        async fn correct_booking(
+            &self,
+            request: tonic::Request<super::CorrectBookingParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::CorrectBookingResult>,
+            tonic::Status,
+        >;
+        /// W11.31: platform.book.query.list-bookings (query; preview).
+        async fn list_bookings(
+            &self,
+            request: tonic::Request<super::ListBookingsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListBookingsResult>,
+            tonic::Status,
+        >;
+        /// W11.32: platform.book.command.report-give-up (command; preview).
+        async fn report_give_up(
+            &self,
+            request: tonic::Request<super::ReportGiveUpParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportGiveUpResult>,
+            tonic::Status,
+        >;
+        /// W11.33: platform.book.command.record-sleeve-cross (command; preview).
+        async fn record_sleeve_cross(
+            &self,
+            request: tonic::Request<super::RecordSleeveCrossParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordSleeveCrossResult>,
+            tonic::Status,
+        >;
+        /// W11.34: platform.book.command.raise-alert (command; preview).
+        async fn raise_alert(
+            &self,
+            request: tonic::Request<super::RaiseAlertParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RaiseAlertResult>,
+            tonic::Status,
+        >;
+        /// W11.34: platform.book.command.acknowledge-alert (command; preview).
+        async fn acknowledge_alert(
+            &self,
+            request: tonic::Request<super::AcknowledgeAlertParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::AcknowledgeAlertResult>,
+            tonic::Status,
+        >;
+        /// W11.35: platform.book.query.list-alerts (query; preview).
+        async fn list_alerts(
+            &self,
+            request: tonic::Request<super::ListAlertsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAlertsResult>,
+            tonic::Status,
+        >;
+        /// W11.37: platform.book.query.read-local-record-orders (query; preview).
+        async fn read_local_record_orders(
+            &self,
+            request: tonic::Request<super::ReadLocalRecordOrdersParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadLocalRecordOrdersResult>,
             tonic::Status,
         >;
         /// W3.14: platform.reference.query.resolve-venue (query; preview).
@@ -13195,6 +14817,38 @@ pub mod plugin_operations_server {
             request: tonic::Request<super::ComputeDateParams>,
         ) -> std::result::Result<
             tonic::Response<super::ComputeDateResult>,
+            tonic::Status,
+        >;
+        /// W3.22: platform.reference.query.list-replacements (query; preview).
+        async fn list_replacements(
+            &self,
+            request: tonic::Request<super::ListReplacementsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListReplacementsResult>,
+            tonic::Status,
+        >;
+        /// W3.23: platform.reference.command.offer-template-fields (command; preview).
+        async fn offer_template_fields(
+            &self,
+            request: tonic::Request<super::OfferTemplateFieldsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::OfferTemplateFieldsResult>,
+            tonic::Status,
+        >;
+        /// W3.24: platform.reference.query.list-templates (query; preview).
+        async fn list_templates(
+            &self,
+            request: tonic::Request<super::ListTemplatesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListTemplatesResult>,
+            tonic::Status,
+        >;
+        /// W3.24: platform.reference.query.read-template (query; preview).
+        async fn read_template(
+            &self,
+            request: tonic::Request<super::ReadTemplateParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadTemplateResult>,
             tonic::Status,
         >;
         /// W10.4: platform.lake.command.record-prices (command; preview).
@@ -15780,6 +17434,520 @@ pub mod plugin_operations_server {
                     };
                     Box::pin(fut)
                 }
+                "/meridian.plugin.v1.PluginOperations/SetAllocationInstruction" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetAllocationInstructionSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::SetAllocationInstructionParams>
+                    for SetAllocationInstructionSvc<T> {
+                        type Response = super::SetAllocationInstructionResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::SetAllocationInstructionParams,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::set_allocation_instruction(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SetAllocationInstructionSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/BookOrder" => {
+                    #[allow(non_camel_case_types)]
+                    struct BookOrderSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::BookOrderParams>
+                    for BookOrderSvc<T> {
+                        type Response = super::BookOrderResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::BookOrderParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::book_order(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = BookOrderSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/HandOffBooking" => {
+                    #[allow(non_camel_case_types)]
+                    struct HandOffBookingSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::HandOffBookingParams>
+                    for HandOffBookingSvc<T> {
+                        type Response = super::HandOffBookingResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::HandOffBookingParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::hand_off_booking(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = HandOffBookingSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/CorrectBooking" => {
+                    #[allow(non_camel_case_types)]
+                    struct CorrectBookingSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::CorrectBookingParams>
+                    for CorrectBookingSvc<T> {
+                        type Response = super::CorrectBookingResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CorrectBookingParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::correct_booking(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CorrectBookingSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListBookings" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListBookingsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListBookingsParams>
+                    for ListBookingsSvc<T> {
+                        type Response = super::ListBookingsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListBookingsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_bookings(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListBookingsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReportGiveUp" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReportGiveUpSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReportGiveUpParams>
+                    for ReportGiveUpSvc<T> {
+                        type Response = super::ReportGiveUpResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReportGiveUpParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::report_give_up(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReportGiveUpSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RecordSleeveCross" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordSleeveCrossSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordSleeveCrossParams>
+                    for RecordSleeveCrossSvc<T> {
+                        type Response = super::RecordSleeveCrossResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordSleeveCrossParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_sleeve_cross(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordSleeveCrossSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RaiseAlert" => {
+                    #[allow(non_camel_case_types)]
+                    struct RaiseAlertSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RaiseAlertParams>
+                    for RaiseAlertSvc<T> {
+                        type Response = super::RaiseAlertResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RaiseAlertParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::raise_alert(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RaiseAlertSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/AcknowledgeAlert" => {
+                    #[allow(non_camel_case_types)]
+                    struct AcknowledgeAlertSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::AcknowledgeAlertParams>
+                    for AcknowledgeAlertSvc<T> {
+                        type Response = super::AcknowledgeAlertResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AcknowledgeAlertParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::acknowledge_alert(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = AcknowledgeAlertSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListAlerts" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListAlertsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListAlertsParams>
+                    for ListAlertsSvc<T> {
+                        type Response = super::ListAlertsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListAlertsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_alerts(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListAlertsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReadLocalRecordOrders" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReadLocalRecordOrdersSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReadLocalRecordOrdersParams>
+                    for ReadLocalRecordOrdersSvc<T> {
+                        type Response = super::ReadLocalRecordOrdersResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReadLocalRecordOrdersParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::read_local_record_orders(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReadLocalRecordOrdersSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/meridian.plugin.v1.PluginOperations/ResolveVenue" => {
                     #[allow(non_camel_case_types)]
                     struct ResolveVenueSvc<T: PluginOperations>(pub Arc<T>);
@@ -15951,6 +18119,193 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ComputeDateSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListReplacements" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListReplacementsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListReplacementsParams>
+                    for ListReplacementsSvc<T> {
+                        type Response = super::ListReplacementsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListReplacementsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_replacements(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListReplacementsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/OfferTemplateFields" => {
+                    #[allow(non_camel_case_types)]
+                    struct OfferTemplateFieldsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::OfferTemplateFieldsParams>
+                    for OfferTemplateFieldsSvc<T> {
+                        type Response = super::OfferTemplateFieldsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::OfferTemplateFieldsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::offer_template_fields(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = OfferTemplateFieldsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListTemplates" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListTemplatesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListTemplatesParams>
+                    for ListTemplatesSvc<T> {
+                        type Response = super::ListTemplatesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListTemplatesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_templates(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListTemplatesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReadTemplate" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReadTemplateSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReadTemplateParams>
+                    for ReadTemplateSvc<T> {
+                        type Response = super::ReadTemplateResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReadTemplateParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::read_template(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReadTemplateSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
