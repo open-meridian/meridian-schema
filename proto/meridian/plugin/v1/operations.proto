@@ -6397,7 +6397,8 @@ message UnplacedFact {
   // plugin, counted on its connectivity plugin's admin view.
   string account_id = 2;
 
-  // The kind of fact, as data: `execution`, `placement`, `charge`, `locate`.
+  // The kind of fact, as data: `execution`, `placement`, `charge`,
+  // `locate`, and from contract v23 `value-date-roll`.
   string fact_kind = 3;
 
   UnplacedReason reason = 4;
@@ -6411,6 +6412,9 @@ message UnplacedFact {
     ReportPlacementRequest placement = 8;
     ReportChargeRequest charge = 9;
     RecordLocateRequest locate = 11;
+    // A value-date roll on a code no ems mapped, or meeting no pending line
+    // to move (W11.25, contract v23).
+    ReportValueDateRollRequest value_date_roll = 14;
   }
 
   // The entry that placed it, once a later record claimed it.
@@ -6433,6 +6437,11 @@ enum UnplacedReason {
   // Its venue account code maps to no account on the sending connectivity
   // plugin (W11.22).
   UNPLACED_REASON_UNMAPPED_VENUE_ACCOUNT = 2;
+  // A value-date roll meeting no pending line on its from date that the
+  // sending connectivity plugin's fills or rolls on the code put there
+  // (W11.25, contract v23): kept in the account, so operations sees the
+  // venue's position and the book's differ.
+  UNPLACED_REASON_NOTHING_PENDING = 4;
 }
 
 // W11.11. A fact by a connectivity plugin; or, for a person, a manual or
@@ -6600,6 +6609,39 @@ message LocateAnswer {
   int64 expires_at_ns = 3;
 
   string locate_id = 4;
+}
+
+// W11.25 (contract v23). By a connectivity plugin whose venue rolls a spot
+// position at its daily cut: the account's pending lines in the pair move
+// from one value date to the next by one entry, `value-date-rolled`;
+// answered with FactReply.
+// A mirror of meridian.v1.ReportValueDateRollRequest.
+message ReportValueDateRollRequest {
+  // Stamped from venue_account_code (`venue-account-map`); empty, never
+  // refused, where none is mapped, so the fact is kept unplaced.
+  string account_id = 1;
+
+  string venue_account_code = 2;
+
+  // The pair's two cash instruments, as the date read's spot inputs name it.
+  repeated string pair = 3;
+
+  // ISO 8601: the value date left, and the date read's answer moved to,
+  // with its basis.
+  string from_value_date = 4;
+
+  string to_value_date = 5;
+
+  DateBasis value_date_basis = 6;
+
+  int64 rolled_at_ns = 7;
+
+  // The `CHG-` IDs of the roll's financing charges, each reported first.
+  repeated string charge_ids = 8;
+
+  RawRecordRef raw_record = 9;
+
+  string idempotency_key = 10;
 }
 
 // A trading instruction (W11.15): recorded with its setter's level, a
