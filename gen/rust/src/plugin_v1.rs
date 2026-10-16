@@ -5379,10 +5379,13 @@ pub struct MovementLine {
     #[prost(message, optional, tag = "5")]
     pub quantity: ::core::option::Option<Decimal>,
     /// The lot it adds to or relieves. Empty on a line that opens a lot, whose
-    /// identifier the book mints, and on cash, which has no lots.
+    /// identifier the book mints, and on the account's base currency, which has
+    /// no lots: from v24 every other currency opens lots with base-currency
+    /// basis (option (c), W11.13).
     #[prost(string, tag = "6")]
     pub lot_id: ::prost::alloc::string::String,
-    /// Set on the line that opens a lot, and only there.
+    /// Set on the line that opens a lot, and only there: unset on a line that
+    /// adds to or relieves a lot, or on the account's base currency.
     #[prost(message, optional, tag = "7")]
     pub opens_lot: ::core::option::Option<LotTerms>,
     /// A pending line's fail, where its source reports one.
