@@ -577,6 +577,17 @@ pub const CALL_AS_SERVICE_ACCOUNT_REQUEST_REASON_LENGTH: Length = Length { least
 /// answer
 pub const CALL_AS_SERVICE_ACCOUNT_REPLY_ANSWER_JSON_LENGTH: Length = Length { least: 0, most: 1048576 };
 
+/// meridian.v1.PluginDeclaration.documentation: names the vendor's
+/// documentation the version ships, each section by its digest (W8.1)
+pub const PLUGIN_DECLARATION_DOCUMENTATION_COUNT: Count = Count { least: 0, most: 5 };
+
+/// meridian.v1.PluginDeclaration.affirmation_deadline: declares an operations
+/// plugin's affirmation deadline (W11.28, W11.34)
+pub const PLUGIN_DECLARATION_AFFIRMATION_DEADLINE_RANGE: Range = Range { least: 0, most: 1440, capped: false };
+
+/// meridian.v1.DocumentationSection.bytes: says the section's size
+pub const DOCUMENTATION_SECTION_BYTES_RANGE: Range = Range { least: 1, most: 65536, capped: false };
+
 /// meridian.v1.AlgorithmDeclaration.description: says what the algorithm is,
 /// for a person reading the plugin's page
 pub const ALGORITHM_DECLARATION_DESCRIPTION_LENGTH: Length = Length { least: 1, most: 1024 };

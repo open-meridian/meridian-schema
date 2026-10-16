@@ -154,7 +154,7 @@ impl SubjectKind {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RegisterRequest {
     /// The contract version the plugin was built against, as `v<N>`. This
-    /// schema is contract v24, and a plugin built from it declares "v24".
+    /// schema is contract v25, and a plugin built from it declares "v25".
     ///
     /// Required. A sidecar admits it when it lies between the sidecar's floor
     /// and its own version, and otherwise refuses it naming both (W4.1): a
@@ -181,6 +181,15 @@ pub struct RegisterRequest {
     /// The version's declaration, as the plugin's SDK builds it from its code
     /// (W4.1, W8.1, contract v11): the same one its upload carried. The sidecar
     /// reports it (W4.8). Unset from a plugin before v11.
+    ///
+    /// From contract v25 registration is held to the version (W4.1): a plugin
+    /// declaring v25 or later registers the declaration its version was
+    /// uploaded with -- its settings, interface, tools and
+    /// reads_external_accounts among it, equal to those this request carries
+    /// -- or is refused in words naming the first difference, as a version out
+    /// of range is. A live instance on a development deployment is warned on
+    /// its Summary instead. A plugin declaring an earlier version is admitted
+    /// unchecked.
     #[prost(message, optional, tag = "8")]
     pub declaration: ::core::option::Option<PluginDeclaration>,
     /// The plugin's tools on the deployment's MCP surface (W4.1, W6.20,
@@ -315,6 +324,51 @@ pub struct PluginDeclaration {
     /// none.
     #[prost(message, repeated, tag = "5")]
     pub algorithms: ::prost::alloc::vec::Vec<AlgorithmDeclaration>,
+    /// What registration sends, carried by the version itself (W4.1, W8.1;
+    /// plans/a-plugin-carries-its-own-documentation; contract v25), under the
+    /// names RegisterRequest uses: every setting, the interface, the tools and
+    /// whether it reads external accounts. The declaration is then the whole
+    /// of what a version says about itself, and the Documentation tab's
+    /// Reference is drawn from it, before launch. Unset and empty from a
+    /// version built before v25.
+    #[prost(message, repeated, tag = "6")]
+    pub settings: ::prost::alloc::vec::Vec<SettingDeclaration>,
+    #[prost(message, optional, tag = "7")]
+    pub interface: ::core::option::Option<InterfaceDeclaration>,
+    #[prost(message, repeated, tag = "8")]
+    pub tools: ::prost::alloc::vec::Vec<ToolDeclaration>,
+    #[prost(bool, tag = "9")]
+    pub reads_external_accounts: bool,
+    /// The vendor's documentation the version ships (W8.1; contract v25), one
+    /// entry per section, by its fixed name, its digest and its size. The text
+    /// itself is not here: it travels with the upload and the conductor keeps
+    /// it (W8.2), so a registration stays small. At most 5, each name once.
+    /// Empty: the vendor wrote none for this version.
+    #[prost(message, repeated, tag = "10")]
+    pub documentation: ::prost::alloc::vec::Vec<DocumentationSection>,
+    /// An operations plugin's affirmation deadline (W11.28, W11.34; contract
+    /// v25): the time of day by which the firm allocates, confirms and affirms
+    /// its trades, in minutes after midnight in the deployment's time zone, 1
+    /// to 1440. A held booking's alert carries the moment it falls as its
+    /// due_by. 0 declares none. Refused on a version not holding operations.
+    #[prost(uint32, tag = "11")]
+    pub affirmation_deadline: u32,
+}
+/// One section of a version's documentation (W8.1; contract v25): plain
+/// Markdown the vendor wrote in the plugin's docs/ folder, named here by
+/// digest so it is as fixed as the declaration.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DocumentationSection {
+    /// The section's fixed name: overview, setup, troubleshooting, terms or
+    /// pages, its file docs/<name>.md.
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// The text's digest, `sha256:<hex>`, as an image digest is written.
+    #[prost(string, tag = "2")]
+    pub digest: ::prost::alloc::string::String,
+    /// The text's size in bytes, UTF-8: 1 to 65,536.
+    #[prost(uint64, tag = "3")]
+    pub bytes: u64,
 }
 /// One algorithm identifier a version declares (contract v22).
 #[derive(Clone, PartialEq, ::prost::Message)]

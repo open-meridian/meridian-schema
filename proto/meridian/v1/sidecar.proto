@@ -108,7 +108,7 @@ message RegisterRequest {
   reserved "instance_id", "role", "tags";
 
   // The contract version the plugin was built against, as `v<N>`. This
-  // schema is contract v24, and a plugin built from it declares "v24".
+  // schema is contract v25, and a plugin built from it declares "v25".
   //
   // Required. A sidecar admits it when it lies between the sidecar's floor
   // and its own version, and otherwise refuses it naming both (W4.1): a
@@ -139,6 +139,15 @@ message RegisterRequest {
   // The version's declaration, as the plugin's SDK builds it from its code
   // (W4.1, W8.1, contract v11): the same one its upload carried. The sidecar
   // reports it (W4.8). Unset from a plugin before v11.
+  //
+  // From contract v25 registration is held to the version (W4.1): a plugin
+  // declaring v25 or later registers the declaration its version was
+  // uploaded with -- its settings, interface, tools and
+  // reads_external_accounts among it, equal to those this request carries
+  // -- or is refused in words naming the first difference, as a version out
+  // of range is. A live instance on a development deployment is warned on
+  // its Summary instead. A plugin declaring an earlier version is admitted
+  // unchecked.
   PluginDeclaration declaration = 8;
 
   // The plugin's tools on the deployment's MCP surface (W4.1, W6.20,
@@ -270,6 +279,47 @@ message PluginDeclaration {
   // puts the one named on each entry's ServiceAccountActor. Empty declares
   // none.
   repeated AlgorithmDeclaration algorithms = 5;
+
+  // What registration sends, carried by the version itself (W4.1, W8.1;
+  // plans/a-plugin-carries-its-own-documentation; contract v25), under the
+  // names RegisterRequest uses: every setting, the interface, the tools and
+  // whether it reads external accounts. The declaration is then the whole
+  // of what a version says about itself, and the Documentation tab's
+  // Reference is drawn from it, before launch. Unset and empty from a
+  // version built before v25.
+  repeated SettingDeclaration settings = 6;
+  InterfaceDeclaration interface = 7;
+  repeated ToolDeclaration tools = 8;
+  bool reads_external_accounts = 9;
+
+  // The vendor's documentation the version ships (W8.1; contract v25), one
+  // entry per section, by its fixed name, its digest and its size. The text
+  // itself is not here: it travels with the upload and the conductor keeps
+  // it (W8.2), so a registration stays small. At most 5, each name once.
+  // Empty: the vendor wrote none for this version.
+  repeated DocumentationSection documentation = 10;
+
+  // An operations plugin's affirmation deadline (W11.28, W11.34; contract
+  // v25): the time of day by which the firm allocates, confirms and affirms
+  // its trades, in minutes after midnight in the deployment's time zone, 1
+  // to 1440. A held booking's alert carries the moment it falls as its
+  // due_by. 0 declares none. Refused on a version not holding operations.
+  uint32 affirmation_deadline = 11;
+}
+
+// One section of a version's documentation (W8.1; contract v25): plain
+// Markdown the vendor wrote in the plugin's docs/ folder, named here by
+// digest so it is as fixed as the declaration.
+message DocumentationSection {
+  // The section's fixed name: overview, setup, troubleshooting, terms or
+  // pages, its file docs/<name>.md.
+  string name = 1;
+
+  // The text's digest, `sha256:<hex>`, as an image digest is written.
+  string digest = 2;
+
+  // The text's size in bytes, UTF-8: 1 to 65,536.
+  uint64 bytes = 3;
 }
 
 // One algorithm identifier a version declares (contract v22).
