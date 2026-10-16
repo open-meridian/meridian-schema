@@ -841,6 +841,12 @@ pub struct RecordBreakParams {
     /// answered with the first's reply when it is sent again.
     #[prost(string, tag = "11")]
     pub idempotency_key: ::prost::alloc::string::String,
+    /// For BREAK_CATEGORY_UNRECOGNIZED_SECURITY, the street row's
+    /// unresolved_identifiers (W9.3, contract v25), at least one; refused on
+    /// any other category. Until v25 they rode as the break's street-only
+    /// differences.
+    #[prost(message, repeated, tag = "12")]
+    pub unresolved_identifiers: ::prost::alloc::vec::Vec<Identifier>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -2711,13 +2717,19 @@ pub struct ReadLocalRecordOrdersResult {
 /// The params of ResolveVenue: meridian.v1.ResolveVenueRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResolveVenueParams {
-    /// At least one: a MIC under `iso10383`, or a vendor's code as a `symbol`
-    /// with its source.
+    /// At least one, unless venue_id is set: a MIC under `iso10383`, or a
+    /// vendor's code as a `symbol` with its source.
     #[prost(message, repeated, tag = "1")]
     pub identifiers: ::prost::alloc::vec::Vec<Identifier>,
     /// Reference time. Zero means now.
     #[prost(int64, tag = "2")]
     pub as_of_ns: i64,
+    /// A venue held by its ID (W3.14, contract v25; D9): answered with its
+    /// record, so the dashboard shows a calendar's venue by its MIC and name.
+    /// Set instead of identifiers; a request carrying both is refused naming
+    /// venue_id. Empty: resolved by identifiers.
+    #[prost(string, tag = "3")]
+    pub venue_id: ::prost::alloc::string::String,
 }
 /// The result of ResolveVenue: meridian.v1.ResolveVenueReply.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3729,6 +3741,13 @@ pub struct Identifier {
     pub valid_from_ns: i64,
     #[prost(int64, tag = "5")]
     pub valid_until_ns: i64,
+    /// For a listing identifier -- an exchange-level or composite FIGI on a
+    /// security's record -- the ISO 4217 currency that listing trades in
+    /// (W3.1, contract v25), as the platform's master holds it per listing;
+    /// empty on every other identifier, and where the master holds none. The
+    /// record's own currency stays the security's.
+    #[prost(string, tag = "6")]
+    pub trading_currency: ::prost::alloc::string::String,
 }
 /// A reference to the raw record a row was converted from, in the writing
 /// plugin's own storage (requirement 7, Q9; decisions/028). Opaque: core and
@@ -5022,6 +5041,12 @@ pub struct Break {
     pub recorded_by: ::core::option::Option<Actor>,
     #[prost(message, optional, tag = "17")]
     pub last_change: ::core::option::Option<JournalRef>,
+    /// An unrecognized security's identifiers, as the street row carries them
+    /// (W9.3, contract v25): what an open break of that category is matched
+    /// on, scheme and value in any order, with its category and account.
+    /// Empty on every other break.
+    #[prost(message, repeated, tag = "18")]
+    pub unresolved_identifiers: ::prost::alloc::vec::Vec<Identifier>,
     #[prost(oneof = "r#break::Subject", tags = "3, 4")]
     pub subject: ::core::option::Option<r#break::Subject>,
 }
@@ -5354,10 +5379,13 @@ pub struct MovementLine {
     #[prost(message, optional, tag = "5")]
     pub quantity: ::core::option::Option<Decimal>,
     /// The lot it adds to or relieves. Empty on a line that opens a lot, whose
-    /// identifier the book mints, and on cash, which has no lots.
+    /// identifier the book mints, and on the account's base currency, which has
+    /// no lots: from v24 every other currency opens lots with base-currency
+    /// basis (option (c), W11.13).
     #[prost(string, tag = "6")]
     pub lot_id: ::prost::alloc::string::String,
-    /// Set on the line that opens a lot, and only there.
+    /// Set on the line that opens a lot, and only there: unset on a line that
+    /// adds to or relieves a lot, or on the account's base currency.
     #[prost(message, optional, tag = "7")]
     pub opens_lot: ::core::option::Option<LotTerms>,
     /// A pending line's fail, where its source reports one.
@@ -6139,7 +6167,8 @@ pub struct UnplacedFact {
     #[prost(string, tag = "2")]
     pub account_id: ::prost::alloc::string::String,
     /// The kind of fact, as data: `execution`, `placement`, `charge`,
-    /// `locate`, and from contract v23 `value-date-roll`.
+    /// `locate`, from contract v23 `value-date-roll`, and from contract v25
+    /// `give-up`.
     #[prost(string, tag = "3")]
     pub fact_kind: ::prost::alloc::string::String,
     #[prost(enumeration = "UnplacedReason", tag = "4")]
@@ -6154,7 +6183,7 @@ pub struct UnplacedFact {
     /// Its latest entry: the one that kept it, or the one that placed it.
     #[prost(message, optional, tag = "13")]
     pub last_change: ::core::option::Option<JournalRef>,
-    #[prost(oneof = "unplaced_fact::Fact", tags = "7, 8, 9, 11, 14")]
+    #[prost(oneof = "unplaced_fact::Fact", tags = "7, 8, 9, 11, 14, 15")]
     pub fact: ::core::option::Option<unplaced_fact::Fact>,
 }
 /// Nested message and enum types in `UnplacedFact`.
@@ -6173,6 +6202,10 @@ pub mod unplaced_fact {
         /// to move (W11.25, contract v23).
         #[prost(message, tag = "14")]
         ValueDateRoll(super::ReportValueDateRollRequest),
+        /// A give-up's answer naming no execution or allocation the book holds
+        /// (W11.32, contract v25), its fact_kind `give-up`.
+        #[prost(message, tag = "15")]
+        GiveUp(super::ReportGiveUpRequest),
     }
 }
 /// W11.11. A fact by a connectivity plugin; or, for a person, a manual or
@@ -6376,6 +6409,26 @@ pub struct ReportValueDateRollRequest {
     pub raw_record: ::core::option::Option<RawRecordRef>,
     #[prost(string, tag = "10")]
     pub idempotency_key: ::prost::alloc::string::String,
+}
+/// W11.32: a prime's answer to a give-up, from `connectivity` or
+/// `confirmation`; a fact, answered with FactReply.
+/// A mirror of meridian.v1.ReportGiveUpRequest.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportGiveUpRequest {
+    /// One the book does not hold keeps the fact unplaced.
+    #[prost(string, tag = "1")]
+    pub execution_id: ::prost::alloc::string::String,
+    /// Empty where no allocation is booked.
+    #[prost(string, tag = "2")]
+    pub allocation_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "GiveUpAnswer", tag = "3")]
+    pub answer: i32,
+    #[prost(string, tag = "4")]
+    pub prime_reference: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "6")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
 }
 /// A trading instruction (W11.15): recorded with its setter's level, a
 /// deployment admin's on one account in that account's partition, every
