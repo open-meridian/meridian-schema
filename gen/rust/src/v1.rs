@@ -110,6 +110,26 @@ pub struct MessageMeta {
     /// order-path plan's refresh, Q30). Read on no other command.
     #[prost(bool, tag = "17")]
     pub connectivity_allowed: bool,
+    /// Stamped by the sidecar of an `ems` alone, on CreatePlacement and on
+    /// AcceptExecution naming a new order (W4.9, W11.8, W11.23; contract v26;
+    /// spec/the-contract-gaps-v26-and-v27-close, G1 question 5, approved
+    /// 2026-10-14): true when the placement's connectivity instance, or the
+    /// reported fills', is in the caller's
+    /// CallerClaims.demo_connectivity_instance_ids -- its environment setting
+    /// and its session's report both `sandbox` or `paper`. The book refuses an
+    /// agent's act stamped false while agent_orders_demo_only is on, with
+    /// REFUSAL_REASON_AGENT_LIVE_ORDER, and records the refusal. Never set by
+    /// a plugin; read on no other command.
+    #[prost(bool, tag = "18")]
+    pub connectivity_demo: bool,
+    /// Set by the analytics component alone, on its reads for a job (W4.9,
+    /// W12.2; contract v26): the client instance it reads on behalf of, whose
+    /// dataset entitlements and role's kinds the lake answers within, beside
+    /// the account scope the client's sidecar stamped on the job, carried in
+    /// account_scope. Never set by a sidecar; a store ignores it on a message
+    /// from anything but the analytics component.
+    #[prost(string, tag = "19")]
+    pub on_behalf_of_instance_id: ::prost::alloc::string::String,
 }
 /// The kind of user a subject is (contract v21): in the claims, whom the
 /// dashboard vouched for; on the envelope, whom a command was sent for.
@@ -349,8 +369,10 @@ pub struct PluginDeclaration {
     /// An operations plugin's affirmation deadline (W11.28, W11.34; contract
     /// v25): the time of day by which the firm allocates, confirms and affirms
     /// its trades, in minutes after midnight in the deployment's time zone, 1
-    /// to 1440. A held booking's alert carries the moment it falls as its
-    /// due_by. 0 declares none. Refused on a version not holding operations.
+    /// to 1440. From v26 a held booking's alert carries as its due_by the
+    /// moment the earliest deadline the launched operations instances declare
+    /// next falls (W11.34); in v25 due_by read zero. 0 declares none. Refused
+    /// on a version not holding operations.
     #[prost(uint32, tag = "11")]
     pub affirmation_deadline: u32,
 }
@@ -788,6 +810,32 @@ pub struct HeartbeatRequest {
     /// per kind; a kind the declaration does not name is refused.
     #[prost(message, repeated, tag = "5")]
     pub stored: ::prost::alloc::vec::Vec<StoredSpan>,
+    /// W4.5, contract v26 (item 191): the model tokens the plugin used since it
+    /// started, per endpoint, per person or service account and per client;
+    /// each heartbeat replaces the last. At most 64. Counts, never a prompt or
+    /// an answer; they never leave the deployment.
+    #[prost(message, repeated, tag = "6")]
+    pub model_tokens: ::prost::alloc::vec::Vec<ModelTokenCount>,
+}
+/// The tokens a plugin used of one model endpoint for one person or service
+/// account through one client (W4.5, contract v26).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ModelTokenCount {
+    /// The model endpoint the plugin calls: its host and model, as the plugin
+    /// names it (`in-cluster/qwen2.5-7b`).
+    #[prost(string, tag = "1")]
+    pub endpoint: ::prost::alloc::string::String,
+    /// The person or service account it worked for, as the assertion named
+    /// them; empty for the plugin's own work.
+    #[prost(string, tag = "2")]
+    pub subject: ::prost::alloc::string::String,
+    /// The client of the delegation it worked through; empty for none.
+    #[prost(string, tag = "3")]
+    pub client_name: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "4")]
+    pub input_tokens: u64,
+    #[prost(uint64, tag = "5")]
+    pub output_tokens: u64,
 }
 /// What a plugin keeps of one kind of raw record (W4.5, contract v16): what
 /// its storage holds, a count and a span, and the bytes the kind uses of the
@@ -1224,6 +1272,16 @@ pub struct CallerClaims {
     /// none.
     #[prost(string, repeated, tag = "22")]
     pub connectivity_instance_ids: ::prost::alloc::vec::Vec<
+        ::prost::alloc::string::String,
+    >,
+    /// Contract v26 (W4.9, W11.8; G1 question 5, approved 2026-10-14): those of
+    /// connectivity_instance_ids that are demo -- the instance's environment
+    /// setting, core's record, `sandbox` or `paper`, and its venue catalogue's
+    /// reported environment the same -- computed by the dashboard at
+    /// admission. The ems's sidecar stamps MessageMeta.connectivity_demo from
+    /// it. Empty for any other plugin, and where none is demo.
+    #[prost(string, repeated, tag = "23")]
+    pub demo_connectivity_instance_ids: ::prost::alloc::vec::Vec<
         ::prost::alloc::string::String,
     >,
 }
@@ -2397,6 +2455,12 @@ pub enum RefusalReason {
     /// allows_local_record_orders is off (W11.1, W11.23, W11.36; contract
     /// v24, the one-ID model); sent with ABORTED, nothing recorded.
     LocalRecordNotAllowed = 30,
+    /// A placement, or an accept of fills to a new order, made through a
+    /// delegation or by a service account on a connectivity instance that is
+    /// not demo while the deployment's agent_orders_demo_only is on (W11.8,
+    /// W11.23, W11.38; contract v26; G1 question 3, approved 2026-10-14);
+    /// recorded, as REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED is.
+    AgentLiveOrder = 31,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2438,6 +2502,7 @@ impl RefusalReason {
             Self::BookingUnbalanced => "REFUSAL_REASON_BOOKING_UNBALANCED",
             Self::AccountNotInstructed => "REFUSAL_REASON_ACCOUNT_NOT_INSTRUCTED",
             Self::LocalRecordNotAllowed => "REFUSAL_REASON_LOCAL_RECORD_NOT_ALLOWED",
+            Self::AgentLiveOrder => "REFUSAL_REASON_AGENT_LIVE_ORDER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2482,6 +2547,7 @@ impl RefusalReason {
             "REFUSAL_REASON_LOCAL_RECORD_NOT_ALLOWED" => {
                 Some(Self::LocalRecordNotAllowed)
             }
+            "REFUSAL_REASON_AGENT_LIVE_ORDER" => Some(Self::AgentLiveOrder),
             _ => None,
         }
     }
