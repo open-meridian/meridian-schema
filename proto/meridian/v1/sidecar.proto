@@ -307,6 +307,21 @@ message PluginDeclaration {
   // next falls (W11.34); in v25 due_by read zero. 0 declares none. Refused
   // on a version not holding operations.
   uint32 affirmation_deadline = 11;
+
+  // A pricing plugin's model ids and versions (W12.3, W12.6; contract v27,
+  // ruling 324): the models it answers batches for, against which a
+  // deployment admin's routing is checked. Refused on a version not holding
+  // pricing; 1 to 32 on one that does, each model id and version once.
+  repeated PricingModelDeclaration pricing_models = 12;
+}
+
+// One pricing model a version answers (contract v27).
+message PricingModelDeclaration {
+  // A model id the analytics component serves: `quoted_price`,
+  // `binary_event`.
+  string model_id = 1;
+  // Its version, 1 or more.
+  int32 model_version = 2;
 }
 
 // One section of a version's documentation (W8.1; contract v25): plain
@@ -398,6 +413,12 @@ message DatasetDeclaration {
   // ruled 2026-10-12), recorded as reported and never refused. Empty names
   // none, as before.
   string calendar_id = 12;
+
+  // Its declared delay (W10.1; contract v27, rulings 368, 369 and 382): how
+  // far behind real time the vendor serves it, its staleness and its edge
+  // age judged against the delay plus the ceiling. 0 for real time. One
+  // dataset per timeliness.
+  int64 declared_delay_ns = 13;
 }
 
 // How a dataset's rows arrive (the lake intent's Q9 and Q10).
@@ -428,8 +449,13 @@ message DatasetLicence {
   // 36,500.
   uint32 retention_days = 3;
 
-  // Whether data derived from it may be made, and shown.
-  bool derived_use = 4;
+  // Whether data derived from it may be made: from contract v27 the terms'
+  // three answers (W10.1). The same number as v26's boolean, so a v26
+  // `true` reads not_restricted and a v26 `false` (unspecified) reads
+  // internal_only.
+  DerivedUse derived_use = 4;
+  // Whether it may be shown. From contract v27 read as `meters` containing
+  // `display`, for one release, then retired.
   bool display = 5;
 
   // The fields readable by default, by their dictionary entries; empty for
@@ -452,6 +478,206 @@ message DatasetLicence {
   // The prepared change it was set from, where a person made it from one
   // (W6.27, W4.9; contract v20): empty otherwise, and before v20.
   string prepared_call_id = 13;
+
+  // Contract v27 (W10.1; spec/every-data-source-is-licensed-on-the-same-terms,
+  // §1a to §1e, its names approved 2026-10-19): the standard terms' shape,
+  // the vendor picking from fixed values and never writing free-form terms.
+  // Read by core from v27, with no effect until the deployment's counts
+  // exist (v28).
+
+  // §1a: the version of the platform's standard terms filled in; the basis;
+  // the timeliness and its delay, with the label shown beside every value;
+  // the licensing source behind the vendor, where one is.
+  string terms_version = 14;
+  AccessBasis access_basis = 15;
+  Timeliness timeliness = 16;
+  uint32 delay_minutes = 17;
+  string delay_label = 18;
+  string underlying_source = 19;
+
+  // §1b: the meters that apply, empty unless the basis is licensed, and how
+  // each counts.
+  repeated LicenceMeter meters = 20;
+  DisplayTerms display_terms = 21;
+  NonDisplayTerms non_display = 22;
+  EnterpriseTerms enterprise = 23;
+
+  // §1c: use rights beside derived_use.
+  optional bool derived_multi_instrument_free = 24;
+  bool derived_creation_is_non_display = 25;
+  Redistribution redistribution = 26;
+  OutsideComputation outside_computation = 27;
+  repeated ProhibitedUse prohibited_uses = 28;
+
+  // §1d: attribution, which travels with the data into pages, exports and
+  // MCP answers.
+  bool attribution_required = 29;
+  string attribution_text = 30;
+  CopyrightClass copyright_class = 31;
+  bool no_more_restrictive_terms = 32;
+  string not_affiliated_notice = 33;
+
+  // §1e: the reporting owed to the vendor, which the deployment produces and
+  // never sends.
+  ReportCadence report_cadence = 34;
+  uint32 report_due_day = 35;
+}
+
+// The display meter's terms (§1b).
+message DisplayTerms {
+  DisplayUnit unit = 1;
+  CountBasis count_basis = 2;
+  // Separate professional and non-professional prices.
+  bool professional_split = 3;
+  ProfessionalDefinition professional_definition = 4;
+}
+
+// The non-display meter's terms (§1b).
+message NonDisplayTerms {
+  repeated NonDisplayCategory categories = 1;
+  NonDisplayCount counts = 2;
+  // One natural person's own automated use is free.
+  bool personal_exempt = 3;
+}
+
+// The enterprise meter's terms (§1b).
+message EnterpriseTerms {
+  repeated EnterpriseReplaces replaces = 1;
+  EnterpriseForm form = 2;
+  EnterpriseScope scope = 3;
+  // Whether counts are no longer owed to the vendor; the deployment counts
+  // regardless.
+  bool reporting_waived = 4;
+}
+
+enum AccessBasis {
+  ACCESS_BASIS_UNSPECIFIED = 0;
+  // Meters apply.
+  ACCESS_BASIS_LICENSED = 1;
+  // Free; conditions may apply.
+  ACCESS_BASIS_OPEN = 2;
+  ACCESS_BASIS_PUBLIC_DOMAIN = 3;
+}
+
+enum Timeliness {
+  TIMELINESS_UNSPECIFIED = 0;
+  TIMELINESS_REAL_TIME = 1;
+  TIMELINESS_DELAYED = 2;
+  TIMELINESS_END_OF_DAY = 3;
+  TIMELINESS_HISTORICAL = 4;
+}
+
+enum LicenceMeter {
+  LICENCE_METER_UNSPECIFIED = 0;
+  // Counts persons (or devices).
+  LICENCE_METER_DISPLAY = 1;
+  // Counts plugins (or categories).
+  LICENCE_METER_NON_DISPLAY = 2;
+  // A flat fee per deployment.
+  LICENCE_METER_ENTERPRISE = 3;
+}
+
+enum DisplayUnit {
+  DISPLAY_UNIT_UNSPECIFIED = 0;
+  DISPLAY_UNIT_PERSON = 1;
+  DISPLAY_UNIT_DEVICE = 2;
+}
+
+// The population the vendor bills on.
+enum CountBasis {
+  COUNT_BASIS_UNSPECIFIED = 0;
+  COUNT_BASIS_SERVED = 1;
+  COUNT_BASIS_ENTITLED = 2;
+}
+
+enum ProfessionalDefinition {
+  PROFESSIONAL_DEFINITION_UNSPECIFIED = 0;
+  // The platform's one text, on the CT Plan's use-based test.
+  PROFESSIONAL_DEFINITION_STANDARD = 1;
+  // The vendor's, with a link.
+  PROFESSIONAL_DEFINITION_VENDOR = 2;
+}
+
+// By name, never number: the plans number them differently.
+enum NonDisplayCategory {
+  NON_DISPLAY_CATEGORY_UNSPECIFIED = 0;
+  // Matching or crossing.
+  NON_DISPLAY_CATEGORY_TRADING_PLATFORM = 1;
+  NON_DISPLAY_CATEGORY_AUTOMATED_TRADING = 2;
+  NON_DISPLAY_CATEGORY_INTERNAL = 3;
+  NON_DISPLAY_CATEGORY_FOR_CLIENTS = 4;
+}
+
+enum NonDisplayCount {
+  NON_DISPLAY_COUNT_UNSPECIFIED = 0;
+  NON_DISPLAY_COUNT_PER_PLUGIN = 1;
+  // One fee per category, whatever the number of plugins.
+  NON_DISPLAY_COUNT_PER_CATEGORY = 2;
+}
+
+enum EnterpriseReplaces {
+  ENTERPRISE_REPLACES_UNSPECIFIED = 0;
+  ENTERPRISE_REPLACES_DISPLAY_PROFESSIONAL = 1;
+  ENTERPRISE_REPLACES_DISPLAY_NON_PROFESSIONAL = 2;
+  ENTERPRISE_REPLACES_NON_DISPLAY = 3;
+}
+
+enum EnterpriseForm {
+  ENTERPRISE_FORM_UNSPECIFIED = 0;
+  ENTERPRISE_FORM_FLAT = 1;
+  // The most the per-unit fees can sum to.
+  ENTERPRISE_FORM_CAP = 2;
+}
+
+enum EnterpriseScope {
+  ENTERPRISE_SCOPE_UNSPECIFIED = 0;
+  ENTERPRISE_SCOPE_DEPLOYMENT = 1;
+}
+
+enum DerivedUse {
+  // A v26 `false`: read as internal_only.
+  DERIVED_USE_UNSPECIFIED = 0;
+  // A v26 `true`.
+  DERIVED_USE_NOT_RESTRICTED = 1;
+  DERIVED_USE_INTERNAL_ONLY = 2;
+  DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE = 3;
+}
+
+enum Redistribution {
+  REDISTRIBUTION_UNSPECIFIED = 0;
+  REDISTRIBUTION_NOT_ALLOWED = 1;
+  REDISTRIBUTION_LICENCE_REQUIRED = 2;
+  REDISTRIBUTION_ALLOWED_WITH_ATTRIBUTION = 3;
+}
+
+enum OutsideComputation {
+  OUTSIDE_COMPUTATION_UNSPECIFIED = 0;
+  OUTSIDE_COMPUTATION_ALLOWED = 1;
+  // Only inside one person's request, served uncached.
+  OUTSIDE_COMPUTATION_PER_REQUEST_NO_RETENTION = 2;
+  OUTSIDE_COMPUTATION_NOT_ALLOWED = 3;
+}
+
+enum ProhibitedUse {
+  PROHIBITED_USE_UNSPECIFIED = 0;
+  PROHIBITED_USE_MODEL_TRAINING = 1;
+  PROHIBITED_USE_REPLICATE_SERVICE = 2;
+  PROHIBITED_USE_INDEX_CREATION = 3;
+}
+
+enum CopyrightClass {
+  COPYRIGHT_CLASS_UNSPECIFIED = 0;
+  COPYRIGHT_CLASS_PUBLIC_DOMAIN = 1;
+  COPYRIGHT_CLASS_COPYRIGHT_CITATION_REQUIRED = 2;
+  COPYRIGHT_CLASS_COPYRIGHT_PREAPPROVAL_REQUIRED = 3;
+}
+
+enum ReportCadence {
+  REPORT_CADENCE_UNSPECIFIED = 0;
+  REPORT_CADENCE_NONE = 1;
+  REPORT_CADENCE_MONTHLY = 2;
+  REPORT_CADENCE_ANNUAL_DECLARATION = 3;
+  REPORT_CADENCE_ON_CHANGE = 4;
 }
 
 // One vendor field, or one code of a vendor's code set, a plugin receives

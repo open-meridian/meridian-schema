@@ -1288,7 +1288,7 @@ pub struct ProposeOrderParams {
     /// (38) and CashOrderQty (152) are alternatives (ruled 2026-10-12): an
     /// order naming both, or neither, is refused INVALID_ARGUMENT naming
     /// `quantity` and `cash_quantity`. 0, a pass, is refused naming `quantity`
-    /// until slice C defines it.
+    /// until slice C's sell side defines it, which is not v27's.
     #[prost(message, optional, tag = "6")]
     pub quantity: ::core::option::Option<Decimal>,
     #[prost(message, optional, tag = "7")]
@@ -1363,6 +1363,17 @@ pub struct ProposeOrderParams {
     /// sum of its members' idle quantities.
     #[prost(string, repeated, tag = "36")]
     pub block_member_order_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Contract v27 (W11.1; the gaps spec's D2): the `oms`'s net order, in the
+    /// allocation account, naming members of both sides, each a released FX
+    /// order of one pair and one value date in no other live block or net.
+    /// Released on creation, its quantity signed buys minus sells, its side
+    /// the larger's.
+    #[prost(string, repeated, tag = "37")]
+    pub net_member_order_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Contract v27 (W11.1): an FX order's value date, ISO 8601 (FIX's
+    /// SettlDate, 64); empty is spot.
+    #[prost(string, tag = "38")]
+    pub value_date: ::prost::alloc::string::String,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -1599,6 +1610,13 @@ pub struct SetWorkingConditionParams {
     pub reason: ::prost::alloc::string::String,
     #[prost(string, tag = "5")]
     pub idempotency_key: ::prost::alloc::string::String,
+    /// Contract v27 (W11.7): a hold's typed cause, and for a stale reference
+    /// price what the check found; on any condition but held, refused
+    /// INVALID_ARGUMENT naming `hold_cause`.
+    #[prost(enumeration = "HoldCause", tag = "6")]
+    pub hold_cause: i32,
+    #[prost(message, optional, tag = "7")]
+    pub stale_reference: ::core::option::Option<StaleReference>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -1648,13 +1666,29 @@ pub struct CreatePlacementParams {
     pub route_type: i32,
     #[prost(string, repeated, tag = "10")]
     pub handling_instructions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// Offered empty until slice C.
+    /// Offered empty: slice C's sell side and axes are not v27's.
     #[prost(string, tag = "11")]
     pub rfq_id: ::prost::alloc::string::String,
     #[prost(string, tag = "12")]
     pub axe_id: ::prost::alloc::string::String,
     #[prost(string, tag = "14")]
     pub idempotency_key: ::prost::alloc::string::String,
+    /// Contract v27 (W11.8): its type; a manual placement names no
+    /// connectivity instance and carries its trade details, any other type
+    /// names one and carries none (INVALID_ARGUMENT naming the field).
+    #[prost(enumeration = "PlacementType", tag = "15")]
+    pub placement_type: i32,
+    #[prost(string, tag = "16")]
+    pub counterparty_contact: ::prost::alloc::string::String,
+    #[prost(int64, tag = "17")]
+    pub agreed_at_ns: i64,
+    #[prost(enumeration = "TimePrecision", tag = "18")]
+    pub agreed_precision: i32,
+    /// Contract v27 (W11.8): set where the `ems` places on a stale reference
+    /// price, its admin having chosen to warn; the placement then holds
+    /// PLACEMENT_CONDITION_SENT_ON_STALE_REFERENCE.
+    #[prost(message, optional, tag = "19")]
+    pub stale_reference: ::core::option::Option<StaleReference>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -1861,6 +1895,11 @@ pub struct ReportExecutionParams {
     pub venue_order_id: ::prost::alloc::string::String,
     #[prost(string, tag = "35")]
     pub venue_client_order_id: ::prost::alloc::string::String,
+    /// Contract v27 (W11.11): on the `oms`'s internal cross of a net order,
+    /// which convention set its rate; refused INVALID_ARGUMENT naming it where
+    /// missing on such a cross, or set on any other execution.
+    #[prost(enumeration = "CrossRateSource", tag = "36")]
+    pub cross_rate_source: i32,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -2799,6 +2838,10 @@ pub struct ReadCalendarResult {
     pub coverage: ::core::option::Option<CalendarCoverage>,
     #[prost(message, repeated, tag = "7")]
     pub sources: ::prost::alloc::vec::Vec<CalendarSource>,
+    /// Contract v27 (W3.19): a trading-sessions calendar's sessions, with the
+    /// early closes falling in the range; unset on every other kind.
+    #[prost(message, optional, tag = "8")]
+    pub trading_sessions: ::core::option::Option<TradingSessions>,
 }
 /// W3.20: one way to work out a date, in core. The same inputs and versions
 /// always give the same date; the wall clock is never read.
@@ -3505,6 +3548,11 @@ pub struct ReportEventGroupParams {
     pub valid_from_ns: i64,
     #[prost(message, optional, tag = "9")]
     pub raw_record: ::core::option::Option<RawRecordRef>,
+    /// Contract v27 (W3.29; ruling 464): each range member's floor, cap and
+    /// unit as the venue states them, taken as values offered for the
+    /// member's record; a person's value wins.
+    #[prost(message, repeated, tag = "11")]
+    pub member_bounds: ::prost::alloc::vec::Vec<EventGroupMemberBound>,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -3573,8 +3621,8 @@ pub struct ReadAgentOrdersDemoOnlyResult {
 /// The params of QueryLake: meridian.v1.QueryLakeRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryLakeParams {
-    /// `prices`, `bars`, `trades`, `quotes` or `outcomes`; a kind the asking
-    /// role does not read is refused naming it.
+    /// `prices`, `bars`, `trades`, `quotes` or `outcomes`, and from contract
+    /// v27 `rates`; a kind the asking role does not read is refused naming it.
     #[prost(string, tag = "1")]
     pub kind: ::prost::alloc::string::String,
     /// At most 500.
@@ -3627,6 +3675,270 @@ pub struct QueryLakeResult {
     /// More rows matched than row_limit: the reply is cut at it, never paged.
     #[prost(bool, tag = "9")]
     pub truncated: bool,
+    /// Contract v27 (W10.10): rates, for a query of the kind `rates`.
+    #[prost(message, repeated, tag = "10")]
+    pub rates: ::prost::alloc::vec::Vec<Rate>,
+}
+/// 1 to 500 snapshots, every 10 seconds, to core's monitor.
+/// The params of ReportLatency: meridian.v1.ReportLatencyRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportLatencyParams {
+    #[prost(message, repeated, tag = "1")]
+    pub snapshots: ::prost::alloc::vec::Vec<LatencySnapshot>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of ReportLatency: meridian.v1.ReportLatencyReply.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReportLatencyResult {
+    #[prost(uint32, tag = "1")]
+    pub accepted: u32,
+}
+/// A batch of rates, recorded whole or refused naming the item and field:
+/// 1 to 500.
+/// The params of RecordRates: meridian.v1.RecordRatesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordRatesParams {
+    #[prost(message, repeated, tag = "1")]
+    pub rates: ::prost::alloc::vec::Vec<Rate>,
+    /// The want these answer (W10.7), as delivered; empty for rows recorded
+    /// unasked.
+    #[prost(string, tag = "2")]
+    pub want_id: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// What a batch did, once it committed.
+/// The result of RecordRates: meridian.v1.RecordObservationsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordRatesResult {
+    /// Rows recorded for the first time.
+    #[prost(uint32, tag = "1")]
+    pub recorded: u32,
+    /// Rows recorded as a new version of a row key held.
+    #[prost(uint32, tag = "2")]
+    pub restated: u32,
+    /// Rows identical to the version in force, which changed nothing.
+    #[prost(uint32, tag = "3")]
+    pub unchanged: u32,
+    /// The dataset's sequence once the batch committed.
+    #[prost(message, optional, tag = "4")]
+    pub watermark: ::core::option::Option<Watermark>,
+}
+/// Rates for subjects (W10.6), at one of: the latest in force at a valid
+/// time; a business date; or a valid-time range. As of a recorded time, and
+/// optionally as the source had published them by a time.
+/// The params of ListRates: meridian.v1.ListRatesRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListRatesParams {
+    /// 1 to 500.
+    #[prost(message, repeated, tag = "1")]
+    pub subjects: ::prost::alloc::vec::Vec<SubjectRef>,
+    /// Which kinds; empty for every kind.
+    #[prost(enumeration = "RateKind", repeated, tag = "2")]
+    pub kinds: ::prost::alloc::vec::Vec<i32>,
+    /// Which tenors; empty for every tenor.
+    #[prost(message, repeated, tag = "3")]
+    pub tenors: ::prost::alloc::vec::Vec<Tenor>,
+    #[prost(message, optional, tag = "4")]
+    pub sources: ::core::option::Option<SourceChoice>,
+    #[prost(int64, tag = "5")]
+    pub at_ns: i64,
+    #[prost(string, tag = "6")]
+    pub business_date: ::prost::alloc::string::String,
+    #[prost(int64, tag = "7")]
+    pub valid_from_ns: i64,
+    #[prost(int64, tag = "8")]
+    pub valid_until_ns: i64,
+    /// The recorded-time cut-off, 0 for now: what the lake knew then.
+    #[prost(int64, tag = "9")]
+    pub as_of_ns: i64,
+    /// Shared additions 1 and 2: what the source had published by this time,
+    /// the version in force by published time among the rows recorded by
+    /// as_of_ns; 0 reads by recorded time alone, the default and the audit
+    /// answer.
+    #[prost(int64, tag = "10")]
+    pub published_as_of_ns: i64,
+    /// At most 500 rows, 100 when 0.
+    #[prost(uint32, tag = "11")]
+    pub page_size: u32,
+    #[prost(string, tag = "12")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListRates: meridian.v1.ListRatesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListRatesResult {
+    #[prost(message, repeated, tag = "1")]
+    pub rates: ::prost::alloc::vec::Vec<Rate>,
+    #[prost(message, repeated, tag = "2")]
+    pub unanswered: ::prost::alloc::vec::Vec<Unanswered>,
+    #[prost(message, repeated, tag = "3")]
+    pub datasets: ::prost::alloc::vec::Vec<DatasetRef>,
+    #[prost(message, optional, tag = "4")]
+    pub watermark: ::core::option::Option<Watermark>,
+    #[prost(string, tag = "5")]
+    pub next_cursor: ::prost::alloc::string::String,
+}
+/// 1 to 500 liveness items.
+/// The params of RecordLiveness: meridian.v1.RecordLivenessRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RecordLivenessParams {
+    #[prost(message, repeated, tag = "1")]
+    pub liveness: ::prost::alloc::vec::Vec<DatasetLiveness>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of RecordLiveness: meridian.v1.RecordLivenessReply.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RecordLivenessResult {
+    /// The items kept, each the latest for its dataset and venue.
+    #[prost(uint32, tag = "1")]
+    pub kept: u32,
+}
+/// One account's execution costs (W10.11): by execution, by order or by trade
+/// date, as of a recorded time.
+/// The params of ListExecutionCosts: meridian.v1.ListExecutionCostsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListExecutionCostsParams {
+    /// The account, within the reader's read scope.
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// At most 500; empty for every execution the other filters name.
+    #[prost(string, repeated, tag = "2")]
+    pub execution_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag = "3")]
+    pub order_id: ::prost::alloc::string::String,
+    /// ISO 8601: the executions traded on that date.
+    #[prost(string, tag = "4")]
+    pub trade_date: ::prost::alloc::string::String,
+    /// Empty for every benchmark.
+    #[prost(enumeration = "TcaBenchmark", repeated, tag = "5")]
+    pub benchmarks: ::prost::alloc::vec::Vec<i32>,
+    #[prost(int64, tag = "6")]
+    pub as_of_ns: i64,
+    /// At most 500 rows, 100 when 0.
+    #[prost(uint32, tag = "7")]
+    pub page_size: u32,
+    #[prost(string, tag = "8")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListExecutionCosts: meridian.v1.ListExecutionCostsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListExecutionCostsResult {
+    #[prost(message, repeated, tag = "1")]
+    pub costs: ::prost::alloc::vec::Vec<ExecutionCost>,
+    #[prost(string, tag = "2")]
+    pub next_cursor: ::prost::alloc::string::String,
+}
+/// W11.40 (contract v27): a dealer's quote received on the firm's RFQ
+/// placement, recorded by its connectivity plugin; or a later outcome of one
+/// recorded, named by its quote ID. Answered with PlacementReply.
+/// The params of ReportPlacementQuote: meridian.v1.ReportPlacementQuoteRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportPlacementQuoteParams {
+    #[prost(string, tag = "1")]
+    pub placement_id: ::prost::alloc::string::String,
+    /// Empty to record a new quote, which the book mints an ID for; a quote's
+    /// ID to record its later outcome.
+    #[prost(string, tag = "2")]
+    pub quote_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub dealer_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub dealer_quote_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "Side", tag = "5")]
+    pub side: i32,
+    #[prost(message, optional, tag = "6")]
+    pub price: ::core::option::Option<Money>,
+    #[prost(message, optional, tag = "7")]
+    pub quantity: ::core::option::Option<Decimal>,
+    #[prost(int64, tag = "8")]
+    pub received_at_ns: i64,
+    #[prost(int64, tag = "9")]
+    pub valid_until_ns: i64,
+    #[prost(enumeration = "PlacementQuoteOutcome", tag = "10")]
+    pub outcome: i32,
+    #[prost(message, optional, tag = "11")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    #[prost(string, tag = "12")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of ReportPlacementQuote: meridian.v1.PlacementReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportPlacementQuoteResult {
+    #[prost(message, optional, tag = "1")]
+    pub placement: ::core::option::Option<Placement>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(string, tag = "4")]
+    pub change_request_id: ::prost::alloc::string::String,
+}
+/// W11.41 (contract v27): the `ems` picks one open quote on an RFQ placement
+/// it made. Answered with PlacementReply.
+/// The params of PickPlacementQuote: meridian.v1.PickPlacementQuoteRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PickPlacementQuoteParams {
+    #[prost(string, tag = "1")]
+    pub placement_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub quote_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub idempotency_key: ::prost::alloc::string::String,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of PickPlacementQuote: meridian.v1.PlacementReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PickPlacementQuoteResult {
+    #[prost(message, optional, tag = "1")]
+    pub placement: ::core::option::Option<Placement>,
+    #[prost(message, optional, tag = "2")]
+    pub entry: ::core::option::Option<EntryMeta>,
+    #[prost(message, optional, tag = "3")]
+    pub journal: ::core::option::Option<JournalRef>,
+    #[prost(string, tag = "4")]
+    pub change_request_id: ::prost::alloc::string::String,
 }
 /// What a plugin asks to hear. A row it names that no role it holds hears
 /// is refused, PERMISSION_DENIED, naming it.
@@ -3652,7 +3964,7 @@ pub struct Delivery {
     pub meta: ::core::option::Option<DeliveryMeta>,
     #[prost(
         oneof = "delivery::Item",
-        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44"
+        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46"
     )]
     pub item: ::core::option::Option<delivery::Item>,
 }
@@ -3765,6 +4077,12 @@ pub mod delivery {
         /// W3.30: platform.reference.event.event-group-changed.
         #[prost(message, tag = "44")]
         EventGroupChanged(super::EventGroup),
+        /// W10.5: platform.lake.{dataset}.event.rates-recorded.
+        #[prost(message, tag = "45")]
+        RatesRecorded(super::RatesRecordedEvent),
+        /// W10.5: platform.lake.{dataset}.event.liveness-recorded.
+        #[prost(message, tag = "46")]
+        LivenessRecorded(super::LivenessRecordedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -5241,6 +5559,32 @@ pub struct Lot {
     /// Its position's sleeve (contract v22); empty for the unsleeved part.
     #[prost(string, tag = "8")]
     pub sleeve: ::prost::alloc::string::String,
+    /// Contract v27 (W9.10; rulings 320 and 396): each relief of the lot, in
+    /// order, with what the quantity relieved was sold for, so a reader
+    /// computes realized P&L; the book stores nothing derived. Empty for a lot
+    /// never relieved, and for a relief before v27 the upgrade could not
+    /// backfill from its execution.
+    #[prost(message, repeated, tag = "9")]
+    pub reliefs: ::prost::alloc::vec::Vec<LotRelief>,
+}
+/// One relief of a lot (contract v27; W9.10).
+/// A mirror of meridian.v1.LotRelief.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LotRelief {
+    /// The entry that relieved it, also listed in Lot.relieved_by.
+    #[prost(message, optional, tag = "1")]
+    pub relieved_by: ::core::option::Option<JournalRef>,
+    /// The quantity relieved, positive.
+    #[prost(message, optional, tag = "2")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// What that quantity was sold for, in the execution's asset, fees apart
+    /// as the execution states them; unset for a relief with no execution
+    /// behind it (a transfer out, a correction), never zero.
+    #[prost(message, optional, tag = "3")]
+    pub proceeds: ::core::option::Option<Money>,
+    /// ISO 8601: the execution's trade date; empty with no execution.
+    #[prost(string, tag = "4")]
+    pub trade_date: ::prost::alloc::string::String,
 }
 /// One encumbrance of a position, as the book holds it.
 /// A mirror of meridian.v1.Encumbrance.
@@ -5820,7 +6164,8 @@ pub struct ReceiptQuote {
     #[prost(string, tag = "9")]
     pub row_key: ::prost::alloc::string::String,
 }
-/// The split link on a child order (W11.1; Q41).
+/// The link on a child order (W11.1; Q41), or, from contract v27, on a
+/// member of a net order, naming the net as its parent.
 /// A mirror of meridian.v1.OrderLink.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OrderLink {
@@ -5929,7 +6274,7 @@ pub struct Order {
     /// The orders a firm's order represents, recorded and not checked (Q37).
     #[prost(string, repeated, tag = "27")]
     pub represents_order_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// Slice C's, carried empty until it lands (the refresh's Q34): the axe an
+    /// Slice C's sell side, carried empty, not v27's (the refresh's Q34): the axe an
     /// order was made from in the lake, its source and counterparty.
     #[prost(string, tag = "28")]
     pub axe_source: ::prost::alloc::string::String,
@@ -5973,6 +6318,16 @@ pub struct Order {
     /// filled quantity counts each, and no execution is minted for one.
     #[prost(string, repeated, tag = "46")]
     pub sleeve_cross_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Contract v27 (W11.1; the gaps spec's D2): on a net order, its members
+    /// as proposed -- released FX orders of one pair and one value date, of
+    /// both sides, each in no other live block or net. Empty on any other
+    /// order.
+    #[prost(string, repeated, tag = "47")]
+    pub net_member_order_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Contract v27 (W11.1): the date an FX order settles on, as `portfolio`
+    /// states it (FIX's SettlDate, 64), ISO 8601; empty is spot.
+    #[prost(string, tag = "48")]
+    pub value_date: ::prost::alloc::string::String,
 }
 /// The people on an order, a placement or an entered execution (requirement
 /// 29). Each a person who has signed in (W6.1) or a service account.
@@ -6019,6 +6374,13 @@ pub struct StandingOrderCondition {
     /// On does not tie out: why.
     #[prost(enumeration = "TieOutReason", tag = "5")]
     pub tie_out_reason: i32,
+    /// Contract v27 (W11.7): on held, its typed cause, and for a stale
+    /// reference price the dataset, its age and the ceiling; unspecified and
+    /// unset on any other condition, and on a hold with no typed cause.
+    #[prost(enumeration = "HoldCause", tag = "6")]
+    pub hold_cause: i32,
+    #[prost(message, optional, tag = "7")]
+    pub stale_reference: ::core::option::Option<StaleReference>,
 }
 /// The instance holding a claim, and the user it acts for.
 /// A mirror of meridian.v1.Claimant.
@@ -6038,6 +6400,22 @@ pub mod claimant {
         #[prost(message, tag = "3")]
         ServiceAccount(super::ServiceAccountActor),
     }
+}
+/// A reference price found past its ceiling at an `ems`'s pre-trade check
+/// (contract v27; W11.7, W11.8).
+/// A mirror of meridian.v1.StaleReference.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StaleReference {
+    /// The dataset the price came from, `instance:key`.
+    #[prost(string, tag = "1")]
+    pub dataset: ::prost::alloc::string::String,
+    /// How old the price's confirmed time was at the check.
+    #[prost(int64, tag = "2")]
+    pub age_ns: i64,
+    /// The ceiling in force: the tighter of the dataset's and the `ems`
+    /// admin's own.
+    #[prost(int64, tag = "3")]
+    pub ceiling_ns: i64,
 }
 /// The quantities, derived; idle may go negative, shown, never refused (Q3).
 /// A mirror of meridian.v1.OrderQuantities.
@@ -6192,7 +6570,7 @@ pub struct Placement {
     pub routed_precision: i32,
     #[prost(string, repeated, tag = "15")]
     pub handling_instructions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// Slice C's, carried empty until it lands (the refresh's Q34): the RFQ a
+    /// Slice C's sell side, carried empty, not v27's (the refresh's Q34): the RFQ a
     /// placement answers, as FIX's QuoteID (tag 117), and the axe, as FIX's
     /// IOIID (tag 23).
     #[prost(string, tag = "16")]
@@ -6226,6 +6604,28 @@ pub struct Placement {
     /// hears each on the placement. The order's stay on the order.
     #[prost(message, repeated, tag = "26")]
     pub change_requests: ::prost::alloc::vec::Vec<ChangeRequest>,
+    /// Contract v27 (W11.8; the gaps spec's B1): how it is executed, set by
+    /// the `ems` at its creation and never changed; unspecified is read as
+    /// DMA.
+    #[prost(enumeration = "PlacementType", tag = "27")]
+    pub placement_type: i32,
+    /// Contract v27 (W11.8; B5): a manual placement's trade details, its
+    /// evidence and not street data -- the counterparty's contact as the
+    /// person states it, and the time agreed with its precision. Empty on any
+    /// other type.
+    #[prost(string, tag = "28")]
+    pub counterparty_contact: ::prost::alloc::string::String,
+    #[prost(int64, tag = "29")]
+    pub agreed_at_ns: i64,
+    #[prost(enumeration = "TimePrecision", tag = "30")]
+    pub agreed_precision: i32,
+    /// Contract v27 (W11.40, W11.41; slice C's buy side): the dealers' quotes
+    /// received on an RFQ placement, each with its outcome, and the one the
+    /// `ems` picked. Empty on any other type.
+    #[prost(message, repeated, tag = "31")]
+    pub quotes: ::prost::alloc::vec::Vec<PlacementQuote>,
+    #[prost(string, tag = "32")]
+    pub picked_quote_id: ::prost::alloc::string::String,
 }
 /// A strategy for the venue to work (step 6's Q11): the kinds name which of
 /// a broker's strategies, described in its catalogue on FIXatdl's model
@@ -6276,6 +6676,44 @@ pub struct StandingPlacementCondition {
     pub unknown_reason: i32,
     #[prost(message, optional, tag = "5")]
     pub status_as_reported: ::core::option::Option<AsReported>,
+    /// Contract v27 (W11.8): on sent on a stale reference, what the `ems`'s
+    /// check found.
+    #[prost(message, optional, tag = "6")]
+    pub stale_reference: ::core::option::Option<StaleReference>,
+}
+/// One dealer's quote received on the firm's RFQ placement (contract v27;
+/// W11.40; requirement 50): a trade detail in the book, the buy side's
+/// best-execution record, never copied into the lake.
+/// A mirror of meridian.v1.PlacementQuote.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PlacementQuote {
+    /// `PQT-` and a ULID, minted by the book, never reused.
+    #[prost(string, tag = "1")]
+    pub quote_id: ::prost::alloc::string::String,
+    /// The dealer, the venue master's `VEN-` ID.
+    #[prost(string, tag = "2")]
+    pub dealer_id: ::prost::alloc::string::String,
+    /// The dealer's own QuoteID (FIX 117), as delivered: an external
+    /// reference, never a key.
+    #[prost(string, tag = "3")]
+    pub dealer_quote_id: ::prost::alloc::string::String,
+    /// The side the dealer quoted to the firm: its offer to a buyer, its bid
+    /// to a seller.
+    #[prost(enumeration = "Side", tag = "4")]
+    pub side: i32,
+    #[prost(message, optional, tag = "5")]
+    pub price: ::core::option::Option<Money>,
+    #[prost(message, optional, tag = "6")]
+    pub quantity: ::core::option::Option<Decimal>,
+    #[prost(int64, tag = "7")]
+    pub received_at_ns: i64,
+    /// Its ValidUntilTime (FIX 62); 0 when unstated.
+    #[prost(int64, tag = "8")]
+    pub valid_until_ns: i64,
+    #[prost(enumeration = "PlacementQuoteOutcome", tag = "9")]
+    pub outcome: i32,
+    #[prost(message, optional, tag = "10")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
 }
 /// An execution, never edited (W11.11): a bust or a correction is another,
 /// superseding it.
@@ -6392,6 +6830,10 @@ pub struct Execution {
     /// execution, in the order recorded; a rejection moves no position.
     #[prost(message, repeated, tag = "41")]
     pub give_up_answers: ::prost::alloc::vec::Vec<GiveUpRecord>,
+    /// Contract v27 (W11.11; the gaps spec's D4): on an internal cross of a
+    /// net order, which convention set its rate; unspecified on any other.
+    #[prost(enumeration = "CrossRateSource", tag = "42")]
+    pub cross_rate_source: i32,
 }
 /// An execution's finality: a level, and when it reached it.
 /// A mirror of meridian.v1.Finality.
@@ -6594,6 +7036,11 @@ pub struct ReportExecutionRequest {
     pub venue_order_id: ::prost::alloc::string::String,
     #[prost(string, tag = "35")]
     pub venue_client_order_id: ::prost::alloc::string::String,
+    /// Contract v27 (W11.11): on the `oms`'s internal cross of a net order,
+    /// which convention set its rate; refused INVALID_ARGUMENT naming it where
+    /// missing on such a cross, or set on any other execution.
+    #[prost(enumeration = "CrossRateSource", tag = "36")]
+    pub cross_rate_source: i32,
 }
 /// W11.10. A fact, each with the raw record it was converted from.
 /// A mirror of meridian.v1.ReportPlacementRequest.
@@ -6852,6 +7299,12 @@ pub struct VenueCatalogue {
     /// or `paper`.
     #[prost(string, tag = "7")]
     pub environment: ::prost::alloc::string::String,
+    /// Contract v27 (W11.20; the gaps spec's B4): the placement types the
+    /// venue takes beside its order types; one not listed is rejected
+    /// unsupported by the connectivity plugin. Empty, as a v26 catalogue is,
+    /// reads as DMA alone.
+    #[prost(enumeration = "PlacementType", repeated, tag = "8")]
+    pub placement_types: ::prost::alloc::vec::Vec<i32>,
 }
 /// An order type the venue offers, with the times in force it takes.
 /// A mirror of meridian.v1.VenueOrderType.
@@ -7218,6 +7671,51 @@ pub struct CalendarSource {
     pub address: ::prost::alloc::string::String,
     #[prost(int64, tag = "4")]
     pub read_at_ns: i64,
+}
+/// A venue's trading sessions (contract v27; W1.20, W3.19; ruling 419): the
+/// minimal kind staleness needs, sessions a day in local time.
+/// A mirror of meridian.v1.TradingSessions.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TradingSessions {
+    /// IANA.
+    #[prost(string, tag = "1")]
+    pub time_zone: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub sessions: ::prost::alloc::vec::Vec<TradingSession>,
+    /// Each day whose sessions differ: an early close, a late open, a day
+    /// closed; an early close announced later is a new version.
+    #[prost(message, repeated, tag = "3")]
+    pub early_closes: ::prost::alloc::vec::Vec<TradingSessionDay>,
+}
+/// One session, on the weekdays it runs.
+/// A mirror of meridian.v1.TradingSession.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TradingSession {
+    #[prost(enumeration = "Weekday", repeated, tag = "1")]
+    pub weekdays: ::prost::alloc::vec::Vec<i32>,
+    /// Minutes after local midnight: the start, and the end, exclusive, at most
+    /// 1440.
+    #[prost(uint32, tag = "2")]
+    pub start_minute: u32,
+    #[prost(uint32, tag = "3")]
+    pub end_minute: u32,
+    /// An extended session: pre-market or after-hours.
+    #[prost(bool, tag = "4")]
+    pub extended: bool,
+}
+/// One dated day's sessions, in place of the weekday's.
+/// A mirror of meridian.v1.TradingSessionDay.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TradingSessionDay {
+    /// ISO 8601, a plain date.
+    #[prost(string, tag = "1")]
+    pub date: ::prost::alloc::string::String,
+    /// None for a day closed.
+    #[prost(message, repeated, tag = "2")]
+    pub sessions: ::prost::alloc::vec::Vec<TradingSession>,
+    /// A source_id among the version's sources.
+    #[prost(string, tag = "3")]
+    pub source: ::prost::alloc::string::String,
 }
 /// W3.20: an instrument's settlement date by its market's rule.
 /// A mirror of meridian.v1.SettlementDateInputs.
@@ -7680,6 +8178,11 @@ pub struct Outcome {
     /// The venue's own word for the determination, as reported.
     #[prost(message, optional, tag = "6")]
     pub determination_as_reported: ::core::option::Option<AsReported>,
+    /// Contract v27 (W10.4; the options and event contracts spec's G1): when a
+    /// proposed outcome's challenge window ends, as the venue reports it; 0
+    /// when not stated. Never derived by core.
+    #[prost(int64, tag = "7")]
+    pub challenge_ends_at_ns: i64,
 }
 /// Which datasets a read is answered from (the intent's Q4): exactly one of
 /// the deployment's default, named datasets, or every entitled dataset side by
@@ -7750,6 +8253,18 @@ pub struct DatasetRef {
     pub closed_day_count: u64,
     #[prost(uint64, tag = "9")]
     pub outside_coverage_count: u64,
+    /// Contract v27 (W10.9; rulings 369 and 417): the dataset's declared
+    /// delay, from its catalogue, 0 for real time; and its stale ceiling, the
+    /// data plugin admin's `stale_after` for it, 0 when none is set. Set in a
+    /// listing and in every read's answer.
+    #[prost(int64, tag = "10")]
+    pub declared_delay_ns: i64,
+    #[prost(int64, tag = "11")]
+    pub stale_after_ns: i64,
+    /// Contract v27 (W10.9; ruling 418): in a listing, the latest liveness the
+    /// lake keeps for the dataset, one per venue; empty in a read's answer.
+    #[prost(message, repeated, tag = "12")]
+    pub liveness: ::prost::alloc::vec::Vec<DatasetLiveness>,
 }
 /// One dataset a data plugin serves. Its identity in a deployment is the instance
 /// and its key (spec/the-lake, Q19).
@@ -7811,6 +8326,12 @@ pub struct DatasetDeclaration {
     /// none, as before.
     #[prost(string, tag = "12")]
     pub calendar_id: ::prost::alloc::string::String,
+    /// Its declared delay (W10.1; contract v27, rulings 368, 369 and 382): how
+    /// far behind real time the vendor serves it, its staleness and its edge
+    /// age judged against the delay plus the ceiling. 0 for real time. One
+    /// dataset per timeliness.
+    #[prost(int64, tag = "13")]
+    pub declared_delay_ns: i64,
 }
 /// A dataset's licence: its catalogue's default terms (unset dataset and
 /// author), or the deployment's licence a deployment admin set, which is what
@@ -7830,9 +8351,14 @@ pub struct DatasetLicence {
     /// 36,500.
     #[prost(uint32, tag = "3")]
     pub retention_days: u32,
-    /// Whether data derived from it may be made, and shown.
-    #[prost(bool, tag = "4")]
-    pub derived_use: bool,
+    /// Whether data derived from it may be made: from contract v27 the terms'
+    /// three answers (W10.1). The same number as v26's boolean, so a v26
+    /// `true` reads not_restricted and a v26 `false` (unspecified) reads
+    /// internal_only.
+    #[prost(enumeration = "DerivedUse", tag = "4")]
+    pub derived_use: i32,
+    /// Whether it may be shown. From contract v27 read as `meters` containing
+    /// `display`, for one release, then retired.
     #[prost(bool, tag = "5")]
     pub display: bool,
     /// The fields readable by default, by their dictionary entries; empty for
@@ -7860,6 +8386,120 @@ pub struct DatasetLicence {
     /// (W6.27, W4.9; contract v20): empty otherwise, and before v20.
     #[prost(string, tag = "13")]
     pub prepared_call_id: ::prost::alloc::string::String,
+    /// §1a: the version of the platform's standard terms filled in; the basis;
+    /// the timeliness and its delay, with the label shown beside every value;
+    /// the licensing source behind the vendor, where one is.
+    #[prost(string, tag = "14")]
+    pub terms_version: ::prost::alloc::string::String,
+    #[prost(enumeration = "AccessBasis", tag = "15")]
+    pub access_basis: i32,
+    #[prost(enumeration = "Timeliness", tag = "16")]
+    pub timeliness: i32,
+    #[prost(uint32, tag = "17")]
+    pub delay_minutes: u32,
+    #[prost(string, tag = "18")]
+    pub delay_label: ::prost::alloc::string::String,
+    #[prost(string, tag = "19")]
+    pub underlying_source: ::prost::alloc::string::String,
+    /// §1b: the meters that apply, empty unless the basis is licensed, and how
+    /// each counts.
+    #[prost(enumeration = "LicenceMeter", repeated, tag = "20")]
+    pub meters: ::prost::alloc::vec::Vec<i32>,
+    #[prost(message, optional, tag = "21")]
+    pub display_terms: ::core::option::Option<DisplayTerms>,
+    #[prost(message, optional, tag = "22")]
+    pub non_display: ::core::option::Option<NonDisplayTerms>,
+    #[prost(message, optional, tag = "23")]
+    pub enterprise: ::core::option::Option<EnterpriseTerms>,
+    /// §1c: use rights beside derived_use.
+    #[prost(bool, optional, tag = "24")]
+    pub derived_multi_instrument_free: ::core::option::Option<bool>,
+    #[prost(bool, tag = "25")]
+    pub derived_creation_is_non_display: bool,
+    #[prost(enumeration = "Redistribution", tag = "26")]
+    pub redistribution: i32,
+    #[prost(enumeration = "OutsideComputation", tag = "27")]
+    pub outside_computation: i32,
+    #[prost(enumeration = "ProhibitedUse", repeated, tag = "28")]
+    pub prohibited_uses: ::prost::alloc::vec::Vec<i32>,
+    /// §1d: attribution, which travels with the data into pages, exports and
+    /// MCP answers.
+    #[prost(bool, tag = "29")]
+    pub attribution_required: bool,
+    #[prost(string, tag = "30")]
+    pub attribution_text: ::prost::alloc::string::String,
+    #[prost(enumeration = "CopyrightClass", tag = "31")]
+    pub copyright_class: i32,
+    #[prost(bool, tag = "32")]
+    pub no_more_restrictive_terms: bool,
+    #[prost(string, tag = "33")]
+    pub not_affiliated_notice: ::prost::alloc::string::String,
+    /// §1e: the reporting owed to the vendor, which the deployment produces and
+    /// never sends.
+    #[prost(enumeration = "ReportCadence", tag = "34")]
+    pub report_cadence: i32,
+    #[prost(uint32, tag = "35")]
+    pub report_due_day: u32,
+}
+/// The display meter's terms (§1b).
+/// A mirror of meridian.v1.DisplayTerms.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct DisplayTerms {
+    #[prost(enumeration = "DisplayUnit", tag = "1")]
+    pub unit: i32,
+    #[prost(enumeration = "CountBasis", tag = "2")]
+    pub count_basis: i32,
+    /// Separate professional and non-professional prices.
+    #[prost(bool, tag = "3")]
+    pub professional_split: bool,
+    #[prost(enumeration = "ProfessionalDefinition", tag = "4")]
+    pub professional_definition: i32,
+}
+/// The non-display meter's terms (§1b).
+/// A mirror of meridian.v1.NonDisplayTerms.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NonDisplayTerms {
+    #[prost(enumeration = "NonDisplayCategory", repeated, tag = "1")]
+    pub categories: ::prost::alloc::vec::Vec<i32>,
+    #[prost(enumeration = "NonDisplayCount", tag = "2")]
+    pub counts: i32,
+    /// One natural person's own automated use is free.
+    #[prost(bool, tag = "3")]
+    pub personal_exempt: bool,
+}
+/// The enterprise meter's terms (§1b).
+/// A mirror of meridian.v1.EnterpriseTerms.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EnterpriseTerms {
+    #[prost(enumeration = "EnterpriseReplaces", repeated, tag = "1")]
+    pub replaces: ::prost::alloc::vec::Vec<i32>,
+    #[prost(enumeration = "EnterpriseForm", tag = "2")]
+    pub form: i32,
+    #[prost(enumeration = "EnterpriseScope", tag = "3")]
+    pub scope: i32,
+    /// Whether counts are no longer owed to the vendor; the deployment counts
+    /// regardless.
+    #[prost(bool, tag = "4")]
+    pub reporting_waived: bool,
+}
+/// A dataset's latest sign of life: its source's heartbeat or poll, which
+/// confirms the values in force. Not a row, and never kept as one.
+/// A mirror of meridian.v1.DatasetLiveness.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DatasetLiveness {
+    /// A dataset the recording instance declares, `instance:key`.
+    #[prost(string, tag = "1")]
+    pub dataset: ::prost::alloc::string::String,
+    /// The venue it is for, the venue master's ID; empty for the dataset's
+    /// consolidated view.
+    #[prost(string, tag = "2")]
+    pub venue_id: ::prost::alloc::string::String,
+    /// The source's last heartbeat or poll, on the one clock.
+    #[prost(int64, tag = "3")]
+    pub alive_at_ns: i64,
+    /// The recording instance, stamped by its sidecar.
+    #[prost(string, tag = "4")]
+    pub instance: ::prost::alloc::string::String,
 }
 /// A plugin instance's entitlement to a dataset, as the conductor keeps it
 /// (W10.1). Set by a deployment admin; never sent to the platform.
@@ -7914,6 +8554,17 @@ pub struct Job {
     /// Trades added to one account's positions (W12.5); unset for none.
     #[prost(message, optional, tag = "4")]
     pub what_if: ::core::option::Option<WhatIf>,
+    /// Contract v27 (W12.1; ruling 458): a business date, ISO 8601 in the
+    /// deployment's time zone -- the book at that date's end, the lake at that
+    /// date's closes; empty for now. Refused beside inputs.book_at or
+    /// inputs.lake_as_of_ns, and for a date after today's.
+    #[prost(string, tag = "5")]
+    pub business_date: ::prost::alloc::string::String,
+    /// Contract v27 (W12.1; ruling 459): the cash instrument the figures are
+    /// converted to, by its `INS-` ID; empty answers each account in its base
+    /// currency.
+    #[prost(string, tag = "6")]
+    pub reporting_currency: ::prost::alloc::string::String,
 }
 /// A job's inputs, by reference (requirement 3): one watermark and one as-of
 /// for the whole job (requirements 7, 8).
@@ -7937,7 +8588,8 @@ pub struct InputRefs {
 pub struct MeasureRef {
     /// A definition the component serves: `market_value`, `exposure`,
     /// `concentration`, `pnl`, `historical_var`, `expected_shortfall`,
-    /// `resolution_payoff`, `implied_distribution` in v26.
+    /// `resolution_payoff`, `implied_distribution` in v26; from v27 `pnl`
+    /// version 2 (realized beside unrealized) and `execution_cost`.
     #[prost(string, tag = "1")]
     pub definition: ::prost::alloc::string::String,
     /// Its version, 1 or more.
@@ -8023,6 +8675,10 @@ pub struct Figure {
     /// How it was computed: exact in v26, model from v28.
     #[prost(enumeration = "ComputedAs", tag = "9")]
     pub computed_as: i32,
+    /// Contract v27 (W12.2; ruling 374): its oldest input's source time; 0 for
+    /// a figure that read no market data.
+    #[prost(int64, tag = "10")]
+    pub oldest_input_source_ns: i64,
 }
 /// A figure's place in one breakdown.
 /// A mirror of meridian.v1.BreakdownValue.
@@ -8070,6 +8726,13 @@ pub struct NotEvaluated {
     /// scheme not held, where the reason names one.
     #[prost(string, tag = "5")]
     pub detail: ::prost::alloc::string::String,
+    /// Contract v27 (W12.2; ruling 374): on a stale price, its age at the
+    /// job's as-of and the ceiling in force, the tighter of the dataset's and
+    /// the client's; 0 on any other reason.
+    #[prost(int64, tag = "6")]
+    pub age_ns: i64,
+    #[prost(int64, tag = "7")]
+    pub ceiling_ns: i64,
 }
 /// What an answer was computed from (requirements 4 and 35; Q7). Named so it
 /// is not mistaken for meridian.v1.Provenance, a value's source.
@@ -8103,6 +8766,16 @@ pub struct AnswerProvenance {
     /// the inputs: two answers with the same hash are the same answer.
     #[prost(string, tag = "10")]
     pub answer_hash: ::prost::alloc::string::String,
+    /// Contract v27 (W12.7): the job's business date, where it had one.
+    #[prost(string, tag = "11")]
+    pub business_date: ::prost::alloc::string::String,
+    /// Contract v27 (W12.7; ruling 460): each position's input price.
+    #[prost(message, repeated, tag = "12")]
+    pub input_prices: ::prost::alloc::vec::Vec<InputPrice>,
+    /// Contract v27 (W12.7; ruling 462): each conversion leg, direct or
+    /// derived, with the pivot a cross went through.
+    #[prost(message, repeated, tag = "13")]
+    pub conversion_legs: ::prost::alloc::vec::Vec<ConversionLeg>,
 }
 /// One instrument a job read, by its record's and template's versions.
 /// A mirror of meridian.v1.InstrumentInput.
@@ -8145,6 +8818,47 @@ pub struct EventGroupInput {
     pub event_group_id: ::prost::alloc::string::String,
     #[prost(int64, tag = "2")]
     pub version: i64,
+}
+/// One position's input price (contract v27; ruling 460).
+/// A mirror of meridian.v1.InputPrice.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InputPrice {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub price: ::core::option::Option<Money>,
+    /// The lake row it came from: its dataset, row key and version.
+    #[prost(string, tag = "3")]
+    pub dataset: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub row_key: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "5")]
+    pub version: u64,
+    /// Its source time: the `event` time where present, else the earliest.
+    #[prost(int64, tag = "6")]
+    pub source_ns: i64,
+}
+/// One conversion leg (contract v27; ruling 462): from one cash instrument to
+/// another, at a rate, direct from the lake or derived from it.
+/// A mirror of meridian.v1.ConversionLeg.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConversionLeg {
+    #[prost(string, tag = "1")]
+    pub from_instrument_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub to_instrument_id: ::prost::alloc::string::String,
+    /// Units of `to` per unit of `from`; an inverted rate is 1 ÷ x rounded half
+    /// to even to 18 places.
+    #[prost(message, optional, tag = "3")]
+    pub rate: ::core::option::Option<Decimal>,
+    #[prost(enumeration = "ConversionDerivation", tag = "4")]
+    pub derivation: i32,
+    /// A cross's pivot, by its cash instrument's ID; empty otherwise.
+    #[prost(string, tag = "5")]
+    pub via_instrument_id: ::prost::alloc::string::String,
+    /// The dataset the lake's rate came from.
+    #[prost(string, tag = "6")]
+    pub dataset: ::prost::alloc::string::String,
 }
 /// A measure's versioned definition (requirements 14 to 17; Q15): shipped
 /// with the component, each fixing every parameter that changes its number.
@@ -8283,6 +8997,21 @@ pub struct JobFinishedEvent {
     #[prost(int64, tag = "5")]
     pub sequence: i64,
 }
+/// One range member's bounds as its venue states them (contract v27; ruling
+/// 464): the binary event contract template's floor, cap and bound_unit.
+/// A mirror of meridian.v1.EventGroupMemberBound.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EventGroupMemberBound {
+    /// One of the report's members.
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub floor: ::core::option::Option<EventContractBound>,
+    #[prost(message, optional, tag = "3")]
+    pub cap: ::core::option::Option<EventContractBound>,
+    #[prost(string, tag = "4")]
+    pub bound_unit: ::prost::alloc::string::String,
+}
 /// An event's group of contracts, at a version.
 /// A mirror of meridian.v1.EventGroup.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -8327,6 +9056,266 @@ pub struct EventGroup {
     /// a sequence catches up by.
     #[prost(int64, tag = "13")]
     pub sequence: i64,
+}
+/// A rate (W10.4): a fixing, an average, an index level or a curve point, for
+/// one subject -- a referential `INS-` record -- as one source stated it. A
+/// curve is one record; its points are rows, each with its tenor. Conflated
+/// per subject, dataset, kind, tenor, maturity and convention.
+/// A mirror of meridian.v1.Rate.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Rate {
+    #[prost(message, optional, tag = "1")]
+    pub meta: ::core::option::Option<ObservationMeta>,
+    #[prost(enumeration = "RateKind", tag = "2")]
+    pub kind: i32,
+    /// The value with its unit: a percent, basis points or an index level.
+    #[prost(message, optional, tag = "3")]
+    pub value: ::core::option::Option<UnitValue>,
+    #[prost(message, optional, tag = "4")]
+    pub convention: ::core::option::Option<RateConvention>,
+    /// A curve point's tenor, a count and a unit (`3M`, `10Y`, `ON`), or its
+    /// exact maturity, ISO 8601; neither on a rate that is no curve point.
+    #[prost(message, optional, tag = "5")]
+    pub tenor: ::core::option::Option<Tenor>,
+    #[prost(string, tag = "6")]
+    pub maturity_date: ::prost::alloc::string::String,
+    /// True while the source marks it preliminary; its final value is the next
+    /// version of the row key.
+    #[prost(bool, tag = "7")]
+    pub preliminary: bool,
+    /// Optional, as the source states them: the volume transacted, how many
+    /// transactions, and the distribution's percentiles (SOFR's 1st, 25th,
+    /// 75th and 99th). Not stated is unset, never zero.
+    #[prost(message, optional, tag = "8")]
+    pub volume: ::core::option::Option<Money>,
+    #[prost(uint64, optional, tag = "9")]
+    pub transaction_count: ::core::option::Option<u64>,
+    #[prost(message, repeated, tag = "10")]
+    pub percentiles: ::prost::alloc::vec::Vec<RatePercentile>,
+}
+/// A value with its unit (contract v27, the lake's rates slice;
+/// spec/the-lake-holds-researchs-kinds, shared addition 3 and Q8;
+/// spec/a-public-rates-and-filings-data-plugin, §1 item 2): a Decimal that is
+/// not money, in base units, with its unit from a closed list or, for a
+/// physical unit, its UCUM code. A 3.87 per cent fixing is 3.87 percent, never
+/// a Money.
+/// A mirror of meridian.v1.UnitValue.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UnitValue {
+    #[prost(message, optional, tag = "1")]
+    pub value: ::core::option::Option<Decimal>,
+    #[prost(enumeration = "ValueUnit", tag = "2")]
+    pub unit: i32,
+    /// For VALUE_UNIT_INDEX, the index's base period as its publisher states
+    /// it (`2015=100`); empty otherwise.
+    #[prost(string, tag = "3")]
+    pub index_base: ::prost::alloc::string::String,
+    /// For VALUE_UNIT_UCUM, the physical unit's UCUM code (`Cel`, `\[bbl_us\]`);
+    /// empty otherwise.
+    #[prost(string, tag = "4")]
+    pub ucum_code: ::prost::alloc::string::String,
+}
+/// How a rate accrues (FDP item 1).
+/// A mirror of meridian.v1.RateConvention.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RateConvention {
+    #[prost(enumeration = "DayCount", tag = "1")]
+    pub day_count: i32,
+    #[prost(enumeration = "Compounding", tag = "2")]
+    pub compounding: i32,
+    /// For COMPOUNDING_COMPOUNDED, the periods a year (2 for a semi-annual
+    /// bond-equivalent yield); 0 otherwise.
+    #[prost(uint32, tag = "3")]
+    pub periods_per_year: u32,
+}
+/// One percentile of a rate's distribution, as the source states it.
+/// A mirror of meridian.v1.RatePercentile.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RatePercentile {
+    /// 1 to 99.
+    #[prost(uint32, tag = "1")]
+    pub percentile: u32,
+    #[prost(message, optional, tag = "2")]
+    pub value: ::core::option::Option<Decimal>,
+}
+/// One histogram snapshot over an interval: a session's metric, or a dataset's
+/// age at a hop.
+/// A mirror of meridian.v1.LatencySnapshot.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LatencySnapshot {
+    #[prost(int64, tag = "1")]
+    pub interval_start_ns: i64,
+    #[prost(int64, tag = "2")]
+    pub interval_ns: i64,
+    /// The session, by the plugin's own name for it; empty for a dataset's.
+    #[prost(string, tag = "3")]
+    pub session: ::prost::alloc::string::String,
+    /// The dataset, `instance:key`, and the hop; empty and unspecified for a
+    /// session's.
+    #[prost(string, tag = "4")]
+    pub dataset: ::prost::alloc::string::String,
+    #[prost(enumeration = "AgeHop", tag = "5")]
+    pub hop: i32,
+    #[prost(enumeration = "LatencyMetric", tag = "6")]
+    pub metric: i32,
+    #[prost(message, optional, tag = "7")]
+    pub histogram: ::core::option::Option<LatencyHistogram>,
+    #[prost(message, optional, tag = "8")]
+    pub counters: ::core::option::Option<LatencyCounters>,
+    /// The source's clock minus ours, corrected by half the round trip.
+    #[prost(int64, tag = "9")]
+    pub clock_skew_ns: i64,
+    /// The session's last message or heartbeat.
+    #[prost(int64, tag = "10")]
+    pub alive_at_ns: i64,
+    /// The absolute ceilings in force, as the plugin's settings hold them.
+    #[prost(message, optional, tag = "11")]
+    pub ceilings: ::core::option::Option<LatencyCeilings>,
+    /// The reporting instance, stamped by its sidecar.
+    #[prost(string, tag = "12")]
+    pub instance_id: ::prost::alloc::string::String,
+}
+/// A sparse log-linear histogram, HdrHistogram's layout (ruling 416).
+/// A mirror of meridian.v1.LatencyHistogram.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LatencyHistogram {
+    #[prost(int64, tag = "1")]
+    pub lowest_ns: i64,
+    /// 2 in v27.
+    #[prost(uint32, tag = "2")]
+    pub significant_digits: u32,
+    #[prost(message, repeated, tag = "3")]
+    pub buckets: ::prost::alloc::vec::Vec<LatencyBucket>,
+    #[prost(int64, tag = "4")]
+    pub min_ns: i64,
+    #[prost(int64, tag = "5")]
+    pub max_ns: i64,
+    /// Values recorded in the interval.
+    #[prost(uint64, tag = "6")]
+    pub total: u64,
+}
+/// One bucket with a count; empty buckets are not sent.
+/// A mirror of meridian.v1.LatencyBucket.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct LatencyBucket {
+    #[prost(uint32, tag = "1")]
+    pub bucket: u32,
+    #[prost(uint64, tag = "2")]
+    pub count: u64,
+}
+/// A session's congestion in the interval.
+/// A mirror of meridian.v1.LatencyCounters.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct LatencyCounters {
+    #[prost(uint64, tag = "1")]
+    pub gaps: u64,
+    #[prost(uint64, tag = "2")]
+    pub resends: u64,
+    #[prost(uint64, tag = "3")]
+    pub reconnects: u64,
+    #[prost(uint64, tag = "4")]
+    pub rate_limited: u64,
+    /// Messages queued to send, at their peak.
+    #[prost(uint64, tag = "5")]
+    pub backlog_peak: u64,
+}
+/// The plugin admin's session_ceilings for the connection, in force; 0 is no
+/// ceiling.
+/// A mirror of meridian.v1.LatencyCeilings.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct LatencyCeilings {
+    #[prost(int64, tag = "1")]
+    pub rtt_p99_ns: i64,
+    #[prost(int64, tag = "2")]
+    pub order_ack_p99_ns: i64,
+    #[prost(int64, tag = "3")]
+    pub fill_delay_p99_ns: i64,
+    #[prost(int64, tag = "4")]
+    pub feed_delay_p99_ns: i64,
+    #[prost(int64, tag = "5")]
+    pub clock_skew_max_ns: i64,
+    #[prost(uint32, tag = "6")]
+    pub gaps_per_hour: u32,
+    #[prost(uint32, tag = "7")]
+    pub reconnects_per_hour: u32,
+    #[prost(uint32, tag = "8")]
+    pub backlog_max: u32,
+}
+/// One execution's cost against one benchmark, written by the analytics
+/// component (W12.1's `execution_cost`), keyed by execution and benchmark. The
+/// lake's first rows naming an account: read within the reader's scope.
+/// A mirror of meridian.v1.ExecutionCost.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExecutionCost {
+    /// The envelope: its subject the execution's instrument; its source the
+    /// analytics component and the dataset `analytics:execution_cost`.
+    #[prost(message, optional, tag = "1")]
+    pub meta: ::core::option::Option<ObservationMeta>,
+    #[prost(string, tag = "2")]
+    pub execution_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub order_id: ::prost::alloc::string::String,
+    /// Empty for a fill on no placement accepted to a new order, and for an
+    /// internal cross.
+    #[prost(string, tag = "4")]
+    pub placement_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "TcaBenchmark", tag = "6")]
+    pub benchmark: i32,
+    /// The benchmark's price and the moment it was taken at; unset and 0 when
+    /// unanswered.
+    #[prost(message, optional, tag = "7")]
+    pub benchmark_price: ::core::option::Option<Money>,
+    #[prost(int64, tag = "8")]
+    pub benchmark_at_ns: i64,
+    /// The quote the benchmark came from: its dataset and row key, never mixed
+    /// silently.
+    #[prost(string, tag = "9")]
+    pub benchmark_dataset: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub benchmark_row_key: ::prost::alloc::string::String,
+    /// For TCA_BENCHMARK_FIX, the fixing's `INS-` record; empty otherwise.
+    #[prost(string, tag = "11")]
+    pub fixing_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "12")]
+    pub execution_price: ::core::option::Option<Money>,
+    #[prost(enumeration = "Side", tag = "13")]
+    pub side: i32,
+    /// The execution's notional, in its asset.
+    #[prost(message, optional, tag = "14")]
+    pub notional: ::core::option::Option<Money>,
+    /// Side-adjusted, positive a cost: s × (price − benchmark) ÷ benchmark ×
+    /// 10⁴; unset when unanswered.
+    #[prost(message, optional, tag = "15")]
+    pub cost_bps: ::core::option::Option<Decimal>,
+    /// Fees and financing, apart, in bps of notional; unset where none.
+    #[prost(message, optional, tag = "16")]
+    pub fees_bps: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "17")]
+    pub financing_bps: ::core::option::Option<Decimal>,
+    /// As the connectivity plugin reported them.
+    #[prost(enumeration = "LiquidityIndicator", tag = "18")]
+    pub liquidity_indicator: i32,
+    #[prost(string, tag = "19")]
+    pub venue_id: ::prost::alloc::string::String,
+    /// Why it was not measured, beside no price and no cost; unspecified when
+    /// measured.
+    #[prost(enumeration = "TcaUnanswered", tag = "20")]
+    pub unanswered: i32,
+    /// The quote's staleness bound in force: 5 seconds by default, the tighter
+    /// of it and the dataset's stale ceiling.
+    #[prost(int64, tag = "21")]
+    pub staleness_bound_ns: i64,
+    /// The execution's time precision as stated: a manual fill's.
+    #[prost(enumeration = "TimePrecision", tag = "22")]
+    pub time_precision: i32,
+    /// The placement's last-look rejections, and its time to fill; never a
+    /// cost in bps.
+    #[prost(uint32, tag = "23")]
+    pub reject_count: u32,
+    #[prost(int64, tag = "24")]
+    pub time_to_fill_ns: i64,
 }
 /// A custodial position that changed, and the statement that changed it.
 /// A mirror of meridian.v1.CustodialPositionUpdatedEvent.
@@ -8624,6 +9613,20 @@ pub struct AlertChangedEvent {
     pub journal: ::core::option::Option<JournalRef>,
     #[prost(message, optional, tag = "3")]
     pub cause: ::core::option::Option<ChangeCause>,
+}
+/// A rate the lake recorded, on its dataset's subject (W10.5): conflated.
+/// A mirror of meridian.v1.RatesRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RatesRecordedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub rate: ::core::option::Option<Rate>,
+}
+/// A dataset's liveness, on its subject: conflated per dataset and venue.
+/// A mirror of meridian.v1.LivenessRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LivenessRecordedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub liveness: ::core::option::Option<DatasetLiveness>,
 }
 /// An account's kind (contract v11): one coarse kind, the platform's own
 /// words, never a venue's.
@@ -9108,6 +10111,11 @@ pub enum AssetClass {
     EventContract = 6,
     /// A holding of a currency's cash instrument (spec/the-account-side-fits-every-venue).
     Cash = 7,
+    /// Contract v27 (W1.1; spec/a-public-rates-and-filings-data-plugin, Q3):
+    /// what the lake observes and nobody holds -- an interest rate, a rate
+    /// curve, an index -- following ISO 10962's category T. Never held: W9
+    /// refuses a position in one.
+    Referential = 8,
 }
 impl AssetClass {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -9124,6 +10132,7 @@ impl AssetClass {
             Self::CryptoAsset => "ASSET_CLASS_CRYPTO_ASSET",
             Self::EventContract => "ASSET_CLASS_EVENT_CONTRACT",
             Self::Cash => "ASSET_CLASS_CASH",
+            Self::Referential => "ASSET_CLASS_REFERENTIAL",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -9137,6 +10146,7 @@ impl AssetClass {
             "ASSET_CLASS_CRYPTO_ASSET" => Some(Self::CryptoAsset),
             "ASSET_CLASS_EVENT_CONTRACT" => Some(Self::EventContract),
             "ASSET_CLASS_CASH" => Some(Self::Cash),
+            "ASSET_CLASS_REFERENTIAL" => Some(Self::Referential),
             _ => None,
         }
     }
@@ -9162,6 +10172,15 @@ pub enum InstrumentType {
     /// BinaryEventContract. A venue's YES and NO tokens are two instruments,
     /// each one.
     BinaryEventContract = 2,
+    /// Under referential (contract v27; the rates slice): a reference rate --
+    /// SOFR, EFFR, €STR, an average, a bound of the FOMC range.
+    InterestRate = 3,
+    /// Under referential (contract v27): a rate curve, one record whose points
+    /// are the lake's rows by tenor -- Treasury's par curves, the Board's zero
+    /// curve.
+    RateCurve = 4,
+    /// Under referential (contract v27): an index -- the SOFR Index.
+    Index = 5,
 }
 impl InstrumentType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -9173,6 +10192,9 @@ impl InstrumentType {
             Self::Unspecified => "INSTRUMENT_TYPE_UNSPECIFIED",
             Self::MoneyMarketFund => "INSTRUMENT_TYPE_MONEY_MARKET_FUND",
             Self::BinaryEventContract => "INSTRUMENT_TYPE_BINARY_EVENT_CONTRACT",
+            Self::InterestRate => "INSTRUMENT_TYPE_INTEREST_RATE",
+            Self::RateCurve => "INSTRUMENT_TYPE_RATE_CURVE",
+            Self::Index => "INSTRUMENT_TYPE_INDEX",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -9181,6 +10203,9 @@ impl InstrumentType {
             "INSTRUMENT_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
             "INSTRUMENT_TYPE_MONEY_MARKET_FUND" => Some(Self::MoneyMarketFund),
             "INSTRUMENT_TYPE_BINARY_EVENT_CONTRACT" => Some(Self::BinaryEventContract),
+            "INSTRUMENT_TYPE_INTEREST_RATE" => Some(Self::InterestRate),
+            "INSTRUMENT_TYPE_RATE_CURVE" => Some(Self::RateCurve),
+            "INSTRUMENT_TYPE_INDEX" => Some(Self::Index),
             _ => None,
         }
     }
@@ -9924,7 +10949,8 @@ pub enum OrderType {
     Limit = 2,
     Stop = 3,
     StopLimit = 4,
-    /// An RFQ order: its quotes and outcomes are slice C's, on its placement.
+    /// An RFQ order: from contract v27 its quotes and outcomes are on its RFQ
+    /// placement (W11.40, W11.41), the buy side as initiator only.
     RequestForQuote = 5,
 }
 impl OrderType {
@@ -10178,9 +11204,10 @@ impl ReceiptQuoteSourceKind {
         }
     }
 }
-/// The one named link in v22 (W11.1; step 5's link 1, Q6; the refresh's
-/// Q41). Block, allocation, street order, two-way quote, alternatives and
-/// basket join with their slices.
+/// The named links (W11.1; step 5's link 1, Q6; the refresh's Q41): split
+/// from v22, net from v27. Allocation, street order, two-way quote,
+/// alternatives and basket join with their slices; a block names its members
+/// on the block order (v24).
 /// A mirror of meridian.v1.OrderLinkKind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -10188,6 +11215,10 @@ pub enum OrderLinkKind {
     Unspecified = 0,
     /// A child order an `ems` (or the `oms`) worked out of its parent.
     Split = 1,
+    /// Contract v27 (W11.1; the gaps spec's D2): a member of a net order, set
+    /// by the book on each member when the `oms` proposes the net, naming it
+    /// as the parent.
+    Net = 2,
 }
 impl OrderLinkKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -10198,6 +11229,7 @@ impl OrderLinkKind {
         match self {
             Self::Unspecified => "ORDER_LINK_KIND_UNSPECIFIED",
             Self::Split => "ORDER_LINK_KIND_SPLIT",
+            Self::Net => "ORDER_LINK_KIND_NET",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -10205,6 +11237,7 @@ impl OrderLinkKind {
         match value {
             "ORDER_LINK_KIND_UNSPECIFIED" => Some(Self::Unspecified),
             "ORDER_LINK_KIND_SPLIT" => Some(Self::Split),
+            "ORDER_LINK_KIND_NET" => Some(Self::Net),
             _ => None,
         }
     }
@@ -10439,6 +11472,38 @@ impl TieOutReason {
             "TIE_OUT_REASON_UNSPECIFIED" => Some(Self::Unspecified),
             "TIE_OUT_REASON_OVERFILL" => Some(Self::Overfill),
             "TIE_OUT_REASON_RESTATEMENT" => Some(Self::Restatement),
+            _ => None,
+        }
+    }
+}
+/// Contract v27 (W11.7; spec/sessions-and-data-report-their-latency-and-quality,
+/// rulings 374 and 420): why an order is held, typed, beside the words.
+/// A mirror of meridian.v1.HoldCause.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum HoldCause {
+    /// A hold with no typed cause, as every hold before v27.
+    Unspecified = 0,
+    /// The `ems`'s reference price was past its stale ceiling at its
+    /// pre-trade check, its admin having chosen to refuse.
+    ReferencePriceStale = 1,
+}
+impl HoldCause {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "HOLD_CAUSE_UNSPECIFIED",
+            Self::ReferencePriceStale => "HOLD_CAUSE_REFERENCE_PRICE_STALE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "HOLD_CAUSE_UNSPECIFIED" => Some(Self::Unspecified),
+            "HOLD_CAUSE_REFERENCE_PRICE_STALE" => Some(Self::ReferencePriceStale),
             _ => None,
         }
     }
@@ -10769,6 +11834,10 @@ pub enum PlacementCondition {
     Suspended = 3,
     /// Held at the venue until a stop or a condition triggers.
     AwaitingTrigger = 4,
+    /// Contract v27 (W11.8): sent while its reference price was past its
+    /// ceiling, the `ems` admin having chosen to warn; its StaleReference on
+    /// the condition. A record of the warning, never a refusal.
+    SentOnStaleReference = 5,
 }
 impl PlacementCondition {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -10782,6 +11851,7 @@ impl PlacementCondition {
             Self::OutcomeUnknown => "PLACEMENT_CONDITION_OUTCOME_UNKNOWN",
             Self::Suspended => "PLACEMENT_CONDITION_SUSPENDED",
             Self::AwaitingTrigger => "PLACEMENT_CONDITION_AWAITING_TRIGGER",
+            Self::SentOnStaleReference => "PLACEMENT_CONDITION_SENT_ON_STALE_REFERENCE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -10792,6 +11862,9 @@ impl PlacementCondition {
             "PLACEMENT_CONDITION_OUTCOME_UNKNOWN" => Some(Self::OutcomeUnknown),
             "PLACEMENT_CONDITION_SUSPENDED" => Some(Self::Suspended),
             "PLACEMENT_CONDITION_AWAITING_TRIGGER" => Some(Self::AwaitingTrigger),
+            "PLACEMENT_CONDITION_SENT_ON_STALE_REFERENCE" => {
+                Some(Self::SentOnStaleReference)
+            }
             _ => None,
         }
     }
@@ -10866,6 +11939,109 @@ impl RejectionReason {
             "REJECTION_REASON_UNSUPPORTED" => Some(Self::Unsupported),
             "REJECTION_REASON_VENUE_REJECTED" => Some(Self::VenueRejected),
             "REJECTION_REASON_HELD_BY_PRE_TRADE_CHECK" => Some(Self::HeldByPreTradeCheck),
+            _ => None,
+        }
+    }
+}
+/// Contract v27 (W11.8; spec/the-contract-gaps-v26-and-v27-close, B1 to B9):
+/// how a placement is executed, set by the `ems` at its creation and never
+/// changed, as FIX's HandlInst (21) is fixed for an order's life.
+/// Unspecified is read as DMA: a placement from v22 to v26, never backfilled.
+/// A mirror of meridian.v1.PlacementType.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PlacementType {
+    Unspecified = 0,
+    /// Direct market access: HandlInst 1 at the edge; carries no strategy.
+    Dma = 1,
+    /// A broker's algorithm: HandlInst 1 or 2 with its strategy, which it
+    /// requires.
+    Algo = 2,
+    /// Worked by a broker: HandlInst 3 with ExecInst Not held; carries no
+    /// strategy.
+    Care = 3,
+    /// A request for quote: a QuoteRequest, then the picked quote hit as
+    /// OrdType D (Previously quoted) with its QuoteID; the only type an order
+    /// of ORDER_TYPE_REQUEST_FOR_QUOTE takes.
+    Rfq = 4,
+    /// Agreed by phone or chat: names no connectivity instance, delivered to
+    /// none, its fills the `ems`'s manual entries for a person.
+    Manual = 5,
+}
+impl PlacementType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PLACEMENT_TYPE_UNSPECIFIED",
+            Self::Dma => "PLACEMENT_TYPE_DMA",
+            Self::Algo => "PLACEMENT_TYPE_ALGO",
+            Self::Care => "PLACEMENT_TYPE_CARE",
+            Self::Rfq => "PLACEMENT_TYPE_RFQ",
+            Self::Manual => "PLACEMENT_TYPE_MANUAL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PLACEMENT_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "PLACEMENT_TYPE_DMA" => Some(Self::Dma),
+            "PLACEMENT_TYPE_ALGO" => Some(Self::Algo),
+            "PLACEMENT_TYPE_CARE" => Some(Self::Care),
+            "PLACEMENT_TYPE_RFQ" => Some(Self::Rfq),
+            "PLACEMENT_TYPE_MANUAL" => Some(Self::Manual),
+            _ => None,
+        }
+    }
+}
+/// Contract v27 (W11.40): what became of a dealer's quote on an RFQ placement.
+/// A mirror of meridian.v1.PlacementQuoteOutcome.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PlacementQuoteOutcome {
+    Unspecified = 0,
+    /// Received and standing.
+    Open = 1,
+    /// Picked by the `ems` (W11.41); the acceptance not yet confirmed.
+    Picked = 2,
+    /// Accepted at the venue; its fill is reported as on any placement.
+    Accepted = 3,
+    /// Past its valid-until time, or ended by the venue, unpicked or before
+    /// the acceptance.
+    Expired = 4,
+    /// Withdrawn by its dealer.
+    Withdrawn = 5,
+    /// Another quote was accepted.
+    NotPicked = 6,
+}
+impl PlacementQuoteOutcome {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PLACEMENT_QUOTE_OUTCOME_UNSPECIFIED",
+            Self::Open => "PLACEMENT_QUOTE_OUTCOME_OPEN",
+            Self::Picked => "PLACEMENT_QUOTE_OUTCOME_PICKED",
+            Self::Accepted => "PLACEMENT_QUOTE_OUTCOME_ACCEPTED",
+            Self::Expired => "PLACEMENT_QUOTE_OUTCOME_EXPIRED",
+            Self::Withdrawn => "PLACEMENT_QUOTE_OUTCOME_WITHDRAWN",
+            Self::NotPicked => "PLACEMENT_QUOTE_OUTCOME_NOT_PICKED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PLACEMENT_QUOTE_OUTCOME_UNSPECIFIED" => Some(Self::Unspecified),
+            "PLACEMENT_QUOTE_OUTCOME_OPEN" => Some(Self::Open),
+            "PLACEMENT_QUOTE_OUTCOME_PICKED" => Some(Self::Picked),
+            "PLACEMENT_QUOTE_OUTCOME_ACCEPTED" => Some(Self::Accepted),
+            "PLACEMENT_QUOTE_OUTCOME_EXPIRED" => Some(Self::Expired),
+            "PLACEMENT_QUOTE_OUTCOME_WITHDRAWN" => Some(Self::Withdrawn),
+            "PLACEMENT_QUOTE_OUTCOME_NOT_PICKED" => Some(Self::NotPicked),
             _ => None,
         }
     }
@@ -11191,6 +12367,41 @@ impl GiveUpAnswer {
             "GIVE_UP_ANSWER_UNSPECIFIED" => Some(Self::Unspecified),
             "GIVE_UP_ANSWER_ACCEPTED" => Some(Self::Accepted),
             "GIVE_UP_ANSWER_REJECTED" => Some(Self::Rejected),
+            _ => None,
+        }
+    }
+}
+/// Contract v27 (W11.11; the gaps spec's D4): which convention set an
+/// internal cross's rate on a net order. Core supports both; the plugin
+/// chooses.
+/// A mirror of meridian.v1.CrossRateSource.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CrossRateSource {
+    Unspecified = 0,
+    /// The net's street rate for every member: the platforms' allocate-back.
+    NetStreetRate = 1,
+    /// The mid at the netting moment.
+    MidAtNetting = 2,
+}
+impl CrossRateSource {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "CROSS_RATE_SOURCE_UNSPECIFIED",
+            Self::NetStreetRate => "CROSS_RATE_SOURCE_NET_STREET_RATE",
+            Self::MidAtNetting => "CROSS_RATE_SOURCE_MID_AT_NETTING",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "CROSS_RATE_SOURCE_UNSPECIFIED" => Some(Self::Unspecified),
+            "CROSS_RATE_SOURCE_NET_STREET_RATE" => Some(Self::NetStreetRate),
+            "CROSS_RATE_SOURCE_MID_AT_NETTING" => Some(Self::MidAtNetting),
             _ => None,
         }
     }
@@ -12629,6 +13840,590 @@ impl ObservationMode {
         }
     }
 }
+/// A mirror of meridian.v1.DerivedUse.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DerivedUse {
+    /// A v26 `false`: read as internal_only.
+    Unspecified = 0,
+    /// A v26 `true`.
+    NotRestricted = 1,
+    InternalOnly = 2,
+    RedistributionNeedsLicence = 3,
+}
+impl DerivedUse {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DERIVED_USE_UNSPECIFIED",
+            Self::NotRestricted => "DERIVED_USE_NOT_RESTRICTED",
+            Self::InternalOnly => "DERIVED_USE_INTERNAL_ONLY",
+            Self::RedistributionNeedsLicence => {
+                "DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE"
+            }
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DERIVED_USE_UNSPECIFIED" => Some(Self::Unspecified),
+            "DERIVED_USE_NOT_RESTRICTED" => Some(Self::NotRestricted),
+            "DERIVED_USE_INTERNAL_ONLY" => Some(Self::InternalOnly),
+            "DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE" => {
+                Some(Self::RedistributionNeedsLicence)
+            }
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.AccessBasis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AccessBasis {
+    Unspecified = 0,
+    /// Meters apply.
+    Licensed = 1,
+    /// Free; conditions may apply.
+    Open = 2,
+    PublicDomain = 3,
+}
+impl AccessBasis {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ACCESS_BASIS_UNSPECIFIED",
+            Self::Licensed => "ACCESS_BASIS_LICENSED",
+            Self::Open => "ACCESS_BASIS_OPEN",
+            Self::PublicDomain => "ACCESS_BASIS_PUBLIC_DOMAIN",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ACCESS_BASIS_UNSPECIFIED" => Some(Self::Unspecified),
+            "ACCESS_BASIS_LICENSED" => Some(Self::Licensed),
+            "ACCESS_BASIS_OPEN" => Some(Self::Open),
+            "ACCESS_BASIS_PUBLIC_DOMAIN" => Some(Self::PublicDomain),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.Timeliness.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Timeliness {
+    Unspecified = 0,
+    RealTime = 1,
+    Delayed = 2,
+    EndOfDay = 3,
+    Historical = 4,
+}
+impl Timeliness {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "TIMELINESS_UNSPECIFIED",
+            Self::RealTime => "TIMELINESS_REAL_TIME",
+            Self::Delayed => "TIMELINESS_DELAYED",
+            Self::EndOfDay => "TIMELINESS_END_OF_DAY",
+            Self::Historical => "TIMELINESS_HISTORICAL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TIMELINESS_UNSPECIFIED" => Some(Self::Unspecified),
+            "TIMELINESS_REAL_TIME" => Some(Self::RealTime),
+            "TIMELINESS_DELAYED" => Some(Self::Delayed),
+            "TIMELINESS_END_OF_DAY" => Some(Self::EndOfDay),
+            "TIMELINESS_HISTORICAL" => Some(Self::Historical),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.LicenceMeter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LicenceMeter {
+    Unspecified = 0,
+    /// Counts persons (or devices).
+    Display = 1,
+    /// Counts plugins (or categories).
+    NonDisplay = 2,
+    /// A flat fee per deployment.
+    Enterprise = 3,
+}
+impl LicenceMeter {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LICENCE_METER_UNSPECIFIED",
+            Self::Display => "LICENCE_METER_DISPLAY",
+            Self::NonDisplay => "LICENCE_METER_NON_DISPLAY",
+            Self::Enterprise => "LICENCE_METER_ENTERPRISE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LICENCE_METER_UNSPECIFIED" => Some(Self::Unspecified),
+            "LICENCE_METER_DISPLAY" => Some(Self::Display),
+            "LICENCE_METER_NON_DISPLAY" => Some(Self::NonDisplay),
+            "LICENCE_METER_ENTERPRISE" => Some(Self::Enterprise),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.DisplayUnit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DisplayUnit {
+    Unspecified = 0,
+    Person = 1,
+    Device = 2,
+}
+impl DisplayUnit {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DISPLAY_UNIT_UNSPECIFIED",
+            Self::Person => "DISPLAY_UNIT_PERSON",
+            Self::Device => "DISPLAY_UNIT_DEVICE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DISPLAY_UNIT_UNSPECIFIED" => Some(Self::Unspecified),
+            "DISPLAY_UNIT_PERSON" => Some(Self::Person),
+            "DISPLAY_UNIT_DEVICE" => Some(Self::Device),
+            _ => None,
+        }
+    }
+}
+/// The population the vendor bills on.
+/// A mirror of meridian.v1.CountBasis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CountBasis {
+    Unspecified = 0,
+    Served = 1,
+    Entitled = 2,
+}
+impl CountBasis {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COUNT_BASIS_UNSPECIFIED",
+            Self::Served => "COUNT_BASIS_SERVED",
+            Self::Entitled => "COUNT_BASIS_ENTITLED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COUNT_BASIS_UNSPECIFIED" => Some(Self::Unspecified),
+            "COUNT_BASIS_SERVED" => Some(Self::Served),
+            "COUNT_BASIS_ENTITLED" => Some(Self::Entitled),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.ProfessionalDefinition.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ProfessionalDefinition {
+    Unspecified = 0,
+    /// The platform's one text, on the CT Plan's use-based test.
+    Standard = 1,
+    /// The vendor's, with a link.
+    Vendor = 2,
+}
+impl ProfessionalDefinition {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PROFESSIONAL_DEFINITION_UNSPECIFIED",
+            Self::Standard => "PROFESSIONAL_DEFINITION_STANDARD",
+            Self::Vendor => "PROFESSIONAL_DEFINITION_VENDOR",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PROFESSIONAL_DEFINITION_UNSPECIFIED" => Some(Self::Unspecified),
+            "PROFESSIONAL_DEFINITION_STANDARD" => Some(Self::Standard),
+            "PROFESSIONAL_DEFINITION_VENDOR" => Some(Self::Vendor),
+            _ => None,
+        }
+    }
+}
+/// By name, never number: the plans number them differently.
+/// A mirror of meridian.v1.NonDisplayCategory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum NonDisplayCategory {
+    Unspecified = 0,
+    /// Matching or crossing.
+    TradingPlatform = 1,
+    AutomatedTrading = 2,
+    Internal = 3,
+    ForClients = 4,
+}
+impl NonDisplayCategory {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "NON_DISPLAY_CATEGORY_UNSPECIFIED",
+            Self::TradingPlatform => "NON_DISPLAY_CATEGORY_TRADING_PLATFORM",
+            Self::AutomatedTrading => "NON_DISPLAY_CATEGORY_AUTOMATED_TRADING",
+            Self::Internal => "NON_DISPLAY_CATEGORY_INTERNAL",
+            Self::ForClients => "NON_DISPLAY_CATEGORY_FOR_CLIENTS",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "NON_DISPLAY_CATEGORY_UNSPECIFIED" => Some(Self::Unspecified),
+            "NON_DISPLAY_CATEGORY_TRADING_PLATFORM" => Some(Self::TradingPlatform),
+            "NON_DISPLAY_CATEGORY_AUTOMATED_TRADING" => Some(Self::AutomatedTrading),
+            "NON_DISPLAY_CATEGORY_INTERNAL" => Some(Self::Internal),
+            "NON_DISPLAY_CATEGORY_FOR_CLIENTS" => Some(Self::ForClients),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.NonDisplayCount.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum NonDisplayCount {
+    Unspecified = 0,
+    PerPlugin = 1,
+    /// One fee per category, whatever the number of plugins.
+    PerCategory = 2,
+}
+impl NonDisplayCount {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "NON_DISPLAY_COUNT_UNSPECIFIED",
+            Self::PerPlugin => "NON_DISPLAY_COUNT_PER_PLUGIN",
+            Self::PerCategory => "NON_DISPLAY_COUNT_PER_CATEGORY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "NON_DISPLAY_COUNT_UNSPECIFIED" => Some(Self::Unspecified),
+            "NON_DISPLAY_COUNT_PER_PLUGIN" => Some(Self::PerPlugin),
+            "NON_DISPLAY_COUNT_PER_CATEGORY" => Some(Self::PerCategory),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.EnterpriseReplaces.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EnterpriseReplaces {
+    Unspecified = 0,
+    DisplayProfessional = 1,
+    DisplayNonProfessional = 2,
+    NonDisplay = 3,
+}
+impl EnterpriseReplaces {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ENTERPRISE_REPLACES_UNSPECIFIED",
+            Self::DisplayProfessional => "ENTERPRISE_REPLACES_DISPLAY_PROFESSIONAL",
+            Self::DisplayNonProfessional => {
+                "ENTERPRISE_REPLACES_DISPLAY_NON_PROFESSIONAL"
+            }
+            Self::NonDisplay => "ENTERPRISE_REPLACES_NON_DISPLAY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ENTERPRISE_REPLACES_UNSPECIFIED" => Some(Self::Unspecified),
+            "ENTERPRISE_REPLACES_DISPLAY_PROFESSIONAL" => Some(Self::DisplayProfessional),
+            "ENTERPRISE_REPLACES_DISPLAY_NON_PROFESSIONAL" => {
+                Some(Self::DisplayNonProfessional)
+            }
+            "ENTERPRISE_REPLACES_NON_DISPLAY" => Some(Self::NonDisplay),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.EnterpriseForm.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EnterpriseForm {
+    Unspecified = 0,
+    Flat = 1,
+    /// The most the per-unit fees can sum to.
+    Cap = 2,
+}
+impl EnterpriseForm {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ENTERPRISE_FORM_UNSPECIFIED",
+            Self::Flat => "ENTERPRISE_FORM_FLAT",
+            Self::Cap => "ENTERPRISE_FORM_CAP",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ENTERPRISE_FORM_UNSPECIFIED" => Some(Self::Unspecified),
+            "ENTERPRISE_FORM_FLAT" => Some(Self::Flat),
+            "ENTERPRISE_FORM_CAP" => Some(Self::Cap),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.EnterpriseScope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EnterpriseScope {
+    Unspecified = 0,
+    Deployment = 1,
+}
+impl EnterpriseScope {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ENTERPRISE_SCOPE_UNSPECIFIED",
+            Self::Deployment => "ENTERPRISE_SCOPE_DEPLOYMENT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ENTERPRISE_SCOPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "ENTERPRISE_SCOPE_DEPLOYMENT" => Some(Self::Deployment),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.Redistribution.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Redistribution {
+    Unspecified = 0,
+    NotAllowed = 1,
+    LicenceRequired = 2,
+    AllowedWithAttribution = 3,
+}
+impl Redistribution {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "REDISTRIBUTION_UNSPECIFIED",
+            Self::NotAllowed => "REDISTRIBUTION_NOT_ALLOWED",
+            Self::LicenceRequired => "REDISTRIBUTION_LICENCE_REQUIRED",
+            Self::AllowedWithAttribution => "REDISTRIBUTION_ALLOWED_WITH_ATTRIBUTION",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "REDISTRIBUTION_UNSPECIFIED" => Some(Self::Unspecified),
+            "REDISTRIBUTION_NOT_ALLOWED" => Some(Self::NotAllowed),
+            "REDISTRIBUTION_LICENCE_REQUIRED" => Some(Self::LicenceRequired),
+            "REDISTRIBUTION_ALLOWED_WITH_ATTRIBUTION" => {
+                Some(Self::AllowedWithAttribution)
+            }
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.OutsideComputation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum OutsideComputation {
+    Unspecified = 0,
+    Allowed = 1,
+    /// Only inside one person's request, served uncached.
+    PerRequestNoRetention = 2,
+    NotAllowed = 3,
+}
+impl OutsideComputation {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "OUTSIDE_COMPUTATION_UNSPECIFIED",
+            Self::Allowed => "OUTSIDE_COMPUTATION_ALLOWED",
+            Self::PerRequestNoRetention => "OUTSIDE_COMPUTATION_PER_REQUEST_NO_RETENTION",
+            Self::NotAllowed => "OUTSIDE_COMPUTATION_NOT_ALLOWED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "OUTSIDE_COMPUTATION_UNSPECIFIED" => Some(Self::Unspecified),
+            "OUTSIDE_COMPUTATION_ALLOWED" => Some(Self::Allowed),
+            "OUTSIDE_COMPUTATION_PER_REQUEST_NO_RETENTION" => {
+                Some(Self::PerRequestNoRetention)
+            }
+            "OUTSIDE_COMPUTATION_NOT_ALLOWED" => Some(Self::NotAllowed),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.ProhibitedUse.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ProhibitedUse {
+    Unspecified = 0,
+    ModelTraining = 1,
+    ReplicateService = 2,
+    IndexCreation = 3,
+}
+impl ProhibitedUse {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PROHIBITED_USE_UNSPECIFIED",
+            Self::ModelTraining => "PROHIBITED_USE_MODEL_TRAINING",
+            Self::ReplicateService => "PROHIBITED_USE_REPLICATE_SERVICE",
+            Self::IndexCreation => "PROHIBITED_USE_INDEX_CREATION",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PROHIBITED_USE_UNSPECIFIED" => Some(Self::Unspecified),
+            "PROHIBITED_USE_MODEL_TRAINING" => Some(Self::ModelTraining),
+            "PROHIBITED_USE_REPLICATE_SERVICE" => Some(Self::ReplicateService),
+            "PROHIBITED_USE_INDEX_CREATION" => Some(Self::IndexCreation),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.CopyrightClass.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CopyrightClass {
+    Unspecified = 0,
+    PublicDomain = 1,
+    CopyrightCitationRequired = 2,
+    CopyrightPreapprovalRequired = 3,
+}
+impl CopyrightClass {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COPYRIGHT_CLASS_UNSPECIFIED",
+            Self::PublicDomain => "COPYRIGHT_CLASS_PUBLIC_DOMAIN",
+            Self::CopyrightCitationRequired => {
+                "COPYRIGHT_CLASS_COPYRIGHT_CITATION_REQUIRED"
+            }
+            Self::CopyrightPreapprovalRequired => {
+                "COPYRIGHT_CLASS_COPYRIGHT_PREAPPROVAL_REQUIRED"
+            }
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COPYRIGHT_CLASS_UNSPECIFIED" => Some(Self::Unspecified),
+            "COPYRIGHT_CLASS_PUBLIC_DOMAIN" => Some(Self::PublicDomain),
+            "COPYRIGHT_CLASS_COPYRIGHT_CITATION_REQUIRED" => {
+                Some(Self::CopyrightCitationRequired)
+            }
+            "COPYRIGHT_CLASS_COPYRIGHT_PREAPPROVAL_REQUIRED" => {
+                Some(Self::CopyrightPreapprovalRequired)
+            }
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.ReportCadence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ReportCadence {
+    Unspecified = 0,
+    None = 1,
+    Monthly = 2,
+    AnnualDeclaration = 3,
+    OnChange = 4,
+}
+impl ReportCadence {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "REPORT_CADENCE_UNSPECIFIED",
+            Self::None => "REPORT_CADENCE_NONE",
+            Self::Monthly => "REPORT_CADENCE_MONTHLY",
+            Self::AnnualDeclaration => "REPORT_CADENCE_ANNUAL_DECLARATION",
+            Self::OnChange => "REPORT_CADENCE_ON_CHANGE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "REPORT_CADENCE_UNSPECIFIED" => Some(Self::Unspecified),
+            "REPORT_CADENCE_NONE" => Some(Self::None),
+            "REPORT_CADENCE_MONTHLY" => Some(Self::Monthly),
+            "REPORT_CADENCE_ANNUAL_DECLARATION" => Some(Self::AnnualDeclaration),
+            "REPORT_CADENCE_ON_CHANGE" => Some(Self::OnChange),
+            _ => None,
+        }
+    }
+}
 /// A mirror of meridian.v1.ScenarioKind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -12737,6 +14532,9 @@ pub enum NotEvaluatedReason {
     GroupNotExhaustive = 8,
     /// History too short or too sparse for the definition's window.
     HistoryInsufficient = 9,
+    /// Contract v27 (W12.2; ruling 325): a lot's cost the book does not
+    /// record, which the measure needs.
+    CostMissing = 10,
 }
 impl NotEvaluatedReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -12757,6 +14555,7 @@ impl NotEvaluatedReason {
             Self::SchemeNotHeld => "NOT_EVALUATED_REASON_SCHEME_NOT_HELD",
             Self::GroupNotExhaustive => "NOT_EVALUATED_REASON_GROUP_NOT_EXHAUSTIVE",
             Self::HistoryInsufficient => "NOT_EVALUATED_REASON_HISTORY_INSUFFICIENT",
+            Self::CostMissing => "NOT_EVALUATED_REASON_COST_MISSING",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -12776,6 +14575,45 @@ impl NotEvaluatedReason {
             "NOT_EVALUATED_REASON_HISTORY_INSUFFICIENT" => {
                 Some(Self::HistoryInsufficient)
             }
+            "NOT_EVALUATED_REASON_COST_MISSING" => Some(Self::CostMissing),
+            _ => None,
+        }
+    }
+}
+/// How a conversion leg's rate was found (contract v27; ruling 462). Never
+/// for a crypto or stablecoin leg, which converts by its own lake price.
+/// A mirror of meridian.v1.ConversionDerivation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ConversionDerivation {
+    Unspecified = 0,
+    /// The lake's rate in the leg's direction.
+    Direct = 1,
+    /// The lake's rate the other way, inverted.
+    Inverted = 2,
+    /// Through a pivot, by the deployment's pivot order.
+    Crossed = 3,
+}
+impl ConversionDerivation {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "CONVERSION_DERIVATION_UNSPECIFIED",
+            Self::Direct => "CONVERSION_DERIVATION_DIRECT",
+            Self::Inverted => "CONVERSION_DERIVATION_INVERTED",
+            Self::Crossed => "CONVERSION_DERIVATION_CROSSED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "CONVERSION_DERIVATION_UNSPECIFIED" => Some(Self::Unspecified),
+            "CONVERSION_DERIVATION_DIRECT" => Some(Self::Direct),
+            "CONVERSION_DERIVATION_INVERTED" => Some(Self::Inverted),
+            "CONVERSION_DERIVATION_CROSSED" => Some(Self::Crossed),
             _ => None,
         }
     }
@@ -12811,6 +14649,367 @@ impl EventGroupFlag {
             "EVENT_GROUP_FLAG_TRUE" => Some(Self::True),
             "EVENT_GROUP_FLAG_FALSE" => Some(Self::False),
             "EVENT_GROUP_FLAG_NOT_STATED" => Some(Self::NotStated),
+            _ => None,
+        }
+    }
+}
+/// What a rate is (FDP item 1).
+/// A mirror of meridian.v1.RateKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum RateKind {
+    /// Refused.
+    Unspecified = 0,
+    /// A reference rate's daily fixing: SOFR, EFFR, €STR.
+    Fixing = 1,
+    /// A compounded or simple average over a period: the SOFR averages.
+    Average = 2,
+    /// An index's level: the SOFR Index.
+    IndexLevel = 3,
+    /// A par yield curve's point.
+    ParYield = 4,
+    /// A zero-coupon yield curve's point.
+    Zero = 5,
+    /// A bill's bank-discount rate.
+    Discount = 6,
+    /// A bill's coupon-equivalent (bond-equivalent) yield.
+    CouponEquivalent = 7,
+}
+impl RateKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "RATE_KIND_UNSPECIFIED",
+            Self::Fixing => "RATE_KIND_FIXING",
+            Self::Average => "RATE_KIND_AVERAGE",
+            Self::IndexLevel => "RATE_KIND_INDEX_LEVEL",
+            Self::ParYield => "RATE_KIND_PAR_YIELD",
+            Self::Zero => "RATE_KIND_ZERO",
+            Self::Discount => "RATE_KIND_DISCOUNT",
+            Self::CouponEquivalent => "RATE_KIND_COUPON_EQUIVALENT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "RATE_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "RATE_KIND_FIXING" => Some(Self::Fixing),
+            "RATE_KIND_AVERAGE" => Some(Self::Average),
+            "RATE_KIND_INDEX_LEVEL" => Some(Self::IndexLevel),
+            "RATE_KIND_PAR_YIELD" => Some(Self::ParYield),
+            "RATE_KIND_ZERO" => Some(Self::Zero),
+            "RATE_KIND_DISCOUNT" => Some(Self::Discount),
+            "RATE_KIND_COUPON_EQUIVALENT" => Some(Self::CouponEquivalent),
+            _ => None,
+        }
+    }
+}
+/// The closed list of units a UnitValue takes (contract v27).
+/// A mirror of meridian.v1.ValueUnit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ValueUnit {
+    /// Refused.
+    Unspecified = 0,
+    Percent = 1,
+    BasisPoints = 2,
+    Shares = 3,
+    Contracts = 4,
+    /// A face amount, in its currency's major unit.
+    Principal = 5,
+    Ratio = 6,
+    Count = 7,
+    Days = 8,
+    /// An index level, with its base period in index_base.
+    Index = 9,
+    /// A physical unit, named by ucum_code.
+    Ucum = 10,
+}
+impl ValueUnit {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "VALUE_UNIT_UNSPECIFIED",
+            Self::Percent => "VALUE_UNIT_PERCENT",
+            Self::BasisPoints => "VALUE_UNIT_BASIS_POINTS",
+            Self::Shares => "VALUE_UNIT_SHARES",
+            Self::Contracts => "VALUE_UNIT_CONTRACTS",
+            Self::Principal => "VALUE_UNIT_PRINCIPAL",
+            Self::Ratio => "VALUE_UNIT_RATIO",
+            Self::Count => "VALUE_UNIT_COUNT",
+            Self::Days => "VALUE_UNIT_DAYS",
+            Self::Index => "VALUE_UNIT_INDEX",
+            Self::Ucum => "VALUE_UNIT_UCUM",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "VALUE_UNIT_UNSPECIFIED" => Some(Self::Unspecified),
+            "VALUE_UNIT_PERCENT" => Some(Self::Percent),
+            "VALUE_UNIT_BASIS_POINTS" => Some(Self::BasisPoints),
+            "VALUE_UNIT_SHARES" => Some(Self::Shares),
+            "VALUE_UNIT_CONTRACTS" => Some(Self::Contracts),
+            "VALUE_UNIT_PRINCIPAL" => Some(Self::Principal),
+            "VALUE_UNIT_RATIO" => Some(Self::Ratio),
+            "VALUE_UNIT_COUNT" => Some(Self::Count),
+            "VALUE_UNIT_DAYS" => Some(Self::Days),
+            "VALUE_UNIT_INDEX" => Some(Self::Index),
+            "VALUE_UNIT_UCUM" => Some(Self::Ucum),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.DayCount.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DayCount {
+    /// Not stated by the source.
+    Unspecified = 0,
+    Act360 = 1,
+    Act365Fixed = 2,
+    ActAct = 3,
+    Thirty360 = 4,
+    Bus252 = 5,
+}
+impl DayCount {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DAY_COUNT_UNSPECIFIED",
+            Self::Act360 => "DAY_COUNT_ACT_360",
+            Self::Act365Fixed => "DAY_COUNT_ACT_365_FIXED",
+            Self::ActAct => "DAY_COUNT_ACT_ACT",
+            Self::Thirty360 => "DAY_COUNT_THIRTY_360",
+            Self::Bus252 => "DAY_COUNT_BUS_252",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DAY_COUNT_UNSPECIFIED" => Some(Self::Unspecified),
+            "DAY_COUNT_ACT_360" => Some(Self::Act360),
+            "DAY_COUNT_ACT_365_FIXED" => Some(Self::Act365Fixed),
+            "DAY_COUNT_ACT_ACT" => Some(Self::ActAct),
+            "DAY_COUNT_THIRTY_360" => Some(Self::Thirty360),
+            "DAY_COUNT_BUS_252" => Some(Self::Bus252),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.Compounding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Compounding {
+    /// Refused.
+    Unspecified = 0,
+    Simple = 1,
+    Compounded = 2,
+    Continuous = 3,
+    Discount = 4,
+}
+impl Compounding {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COMPOUNDING_UNSPECIFIED",
+            Self::Simple => "COMPOUNDING_SIMPLE",
+            Self::Compounded => "COMPOUNDING_COMPOUNDED",
+            Self::Continuous => "COMPOUNDING_CONTINUOUS",
+            Self::Discount => "COMPOUNDING_DISCOUNT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COMPOUNDING_UNSPECIFIED" => Some(Self::Unspecified),
+            "COMPOUNDING_SIMPLE" => Some(Self::Simple),
+            "COMPOUNDING_COMPOUNDED" => Some(Self::Compounded),
+            "COMPOUNDING_CONTINUOUS" => Some(Self::Continuous),
+            "COMPOUNDING_DISCOUNT" => Some(Self::Discount),
+            _ => None,
+        }
+    }
+}
+/// Where a dataset's age is measured.
+/// A mirror of meridian.v1.AgeHop.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AgeHop {
+    Unspecified = 0,
+    /// The data plugin, on parsing the vendor's message: the feed delay.
+    Edge = 1,
+    Sidecar = 2,
+    Lake = 3,
+    Bus = 4,
+    Analytics = 5,
+    /// The `ems`, at its pre-trade check.
+    EmsCheck = 6,
+    Page = 7,
+}
+impl AgeHop {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "AGE_HOP_UNSPECIFIED",
+            Self::Edge => "AGE_HOP_EDGE",
+            Self::Sidecar => "AGE_HOP_SIDECAR",
+            Self::Lake => "AGE_HOP_LAKE",
+            Self::Bus => "AGE_HOP_BUS",
+            Self::Analytics => "AGE_HOP_ANALYTICS",
+            Self::EmsCheck => "AGE_HOP_EMS_CHECK",
+            Self::Page => "AGE_HOP_PAGE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "AGE_HOP_UNSPECIFIED" => Some(Self::Unspecified),
+            "AGE_HOP_EDGE" => Some(Self::Edge),
+            "AGE_HOP_SIDECAR" => Some(Self::Sidecar),
+            "AGE_HOP_LAKE" => Some(Self::Lake),
+            "AGE_HOP_BUS" => Some(Self::Bus),
+            "AGE_HOP_ANALYTICS" => Some(Self::Analytics),
+            "AGE_HOP_EMS_CHECK" => Some(Self::EmsCheck),
+            "AGE_HOP_PAGE" => Some(Self::Page),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.LatencyMetric.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LatencyMetric {
+    Unspecified = 0,
+    /// Round trip: FIX TestRequest to its Heartbeat, a WebSocket ping to its
+    /// pong, a REST call's duration.
+    Rtt = 1,
+    /// Connectivity: placement sent to the venue's acknowledgement.
+    OrderAck = 2,
+    /// Connectivity: the venue's transaction time to the fill received.
+    FillDelay = 3,
+    /// A dataset's age at a hop.
+    Age = 4,
+}
+impl LatencyMetric {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LATENCY_METRIC_UNSPECIFIED",
+            Self::Rtt => "LATENCY_METRIC_RTT",
+            Self::OrderAck => "LATENCY_METRIC_ORDER_ACK",
+            Self::FillDelay => "LATENCY_METRIC_FILL_DELAY",
+            Self::Age => "LATENCY_METRIC_AGE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LATENCY_METRIC_UNSPECIFIED" => Some(Self::Unspecified),
+            "LATENCY_METRIC_RTT" => Some(Self::Rtt),
+            "LATENCY_METRIC_ORDER_ACK" => Some(Self::OrderAck),
+            "LATENCY_METRIC_FILL_DELAY" => Some(Self::FillDelay),
+            "LATENCY_METRIC_AGE" => Some(Self::Age),
+            _ => None,
+        }
+    }
+}
+/// The standard benchmarks (C2).
+/// A mirror of meridian.v1.TcaBenchmark.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TcaBenchmark {
+    Unspecified = 0,
+    /// The mid at the order's proposal.
+    Decision = 1,
+    /// The mid at the order's release to the desk.
+    Arrival = 2,
+    /// The mid at the placement's routed_at_ns: the broker's arrival.
+    PlacementArrival = 3,
+    MidAtFill = 4,
+    /// Needs trades: never measured for FX spot from one venue.
+    IntervalVwap = 5,
+    /// A named fixing, licensed by the deployment.
+    Fix = 6,
+}
+impl TcaBenchmark {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "TCA_BENCHMARK_UNSPECIFIED",
+            Self::Decision => "TCA_BENCHMARK_DECISION",
+            Self::Arrival => "TCA_BENCHMARK_ARRIVAL",
+            Self::PlacementArrival => "TCA_BENCHMARK_PLACEMENT_ARRIVAL",
+            Self::MidAtFill => "TCA_BENCHMARK_MID_AT_FILL",
+            Self::IntervalVwap => "TCA_BENCHMARK_INTERVAL_VWAP",
+            Self::Fix => "TCA_BENCHMARK_FIX",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TCA_BENCHMARK_UNSPECIFIED" => Some(Self::Unspecified),
+            "TCA_BENCHMARK_DECISION" => Some(Self::Decision),
+            "TCA_BENCHMARK_ARRIVAL" => Some(Self::Arrival),
+            "TCA_BENCHMARK_PLACEMENT_ARRIVAL" => Some(Self::PlacementArrival),
+            "TCA_BENCHMARK_MID_AT_FILL" => Some(Self::MidAtFill),
+            "TCA_BENCHMARK_INTERVAL_VWAP" => Some(Self::IntervalVwap),
+            "TCA_BENCHMARK_FIX" => Some(Self::Fix),
+            _ => None,
+        }
+    }
+}
+/// Why a benchmark was not measured (C4, C8).
+/// A mirror of meridian.v1.TcaUnanswered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TcaUnanswered {
+    Unspecified = 0,
+    /// No quote in force within the staleness bound: never an imputed value.
+    NoQuote = 1,
+    /// The benchmark has no moment for this execution: a venue-originated fill
+    /// accepted to a new order has no decision or arrival time.
+    NotMeasured = 2,
+}
+impl TcaUnanswered {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "TCA_UNANSWERED_UNSPECIFIED",
+            Self::NoQuote => "TCA_UNANSWERED_NO_QUOTE",
+            Self::NotMeasured => "TCA_UNANSWERED_NOT_MEASURED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TCA_UNANSWERED_UNSPECIFIED" => Some(Self::Unspecified),
+            "TCA_UNANSWERED_NO_QUOTE" => Some(Self::NoQuote),
+            "TCA_UNANSWERED_NOT_MEASURED" => Some(Self::NotMeasured),
             _ => None,
         }
     }
@@ -15588,6 +17787,210 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W4.16: platform.deployment.command.report-latency (command; preview).
+        pub async fn report_latency(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReportLatencyParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportLatencyResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReportLatency",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReportLatency",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W10.4: platform.lake.command.record-rates (command; preview).
+        pub async fn record_rates(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordRatesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordRatesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordRates",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "RecordRates"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W10.6: platform.lake.query.list-rates (query; preview).
+        pub async fn list_rates(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListRatesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListRatesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListRates",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "ListRates"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W10.4: platform.lake.command.record-liveness (command; preview).
+        pub async fn record_liveness(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordLivenessParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordLivenessResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RecordLiveness",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "RecordLiveness",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W10.11: platform.lake.query.list-execution-costs (query; preview).
+        pub async fn list_execution_costs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListExecutionCostsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListExecutionCostsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListExecutionCosts",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListExecutionCosts",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.40: platform.book.command.report-placement-quote (command; preview).
+        pub async fn report_placement_quote(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReportPlacementQuoteParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportPlacementQuoteResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReportPlacementQuote",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReportPlacementQuote",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.41: platform.book.command.pick-placement-quote (command; preview).
+        pub async fn pick_placement_quote(
+            &mut self,
+            request: impl tonic::IntoRequest<super::PickPlacementQuoteParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::PickPlacementQuoteResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/PickPlacementQuote",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "PickPlacementQuote",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W4.3: every row this plugin's roles hear, within its read scope.
         pub async fn receive(
             &mut self,
@@ -16339,6 +18742,59 @@ pub mod plugin_operations_server {
             &self,
             request: tonic::Request<super::QueryLakeParams>,
         ) -> std::result::Result<tonic::Response<super::QueryLakeResult>, tonic::Status>;
+        /// W4.16: platform.deployment.command.report-latency (command; preview).
+        async fn report_latency(
+            &self,
+            request: tonic::Request<super::ReportLatencyParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportLatencyResult>,
+            tonic::Status,
+        >;
+        /// W10.4: platform.lake.command.record-rates (command; preview).
+        async fn record_rates(
+            &self,
+            request: tonic::Request<super::RecordRatesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordRatesResult>,
+            tonic::Status,
+        >;
+        /// W10.6: platform.lake.query.list-rates (query; preview).
+        async fn list_rates(
+            &self,
+            request: tonic::Request<super::ListRatesParams>,
+        ) -> std::result::Result<tonic::Response<super::ListRatesResult>, tonic::Status>;
+        /// W10.4: platform.lake.command.record-liveness (command; preview).
+        async fn record_liveness(
+            &self,
+            request: tonic::Request<super::RecordLivenessParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordLivenessResult>,
+            tonic::Status,
+        >;
+        /// W10.11: platform.lake.query.list-execution-costs (query; preview).
+        async fn list_execution_costs(
+            &self,
+            request: tonic::Request<super::ListExecutionCostsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListExecutionCostsResult>,
+            tonic::Status,
+        >;
+        /// W11.40: platform.book.command.report-placement-quote (command; preview).
+        async fn report_placement_quote(
+            &self,
+            request: tonic::Request<super::ReportPlacementQuoteParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportPlacementQuoteResult>,
+            tonic::Status,
+        >;
+        /// W11.41: platform.book.command.pick-placement-quote (command; preview).
+        async fn pick_placement_quote(
+            &self,
+            request: tonic::Request<super::PickPlacementQuoteParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::PickPlacementQuoteResult>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the Receive method.
         type ReceiveStream: tonic::codegen::tokio_stream::Stream<
                 Item = std::result::Result<super::Delivery, tonic::Status>,
@@ -20710,6 +23166,335 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = QueryLakeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReportLatency" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReportLatencySvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReportLatencyParams>
+                    for ReportLatencySvc<T> {
+                        type Response = super::ReportLatencyResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReportLatencyParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::report_latency(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReportLatencySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RecordRates" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordRatesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordRatesParams>
+                    for RecordRatesSvc<T> {
+                        type Response = super::RecordRatesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordRatesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_rates(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordRatesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListRates" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListRatesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListRatesParams>
+                    for ListRatesSvc<T> {
+                        type Response = super::ListRatesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListRatesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_rates(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListRatesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RecordLiveness" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordLivenessSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RecordLivenessParams>
+                    for RecordLivenessSvc<T> {
+                        type Response = super::RecordLivenessResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordLivenessParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::record_liveness(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordLivenessSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListExecutionCosts" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListExecutionCostsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListExecutionCostsParams>
+                    for ListExecutionCostsSvc<T> {
+                        type Response = super::ListExecutionCostsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListExecutionCostsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_execution_costs(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListExecutionCostsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReportPlacementQuote" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReportPlacementQuoteSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReportPlacementQuoteParams>
+                    for ReportPlacementQuoteSvc<T> {
+                        type Response = super::ReportPlacementQuoteResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReportPlacementQuoteParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::report_placement_quote(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReportPlacementQuoteSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/PickPlacementQuote" => {
+                    #[allow(non_camel_case_types)]
+                    struct PickPlacementQuoteSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::PickPlacementQuoteParams>
+                    for PickPlacementQuoteSvc<T> {
+                        type Response = super::PickPlacementQuoteResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PickPlacementQuoteParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::pick_placement_quote(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PickPlacementQuoteSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

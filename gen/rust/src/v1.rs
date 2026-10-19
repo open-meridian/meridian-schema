@@ -375,6 +375,23 @@ pub struct PluginDeclaration {
     /// on a version not holding operations.
     #[prost(uint32, tag = "11")]
     pub affirmation_deadline: u32,
+    /// A pricing plugin's model ids and versions (W12.3, W12.6; contract v27,
+    /// ruling 324): the models it answers batches for, against which a
+    /// deployment admin's routing is checked. Refused on a version not holding
+    /// pricing; 1 to 32 on one that does, each model id and version once.
+    #[prost(message, repeated, tag = "12")]
+    pub pricing_models: ::prost::alloc::vec::Vec<PricingModelDeclaration>,
+}
+/// One pricing model a version answers (contract v27).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PricingModelDeclaration {
+    /// A model id the analytics component serves: `quoted_price`,
+    /// `binary_event`.
+    #[prost(string, tag = "1")]
+    pub model_id: ::prost::alloc::string::String,
+    /// Its version, 1 or more.
+    #[prost(int32, tag = "2")]
+    pub model_version: i32,
 }
 /// One section of a version's documentation (W8.1; contract v25): plain
 /// Markdown the vendor wrote in the plugin's docs/ folder, named here by
@@ -472,6 +489,12 @@ pub struct DatasetDeclaration {
     /// none, as before.
     #[prost(string, tag = "12")]
     pub calendar_id: ::prost::alloc::string::String,
+    /// Its declared delay (W10.1; contract v27, rulings 368, 369 and 382): how
+    /// far behind real time the vendor serves it, its staleness and its edge
+    /// age judged against the delay plus the ceiling. 0 for real time. One
+    /// dataset per timeliness.
+    #[prost(int64, tag = "13")]
+    pub declared_delay_ns: i64,
 }
 /// A dataset's licence: its catalogue's default terms (unset dataset and
 /// author), or the deployment's licence a deployment admin set, which is what
@@ -490,9 +513,14 @@ pub struct DatasetLicence {
     /// 36,500.
     #[prost(uint32, tag = "3")]
     pub retention_days: u32,
-    /// Whether data derived from it may be made, and shown.
-    #[prost(bool, tag = "4")]
-    pub derived_use: bool,
+    /// Whether data derived from it may be made: from contract v27 the terms'
+    /// three answers (W10.1). The same number as v26's boolean, so a v26
+    /// `true` reads not_restricted and a v26 `false` (unspecified) reads
+    /// internal_only.
+    #[prost(enumeration = "DerivedUse", tag = "4")]
+    pub derived_use: i32,
+    /// Whether it may be shown. From contract v27 read as `meters` containing
+    /// `display`, for one release, then retired.
     #[prost(bool, tag = "5")]
     pub display: bool,
     /// The fields readable by default, by their dictionary entries; empty for
@@ -520,6 +548,98 @@ pub struct DatasetLicence {
     /// (W6.27, W4.9; contract v20): empty otherwise, and before v20.
     #[prost(string, tag = "13")]
     pub prepared_call_id: ::prost::alloc::string::String,
+    /// §1a: the version of the platform's standard terms filled in; the basis;
+    /// the timeliness and its delay, with the label shown beside every value;
+    /// the licensing source behind the vendor, where one is.
+    #[prost(string, tag = "14")]
+    pub terms_version: ::prost::alloc::string::String,
+    #[prost(enumeration = "AccessBasis", tag = "15")]
+    pub access_basis: i32,
+    #[prost(enumeration = "Timeliness", tag = "16")]
+    pub timeliness: i32,
+    #[prost(uint32, tag = "17")]
+    pub delay_minutes: u32,
+    #[prost(string, tag = "18")]
+    pub delay_label: ::prost::alloc::string::String,
+    #[prost(string, tag = "19")]
+    pub underlying_source: ::prost::alloc::string::String,
+    /// §1b: the meters that apply, empty unless the basis is licensed, and how
+    /// each counts.
+    #[prost(enumeration = "LicenceMeter", repeated, tag = "20")]
+    pub meters: ::prost::alloc::vec::Vec<i32>,
+    #[prost(message, optional, tag = "21")]
+    pub display_terms: ::core::option::Option<DisplayTerms>,
+    #[prost(message, optional, tag = "22")]
+    pub non_display: ::core::option::Option<NonDisplayTerms>,
+    #[prost(message, optional, tag = "23")]
+    pub enterprise: ::core::option::Option<EnterpriseTerms>,
+    /// §1c: use rights beside derived_use.
+    #[prost(bool, optional, tag = "24")]
+    pub derived_multi_instrument_free: ::core::option::Option<bool>,
+    #[prost(bool, tag = "25")]
+    pub derived_creation_is_non_display: bool,
+    #[prost(enumeration = "Redistribution", tag = "26")]
+    pub redistribution: i32,
+    #[prost(enumeration = "OutsideComputation", tag = "27")]
+    pub outside_computation: i32,
+    #[prost(enumeration = "ProhibitedUse", repeated, tag = "28")]
+    pub prohibited_uses: ::prost::alloc::vec::Vec<i32>,
+    /// §1d: attribution, which travels with the data into pages, exports and
+    /// MCP answers.
+    #[prost(bool, tag = "29")]
+    pub attribution_required: bool,
+    #[prost(string, tag = "30")]
+    pub attribution_text: ::prost::alloc::string::String,
+    #[prost(enumeration = "CopyrightClass", tag = "31")]
+    pub copyright_class: i32,
+    #[prost(bool, tag = "32")]
+    pub no_more_restrictive_terms: bool,
+    #[prost(string, tag = "33")]
+    pub not_affiliated_notice: ::prost::alloc::string::String,
+    /// §1e: the reporting owed to the vendor, which the deployment produces and
+    /// never sends.
+    #[prost(enumeration = "ReportCadence", tag = "34")]
+    pub report_cadence: i32,
+    #[prost(uint32, tag = "35")]
+    pub report_due_day: u32,
+}
+/// The display meter's terms (§1b).
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct DisplayTerms {
+    #[prost(enumeration = "DisplayUnit", tag = "1")]
+    pub unit: i32,
+    #[prost(enumeration = "CountBasis", tag = "2")]
+    pub count_basis: i32,
+    /// Separate professional and non-professional prices.
+    #[prost(bool, tag = "3")]
+    pub professional_split: bool,
+    #[prost(enumeration = "ProfessionalDefinition", tag = "4")]
+    pub professional_definition: i32,
+}
+/// The non-display meter's terms (§1b).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NonDisplayTerms {
+    #[prost(enumeration = "NonDisplayCategory", repeated, tag = "1")]
+    pub categories: ::prost::alloc::vec::Vec<i32>,
+    #[prost(enumeration = "NonDisplayCount", tag = "2")]
+    pub counts: i32,
+    /// One natural person's own automated use is free.
+    #[prost(bool, tag = "3")]
+    pub personal_exempt: bool,
+}
+/// The enterprise meter's terms (§1b).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EnterpriseTerms {
+    #[prost(enumeration = "EnterpriseReplaces", repeated, tag = "1")]
+    pub replaces: ::prost::alloc::vec::Vec<i32>,
+    #[prost(enumeration = "EnterpriseForm", tag = "2")]
+    pub form: i32,
+    #[prost(enumeration = "EnterpriseScope", tag = "3")]
+    pub scope: i32,
+    /// Whether counts are no longer owed to the vendor; the deployment counts
+    /// regardless.
+    #[prost(bool, tag = "4")]
+    pub reporting_waived: bool,
 }
 /// One vendor field, or one code of a vendor's code set, a plugin receives
 /// and does not carry (Q15).
@@ -1833,6 +1953,573 @@ impl ObservationMode {
             "OBSERVATION_MODE_PULL" => Some(Self::Pull),
             "OBSERVATION_MODE_PUSH" => Some(Self::Push),
             "OBSERVATION_MODE_STREAM" => Some(Self::Stream),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum AccessBasis {
+    Unspecified = 0,
+    /// Meters apply.
+    Licensed = 1,
+    /// Free; conditions may apply.
+    Open = 2,
+    PublicDomain = 3,
+}
+impl AccessBasis {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ACCESS_BASIS_UNSPECIFIED",
+            Self::Licensed => "ACCESS_BASIS_LICENSED",
+            Self::Open => "ACCESS_BASIS_OPEN",
+            Self::PublicDomain => "ACCESS_BASIS_PUBLIC_DOMAIN",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ACCESS_BASIS_UNSPECIFIED" => Some(Self::Unspecified),
+            "ACCESS_BASIS_LICENSED" => Some(Self::Licensed),
+            "ACCESS_BASIS_OPEN" => Some(Self::Open),
+            "ACCESS_BASIS_PUBLIC_DOMAIN" => Some(Self::PublicDomain),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Timeliness {
+    Unspecified = 0,
+    RealTime = 1,
+    Delayed = 2,
+    EndOfDay = 3,
+    Historical = 4,
+}
+impl Timeliness {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "TIMELINESS_UNSPECIFIED",
+            Self::RealTime => "TIMELINESS_REAL_TIME",
+            Self::Delayed => "TIMELINESS_DELAYED",
+            Self::EndOfDay => "TIMELINESS_END_OF_DAY",
+            Self::Historical => "TIMELINESS_HISTORICAL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TIMELINESS_UNSPECIFIED" => Some(Self::Unspecified),
+            "TIMELINESS_REAL_TIME" => Some(Self::RealTime),
+            "TIMELINESS_DELAYED" => Some(Self::Delayed),
+            "TIMELINESS_END_OF_DAY" => Some(Self::EndOfDay),
+            "TIMELINESS_HISTORICAL" => Some(Self::Historical),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LicenceMeter {
+    Unspecified = 0,
+    /// Counts persons (or devices).
+    Display = 1,
+    /// Counts plugins (or categories).
+    NonDisplay = 2,
+    /// A flat fee per deployment.
+    Enterprise = 3,
+}
+impl LicenceMeter {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LICENCE_METER_UNSPECIFIED",
+            Self::Display => "LICENCE_METER_DISPLAY",
+            Self::NonDisplay => "LICENCE_METER_NON_DISPLAY",
+            Self::Enterprise => "LICENCE_METER_ENTERPRISE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LICENCE_METER_UNSPECIFIED" => Some(Self::Unspecified),
+            "LICENCE_METER_DISPLAY" => Some(Self::Display),
+            "LICENCE_METER_NON_DISPLAY" => Some(Self::NonDisplay),
+            "LICENCE_METER_ENTERPRISE" => Some(Self::Enterprise),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DisplayUnit {
+    Unspecified = 0,
+    Person = 1,
+    Device = 2,
+}
+impl DisplayUnit {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DISPLAY_UNIT_UNSPECIFIED",
+            Self::Person => "DISPLAY_UNIT_PERSON",
+            Self::Device => "DISPLAY_UNIT_DEVICE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DISPLAY_UNIT_UNSPECIFIED" => Some(Self::Unspecified),
+            "DISPLAY_UNIT_PERSON" => Some(Self::Person),
+            "DISPLAY_UNIT_DEVICE" => Some(Self::Device),
+            _ => None,
+        }
+    }
+}
+/// The population the vendor bills on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CountBasis {
+    Unspecified = 0,
+    Served = 1,
+    Entitled = 2,
+}
+impl CountBasis {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COUNT_BASIS_UNSPECIFIED",
+            Self::Served => "COUNT_BASIS_SERVED",
+            Self::Entitled => "COUNT_BASIS_ENTITLED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COUNT_BASIS_UNSPECIFIED" => Some(Self::Unspecified),
+            "COUNT_BASIS_SERVED" => Some(Self::Served),
+            "COUNT_BASIS_ENTITLED" => Some(Self::Entitled),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ProfessionalDefinition {
+    Unspecified = 0,
+    /// The platform's one text, on the CT Plan's use-based test.
+    Standard = 1,
+    /// The vendor's, with a link.
+    Vendor = 2,
+}
+impl ProfessionalDefinition {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PROFESSIONAL_DEFINITION_UNSPECIFIED",
+            Self::Standard => "PROFESSIONAL_DEFINITION_STANDARD",
+            Self::Vendor => "PROFESSIONAL_DEFINITION_VENDOR",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PROFESSIONAL_DEFINITION_UNSPECIFIED" => Some(Self::Unspecified),
+            "PROFESSIONAL_DEFINITION_STANDARD" => Some(Self::Standard),
+            "PROFESSIONAL_DEFINITION_VENDOR" => Some(Self::Vendor),
+            _ => None,
+        }
+    }
+}
+/// By name, never number: the plans number them differently.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum NonDisplayCategory {
+    Unspecified = 0,
+    /// Matching or crossing.
+    TradingPlatform = 1,
+    AutomatedTrading = 2,
+    Internal = 3,
+    ForClients = 4,
+}
+impl NonDisplayCategory {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "NON_DISPLAY_CATEGORY_UNSPECIFIED",
+            Self::TradingPlatform => "NON_DISPLAY_CATEGORY_TRADING_PLATFORM",
+            Self::AutomatedTrading => "NON_DISPLAY_CATEGORY_AUTOMATED_TRADING",
+            Self::Internal => "NON_DISPLAY_CATEGORY_INTERNAL",
+            Self::ForClients => "NON_DISPLAY_CATEGORY_FOR_CLIENTS",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "NON_DISPLAY_CATEGORY_UNSPECIFIED" => Some(Self::Unspecified),
+            "NON_DISPLAY_CATEGORY_TRADING_PLATFORM" => Some(Self::TradingPlatform),
+            "NON_DISPLAY_CATEGORY_AUTOMATED_TRADING" => Some(Self::AutomatedTrading),
+            "NON_DISPLAY_CATEGORY_INTERNAL" => Some(Self::Internal),
+            "NON_DISPLAY_CATEGORY_FOR_CLIENTS" => Some(Self::ForClients),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum NonDisplayCount {
+    Unspecified = 0,
+    PerPlugin = 1,
+    /// One fee per category, whatever the number of plugins.
+    PerCategory = 2,
+}
+impl NonDisplayCount {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "NON_DISPLAY_COUNT_UNSPECIFIED",
+            Self::PerPlugin => "NON_DISPLAY_COUNT_PER_PLUGIN",
+            Self::PerCategory => "NON_DISPLAY_COUNT_PER_CATEGORY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "NON_DISPLAY_COUNT_UNSPECIFIED" => Some(Self::Unspecified),
+            "NON_DISPLAY_COUNT_PER_PLUGIN" => Some(Self::PerPlugin),
+            "NON_DISPLAY_COUNT_PER_CATEGORY" => Some(Self::PerCategory),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EnterpriseReplaces {
+    Unspecified = 0,
+    DisplayProfessional = 1,
+    DisplayNonProfessional = 2,
+    NonDisplay = 3,
+}
+impl EnterpriseReplaces {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ENTERPRISE_REPLACES_UNSPECIFIED",
+            Self::DisplayProfessional => "ENTERPRISE_REPLACES_DISPLAY_PROFESSIONAL",
+            Self::DisplayNonProfessional => {
+                "ENTERPRISE_REPLACES_DISPLAY_NON_PROFESSIONAL"
+            }
+            Self::NonDisplay => "ENTERPRISE_REPLACES_NON_DISPLAY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ENTERPRISE_REPLACES_UNSPECIFIED" => Some(Self::Unspecified),
+            "ENTERPRISE_REPLACES_DISPLAY_PROFESSIONAL" => Some(Self::DisplayProfessional),
+            "ENTERPRISE_REPLACES_DISPLAY_NON_PROFESSIONAL" => {
+                Some(Self::DisplayNonProfessional)
+            }
+            "ENTERPRISE_REPLACES_NON_DISPLAY" => Some(Self::NonDisplay),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EnterpriseForm {
+    Unspecified = 0,
+    Flat = 1,
+    /// The most the per-unit fees can sum to.
+    Cap = 2,
+}
+impl EnterpriseForm {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ENTERPRISE_FORM_UNSPECIFIED",
+            Self::Flat => "ENTERPRISE_FORM_FLAT",
+            Self::Cap => "ENTERPRISE_FORM_CAP",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ENTERPRISE_FORM_UNSPECIFIED" => Some(Self::Unspecified),
+            "ENTERPRISE_FORM_FLAT" => Some(Self::Flat),
+            "ENTERPRISE_FORM_CAP" => Some(Self::Cap),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EnterpriseScope {
+    Unspecified = 0,
+    Deployment = 1,
+}
+impl EnterpriseScope {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ENTERPRISE_SCOPE_UNSPECIFIED",
+            Self::Deployment => "ENTERPRISE_SCOPE_DEPLOYMENT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ENTERPRISE_SCOPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "ENTERPRISE_SCOPE_DEPLOYMENT" => Some(Self::Deployment),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DerivedUse {
+    /// A v26 `false`: read as internal_only.
+    Unspecified = 0,
+    /// A v26 `true`.
+    NotRestricted = 1,
+    InternalOnly = 2,
+    RedistributionNeedsLicence = 3,
+}
+impl DerivedUse {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DERIVED_USE_UNSPECIFIED",
+            Self::NotRestricted => "DERIVED_USE_NOT_RESTRICTED",
+            Self::InternalOnly => "DERIVED_USE_INTERNAL_ONLY",
+            Self::RedistributionNeedsLicence => {
+                "DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE"
+            }
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DERIVED_USE_UNSPECIFIED" => Some(Self::Unspecified),
+            "DERIVED_USE_NOT_RESTRICTED" => Some(Self::NotRestricted),
+            "DERIVED_USE_INTERNAL_ONLY" => Some(Self::InternalOnly),
+            "DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE" => {
+                Some(Self::RedistributionNeedsLicence)
+            }
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Redistribution {
+    Unspecified = 0,
+    NotAllowed = 1,
+    LicenceRequired = 2,
+    AllowedWithAttribution = 3,
+}
+impl Redistribution {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "REDISTRIBUTION_UNSPECIFIED",
+            Self::NotAllowed => "REDISTRIBUTION_NOT_ALLOWED",
+            Self::LicenceRequired => "REDISTRIBUTION_LICENCE_REQUIRED",
+            Self::AllowedWithAttribution => "REDISTRIBUTION_ALLOWED_WITH_ATTRIBUTION",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "REDISTRIBUTION_UNSPECIFIED" => Some(Self::Unspecified),
+            "REDISTRIBUTION_NOT_ALLOWED" => Some(Self::NotAllowed),
+            "REDISTRIBUTION_LICENCE_REQUIRED" => Some(Self::LicenceRequired),
+            "REDISTRIBUTION_ALLOWED_WITH_ATTRIBUTION" => {
+                Some(Self::AllowedWithAttribution)
+            }
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum OutsideComputation {
+    Unspecified = 0,
+    Allowed = 1,
+    /// Only inside one person's request, served uncached.
+    PerRequestNoRetention = 2,
+    NotAllowed = 3,
+}
+impl OutsideComputation {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "OUTSIDE_COMPUTATION_UNSPECIFIED",
+            Self::Allowed => "OUTSIDE_COMPUTATION_ALLOWED",
+            Self::PerRequestNoRetention => "OUTSIDE_COMPUTATION_PER_REQUEST_NO_RETENTION",
+            Self::NotAllowed => "OUTSIDE_COMPUTATION_NOT_ALLOWED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "OUTSIDE_COMPUTATION_UNSPECIFIED" => Some(Self::Unspecified),
+            "OUTSIDE_COMPUTATION_ALLOWED" => Some(Self::Allowed),
+            "OUTSIDE_COMPUTATION_PER_REQUEST_NO_RETENTION" => {
+                Some(Self::PerRequestNoRetention)
+            }
+            "OUTSIDE_COMPUTATION_NOT_ALLOWED" => Some(Self::NotAllowed),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ProhibitedUse {
+    Unspecified = 0,
+    ModelTraining = 1,
+    ReplicateService = 2,
+    IndexCreation = 3,
+}
+impl ProhibitedUse {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PROHIBITED_USE_UNSPECIFIED",
+            Self::ModelTraining => "PROHIBITED_USE_MODEL_TRAINING",
+            Self::ReplicateService => "PROHIBITED_USE_REPLICATE_SERVICE",
+            Self::IndexCreation => "PROHIBITED_USE_INDEX_CREATION",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PROHIBITED_USE_UNSPECIFIED" => Some(Self::Unspecified),
+            "PROHIBITED_USE_MODEL_TRAINING" => Some(Self::ModelTraining),
+            "PROHIBITED_USE_REPLICATE_SERVICE" => Some(Self::ReplicateService),
+            "PROHIBITED_USE_INDEX_CREATION" => Some(Self::IndexCreation),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CopyrightClass {
+    Unspecified = 0,
+    PublicDomain = 1,
+    CopyrightCitationRequired = 2,
+    CopyrightPreapprovalRequired = 3,
+}
+impl CopyrightClass {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COPYRIGHT_CLASS_UNSPECIFIED",
+            Self::PublicDomain => "COPYRIGHT_CLASS_PUBLIC_DOMAIN",
+            Self::CopyrightCitationRequired => {
+                "COPYRIGHT_CLASS_COPYRIGHT_CITATION_REQUIRED"
+            }
+            Self::CopyrightPreapprovalRequired => {
+                "COPYRIGHT_CLASS_COPYRIGHT_PREAPPROVAL_REQUIRED"
+            }
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COPYRIGHT_CLASS_UNSPECIFIED" => Some(Self::Unspecified),
+            "COPYRIGHT_CLASS_PUBLIC_DOMAIN" => Some(Self::PublicDomain),
+            "COPYRIGHT_CLASS_COPYRIGHT_CITATION_REQUIRED" => {
+                Some(Self::CopyrightCitationRequired)
+            }
+            "COPYRIGHT_CLASS_COPYRIGHT_PREAPPROVAL_REQUIRED" => {
+                Some(Self::CopyrightPreapprovalRequired)
+            }
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ReportCadence {
+    Unspecified = 0,
+    None = 1,
+    Monthly = 2,
+    AnnualDeclaration = 3,
+    OnChange = 4,
+}
+impl ReportCadence {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "REPORT_CADENCE_UNSPECIFIED",
+            Self::None => "REPORT_CADENCE_NONE",
+            Self::Monthly => "REPORT_CADENCE_MONTHLY",
+            Self::AnnualDeclaration => "REPORT_CADENCE_ANNUAL_DECLARATION",
+            Self::OnChange => "REPORT_CADENCE_ON_CHANGE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "REPORT_CADENCE_UNSPECIFIED" => Some(Self::Unspecified),
+            "REPORT_CADENCE_NONE" => Some(Self::None),
+            "REPORT_CADENCE_MONTHLY" => Some(Self::Monthly),
+            "REPORT_CADENCE_ANNUAL_DECLARATION" => Some(Self::AnnualDeclaration),
+            "REPORT_CADENCE_ON_CHANGE" => Some(Self::OnChange),
             _ => None,
         }
     }
