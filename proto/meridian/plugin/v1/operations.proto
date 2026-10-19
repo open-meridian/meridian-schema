@@ -9628,11 +9628,12 @@ message DatasetLicence {
   // 36,500.
   uint32 retention_days = 3;
 
-  // Whether data derived from it may be made: from contract v27 the terms'
-  // three answers (W10.1). The same number as v26's boolean, so a v26
-  // `true` reads not_restricted and a v26 `false` (unspecified) reads
-  // internal_only.
-  DerivedUse derived_use = 4;
+  // Whether data derived from it may be made. Deprecated from contract v27
+  // (ruling 479), kept for one release: the terms' three answers are
+  // derived_use_terms. A reader finding derived_use_terms unspecified reads
+  // this, false as internal_only and true as not_restricted (ruling 180);
+  // a v27 writer sets both.
+  bool derived_use = 4;
 
   // Whether it may be shown. From contract v27 read as `meters` containing
   // `display`, for one release, then retired.
@@ -9688,7 +9689,10 @@ message DatasetLicence {
 
   EnterpriseTerms enterprise = 23;
 
-  // §1c: use rights beside derived_use.
+  // §1c: use rights. The derived-data answer, which replaces the boolean
+  // derived_use (ruling 479).
+  DerivedUse derived_use_terms = 36;
+
   optional bool derived_multi_instrument_free = 24;
 
   bool derived_creation_is_non_display = 25;
@@ -9716,16 +9720,6 @@ message DatasetLicence {
   ReportCadence report_cadence = 34;
 
   uint32 report_due_day = 35;
-}
-
-// A mirror of meridian.v1.DerivedUse.
-enum DerivedUse {
-  // A v26 `false`: read as internal_only.
-  DERIVED_USE_UNSPECIFIED = 0;
-  // A v26 `true`.
-  DERIVED_USE_NOT_RESTRICTED = 1;
-  DERIVED_USE_INTERNAL_ONLY = 2;
-  DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE = 3;
 }
 
 // A mirror of meridian.v1.AccessBasis.
@@ -9859,6 +9853,16 @@ enum EnterpriseForm {
 enum EnterpriseScope {
   ENTERPRISE_SCOPE_UNSPECIFIED = 0;
   ENTERPRISE_SCOPE_DEPLOYMENT = 1;
+}
+
+// A mirror of meridian.v1.DerivedUse.
+enum DerivedUse {
+  // Not stated: read the deprecated boolean derived_use, false as
+  // internal_only and true as not_restricted.
+  DERIVED_USE_UNSPECIFIED = 0;
+  DERIVED_USE_NOT_RESTRICTED = 1;
+  DERIVED_USE_INTERNAL_ONLY = 2;
+  DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE = 3;
 }
 
 // A mirror of meridian.v1.Redistribution.
@@ -10430,6 +10434,9 @@ message PricedUnit {
   ScenarioKey scenario_key = 2;
 
   // A value per unit, in the base currency the batch's inputs convert to.
+  // From contract v27, under quoted_price, rounded half to even to 18
+  // decimal places, as the built-in implementation rounds it (rulings 453
+  // and 486).
   Money value_per_unit = 3;
 }
 

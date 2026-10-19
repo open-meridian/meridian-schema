@@ -2216,11 +2216,18 @@
       ],
       "empty": "never unset",
       "intent": "states the value of one unit of the instrument",
-      "meaning": "naming the asset it is in; equal to the built-in model's for the same inputs where the plugin implements a v26 model",
+      "meaning": "naming the asset it is in; equal to the built-in model's for the same inputs where the plugin implements a v26 model. From v27, under quoted_price, rounded half to even to 18 decimal places, as the built-in implementation rounds it, and a market value is that rounded value times the quantity, exact (W12.3)",
       "not_meaning": "a figure for a position",
       "filled": "as-reported",
       "filled_by": "pricing",
       "since": "v26",
+      "changes": [
+        {
+          "version": "v27",
+          "kind": "clarified",
+          "what": "under quoted_price the value per unit is rounded half to even to 18 places, in a pricing plugin's answer as in the built-in implementation (rulings 453, 486)"
+        }
+      ],
       "stability": "preview",
       "store": "analytics"
     },
@@ -34523,54 +34530,19 @@
     },
     {
       "name": "meridian.v1.DatasetLicence.derived_use",
-      "type": "enum DerivedUse",
-      "allowed": [
-        {
-          "value": "DERIVED_USE_UNSPECIFIED",
-          "meaning": "a v26 false, or not stated: read as internal_only"
-        },
-        {
-          "value": "DERIVED_USE_NOT_RESTRICTED",
-          "meaning": "data derived from it is not restricted: what a v26 true reads",
-          "since": "v27"
-        },
-        {
-          "value": "DERIVED_USE_INTERNAL_ONLY",
-          "meaning": "data derived from it may be made and stays inside the deployment",
-          "since": "v27"
-        },
-        {
-          "value": "DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE",
-          "meaning": "data derived from it may be made, and distributing it needs the vendor's licence or approval of the product first",
-          "since": "v27"
-        }
-      ],
-      "empty": "unspecified: internal_only, as a v26 false reads",
-      "intent": "says whether data derived from the dataset may be made, and where it may go",
-      "meaning": "from v27 the terms' three answers (W10.1), on the same number as v26's boolean, so a v26 true reads not_restricted and a v26 false reads internal_only. Derived data is what the platform's standard terms define once: it cannot be reverse-engineered to recreate the data, nor serve as a reasonable facsimile of it",
-      "not_meaning": "display of the data itself; the inherited licence of a derived row, which is the most restrictive among its inputs",
+      "type": "boolean",
+      "empty": "false: no derived data; from v27 read as internal_only where derived_use_terms is unspecified",
+      "intent": "says whether data derived from the dataset may be made",
+      "meaning": "true where the terms allow a value computed from it to be kept or shown. From v27 a reader finding derived_use_terms unspecified reads false as internal_only and true as not_restricted (ruling 180); a v27 writer sets both",
+      "not_meaning": "display of the data itself",
       "filled": "entered",
       "filled_by": "dashboard",
       "since": "v18",
-      "changes": [
-        {
-          "version": "v27",
-          "kind": "widened",
-          "what": "a boolean becomes the enum DerivedUse on the same number, with a third answer, redistribution_needs_licence (ruling 180; W10.1): a v26 true reads not_restricted, a v26 false internal_only",
-          "was": {
-            "allowed": [
-              {
-                "value": "true",
-                "meaning": "the terms allow a value computed from it to be kept or shown"
-              },
-              {
-                "value": "false",
-                "meaning": "no derived data"
-              }
-            ]
-          }
-        }
-      ],
+      "deprecated": {
+        "version": "v27",
+        "use": "meridian.v1.DatasetLicence.derived_use_terms",
+        "why": "the terms' three answers replace it on a new field (ruling 479): kept for one release, then retired"
+      },
       "stability": "preview",
       "store": "sidecar"
     },
@@ -41214,12 +41186,43 @@
       "store": "sidecar"
     },
     {
+      "name": "meridian.v1.DatasetLicence.derived_use_terms",
+      "type": "enum DerivedUse",
+      "allowed": [
+        {
+          "value": "DERIVED_USE_UNSPECIFIED",
+          "meaning": "not stated: read the deprecated derived_use, false as internal_only and true as not_restricted"
+        },
+        {
+          "value": "DERIVED_USE_NOT_RESTRICTED",
+          "meaning": "data derived from it is not restricted"
+        },
+        {
+          "value": "DERIVED_USE_INTERNAL_ONLY",
+          "meaning": "data derived from it may be made and stays inside the deployment"
+        },
+        {
+          "value": "DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE",
+          "meaning": "data derived from it may be made, and distributing it needs the vendor's licence or approval of the product first"
+        }
+      ],
+      "empty": "unspecified: the deprecated derived_use read in its place, false as internal_only, true as not_restricted",
+      "intent": "says whether data derived from the dataset may be made, and where it may go",
+      "meaning": "the terms' three answers (W10.1; ruling 180), on a new field so the boolean derived_use keeps its type for one release (ruling 479). Derived data is what the platform's standard terms define once: it cannot be reverse-engineered to recreate the data, nor serve as a reasonable facsimile of it",
+      "not_meaning": "display of the data itself; the inherited licence of a derived row, which is the most restrictive among its inputs",
+      "filled": "entered",
+      "filled_by": "dashboard",
+      "since": "v27",
+      "stability": "preview",
+      "store": "sidecar"
+    },
+    {
       "name": "meridian.v1.DatasetLicence.derived_multi_instrument_free",
       "type": "boolean",
       "empty": "unset: not stated",
       "intent": "says whether outputs over many instruments are free of the derived-data restriction",
-      "meaning": "true: an output over many instruments, an index or a portfolio's value, is not restricted even where single-instrument derivations are; false: it is restricted as derived_use says",
-      "not_meaning": "a single-instrument derivation, which derived_use answers",
+      "meaning": "true: an output over many instruments, an index or a portfolio's value, is not restricted even where single-instrument derivations are; false: it is restricted as derived_use_terms says",
+      "not_meaning": "a single-instrument derivation, which derived_use_terms answers",
       "filled": "entered",
       "filled_by": "dashboard",
       "since": "v27",
@@ -41232,7 +41235,7 @@
       "empty": "false: deriving from it does not count on the non-display meter",
       "intent": "says whether deriving from the dataset counts on the non-display meter",
       "meaning": "true: a plugin deriving from the dataset counts on the non-display meter",
-      "not_meaning": "whether derived data may be made, which derived_use says",
+      "not_meaning": "whether derived data may be made, which derived_use_terms says",
       "filled": "entered",
       "filled_by": "dashboard",
       "since": "v27",
@@ -41263,7 +41266,7 @@
       "empty": "unspecified: not stated",
       "intent": "says whether the data itself may be redistributed",
       "meaning": "the vendor's answer, shown with the terms",
-      "not_meaning": "derived data, which derived_use answers; a grant of redistribution by the platform",
+      "not_meaning": "derived data, which derived_use_terms answers; a grant of redistribution by the platform",
       "filled": "entered",
       "filled_by": "dashboard",
       "since": "v27",

@@ -513,12 +513,14 @@ pub struct DatasetLicence {
     /// 36,500.
     #[prost(uint32, tag = "3")]
     pub retention_days: u32,
-    /// Whether data derived from it may be made: from contract v27 the terms'
-    /// three answers (W10.1). The same number as v26's boolean, so a v26
-    /// `true` reads not_restricted and a v26 `false` (unspecified) reads
-    /// internal_only.
-    #[prost(enumeration = "DerivedUse", tag = "4")]
-    pub derived_use: i32,
+    /// Whether data derived from it may be made. Deprecated from contract v27
+    /// (ruling 479), kept for one release: the terms' three answers are
+    /// derived_use_terms. A reader finding derived_use_terms unspecified reads
+    /// this, false as internal_only and true as not_restricted (ruling 180);
+    /// a v27 writer sets both.
+    #[deprecated]
+    #[prost(bool, tag = "4")]
+    pub derived_use: bool,
     /// Whether it may be shown. From contract v27 read as `meters` containing
     /// `display`, for one release, then retired.
     #[prost(bool, tag = "5")]
@@ -573,7 +575,10 @@ pub struct DatasetLicence {
     pub non_display: ::core::option::Option<NonDisplayTerms>,
     #[prost(message, optional, tag = "23")]
     pub enterprise: ::core::option::Option<EnterpriseTerms>,
-    /// §1c: use rights beside derived_use.
+    /// §1c: use rights. The derived-data answer, which replaces the boolean
+    /// derived_use (ruling 479).
+    #[prost(enumeration = "DerivedUse", tag = "36")]
+    pub derived_use_terms: i32,
     #[prost(bool, optional, tag = "24")]
     pub derived_multi_instrument_free: ::core::option::Option<bool>,
     #[prost(bool, tag = "25")]
@@ -2313,9 +2318,9 @@ impl EnterpriseScope {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum DerivedUse {
-    /// A v26 `false`: read as internal_only.
+    /// Not stated: read the deprecated boolean derived_use, false as
+    /// internal_only and true as not_restricted.
     Unspecified = 0,
-    /// A v26 `true`.
     NotRestricted = 1,
     InternalOnly = 2,
     RedistributionNeedsLicence = 3,
