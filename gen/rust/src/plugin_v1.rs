@@ -3374,6 +3374,260 @@ pub struct ListDatasetsResult {
     #[prost(message, repeated, tag = "3")]
     pub entitlements: ::prost::alloc::vec::Vec<DatasetEntitlement>,
 }
+/// The params of RunJob: meridian.v1.RunJobRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunJobParams {
+    #[prost(message, optional, tag = "1")]
+    pub job: ::core::option::Option<Job>,
+}
+/// The result of RunJob: meridian.v1.RunJobReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunJobResult {
+    /// True when the answer is here; false when the job finishes later
+    /// (W12.4), the component deciding by its size against the deadline (Q5).
+    #[prost(bool, tag = "1")]
+    pub answered_inline: bool,
+    /// `JOB-` and a ULID, never reused.
+    #[prost(string, tag = "2")]
+    pub job_id: ::prost::alloc::string::String,
+    /// Set when answered inline.
+    #[prost(message, optional, tag = "3")]
+    pub answer: ::core::option::Option<JobAnswer>,
+}
+/// The params of ListMeasureDefinitions: meridian.v1.ListMeasureDefinitionsRequest, less what the sidecar sets.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListMeasureDefinitionsParams {}
+/// The result of ListMeasureDefinitions: meridian.v1.ListMeasureDefinitionsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListMeasureDefinitionsResult {
+    #[prost(message, repeated, tag = "1")]
+    pub definitions: ::prost::alloc::vec::Vec<MeasureDefinition>,
+}
+/// The batches waiting for the asking instance after a sequence (W12.3).
+/// The params of ListPriceBatches: meridian.v1.ListPriceBatchesRequest, less what the sidecar sets.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListPriceBatchesParams {
+    #[prost(int64, tag = "1")]
+    pub after_sequence: i64,
+}
+/// The result of ListPriceBatches: meridian.v1.ListPriceBatchesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListPriceBatchesResult {
+    #[prost(message, repeated, tag = "1")]
+    pub batches: ::prost::alloc::vec::Vec<PriceBatchRequest>,
+    /// The sequence read to.
+    #[prost(int64, tag = "2")]
+    pub sequence: i64,
+}
+/// A `pricing` plugin's answer to a batch (W12.3).
+/// The params of AnswerPriceBatch: meridian.v1.PriceBatchReply, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AnswerPriceBatchParams {
+    #[prost(string, tag = "1")]
+    pub batch_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub values: ::prost::alloc::vec::Vec<PricedUnit>,
+    /// Sensitivities its model declares: empty until v28 (the first
+    /// release, §3 rule 4), so a v26 plugin stays valid when they arrive.
+    #[prost(message, repeated, tag = "3")]
+    pub sensitivities: ::prost::alloc::vec::Vec<Sensitivity>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of AnswerPriceBatch: meridian.v1.AnswerPriceBatchReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AnswerPriceBatchResult {
+    #[prost(string, tag = "1")]
+    pub batch_id: ::prost::alloc::string::String,
+}
+/// The params of ListFinishedJobs: meridian.v1.ListFinishedJobsRequest, less what the sidecar sets.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListFinishedJobsParams {
+    #[prost(int64, tag = "1")]
+    pub after_sequence: i64,
+}
+/// The result of ListFinishedJobs: meridian.v1.ListFinishedJobsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListFinishedJobsResult {
+    #[prost(message, repeated, tag = "1")]
+    pub finished: ::prost::alloc::vec::Vec<JobFinishedEvent>,
+    #[prost(int64, tag = "2")]
+    pub sequence: i64,
+}
+/// The params of ReadJobAnswer: meridian.v1.ReadJobAnswerRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadJobAnswerParams {
+    #[prost(string, tag = "1")]
+    pub job_id: ::prost::alloc::string::String,
+}
+/// A job's answer (W12.1, W12.4): figures, what was not evaluated and why,
+/// and what it was computed from. Not a record: recomputable from its
+/// provenance, cached by hash and losable (Q12).
+/// The result of ReadJobAnswer: meridian.v1.JobAnswer.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadJobAnswerResult {
+    #[prost(string, tag = "1")]
+    pub job_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub figures: ::prost::alloc::vec::Vec<Figure>,
+    #[prost(message, repeated, tag = "3")]
+    pub not_evaluated: ::prost::alloc::vec::Vec<NotEvaluated>,
+    #[prost(message, optional, tag = "4")]
+    pub provenance: ::core::option::Option<AnswerProvenance>,
+}
+/// W3.29: a venue's data plugin reports the grouping its venue states.
+/// The params of ReportEventGroup: meridian.v1.ReportEventGroupRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportEventGroupParams {
+    #[prost(string, tag = "1")]
+    pub venue_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub venue_event_ref: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub title: ::prost::alloc::string::String,
+    /// Each resolved through W3.1 before it is sent.
+    #[prost(string, repeated, tag = "4")]
+    pub member_instrument_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(enumeration = "EventGroupFlag", tag = "5")]
+    pub mutually_exclusive: i32,
+    #[prost(enumeration = "EventGroupFlag", tag = "6")]
+    pub exhaustive: i32,
+    #[prost(string, tag = "7")]
+    pub series_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "8")]
+    pub valid_from_ns: i64,
+    #[prost(message, optional, tag = "9")]
+    pub raw_record: ::core::option::Option<RawRecordRef>,
+    /// W4.9: the person this is sent for, as the assertion the plugin was
+    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+    /// acts as itself. Set, the sidecar admits a command on an account only
+    /// in a session at ACCESS_LEVEL_WRITE, when the person may write the
+    /// account it names, and stamps them on it; one to the deployment's
+    /// configuration (platform.config) only in a session at
+    /// ACCESS_LEVEL_ADMIN, and never without.
+    #[prost(message, optional, tag = "1000")]
+    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
+}
+/// The result of ReportEventGroup: meridian.v1.ReportEventGroupReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportEventGroupResult {
+    /// The group as the store holds it, at its version.
+    #[prost(message, optional, tag = "1")]
+    pub event_group: ::core::option::Option<EventGroup>,
+    /// The platform's staff have it to review; the deployment keeps its own
+    /// `LCL-` group meanwhile.
+    #[prost(bool, tag = "2")]
+    pub pending_review: bool,
+}
+/// W3.30: the groups holding given instruments or given groups, as of a
+/// time, or those changed after a sequence.
+/// The params of ListEventGroups: meridian.v1.ListEventGroupsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListEventGroupsParams {
+    #[prost(string, repeated, tag = "1")]
+    pub instrument_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "2")]
+    pub event_group_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// 0 for now.
+    #[prost(int64, tag = "3")]
+    pub as_of_ns: i64,
+    /// The last sequence the reader saw; 0 reads by the filters above.
+    #[prost(int64, tag = "4")]
+    pub after_sequence: i64,
+    #[prost(int32, tag = "5")]
+    pub page_size: i32,
+    #[prost(string, tag = "6")]
+    pub cursor: ::prost::alloc::string::String,
+}
+/// The result of ListEventGroups: meridian.v1.ListEventGroupsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListEventGroupsResult {
+    #[prost(message, repeated, tag = "1")]
+    pub event_groups: ::prost::alloc::vec::Vec<EventGroup>,
+    /// The sequence read to.
+    #[prost(int64, tag = "2")]
+    pub sequence: i64,
+    #[prost(string, tag = "3")]
+    pub next_cursor: ::prost::alloc::string::String,
+}
+/// W11.39: the guard read.
+/// The params of ReadAgentOrdersDemoOnly: meridian.v1.ReadAgentOrdersDemoOnlyRequest, less what the sidecar sets.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReadAgentOrdersDemoOnlyParams {}
+/// The agents' guard in force (W11.38, W11.39).
+/// The result of ReadAgentOrdersDemoOnly: meridian.v1.AgentOrdersDemoOnlySetting.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReadAgentOrdersDemoOnlyResult {
+    #[prost(bool, tag = "1")]
+    pub agent_orders_demo_only: bool,
+}
+/// One read-only query over one of the lake's kinds, within the asking
+/// instance's entitlements and its roles' kinds, capped in rows and columns.
+/// The params of QueryLake: meridian.v1.QueryLakeRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryLakeParams {
+    /// `prices`, `bars`, `trades`, `quotes` or `outcomes`; a kind the asking
+    /// role does not read is refused naming it.
+    #[prost(string, tag = "1")]
+    pub kind: ::prost::alloc::string::String,
+    /// At most 500.
+    #[prost(message, repeated, tag = "2")]
+    pub subjects: ::prost::alloc::vec::Vec<SubjectRef>,
+    #[prost(message, optional, tag = "3")]
+    pub sources: ::core::option::Option<SourceChoice>,
+    /// A range of valid times, or of business dates (ISO 8601); none set reads
+    /// the latest.
+    #[prost(int64, tag = "4")]
+    pub valid_from_ns: i64,
+    #[prost(int64, tag = "5")]
+    pub valid_until_ns: i64,
+    #[prost(string, tag = "6")]
+    pub from_date: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub to_date: ::prost::alloc::string::String,
+    /// The recorded-time cut-off; 0 for now.
+    #[prost(int64, tag = "8")]
+    pub as_of_ns: i64,
+    /// The fields wanted, by their dictionary entries
+    /// (`meridian.v1.Price.price`); none names every field the asker may read.
+    #[prost(string, repeated, tag = "9")]
+    pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// 1 to 10,000; 0 reads 1,000. Past it the reply is cut and says so.
+    #[prost(uint32, tag = "10")]
+    pub row_limit: u32,
+}
+/// The result of QueryLake: meridian.v1.QueryLakeReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QueryLakeResult {
+    /// The rows of the kind asked, each with only the fields named; the other
+    /// lists empty.
+    #[prost(message, repeated, tag = "1")]
+    pub prices: ::prost::alloc::vec::Vec<Price>,
+    #[prost(message, repeated, tag = "2")]
+    pub bars: ::prost::alloc::vec::Vec<Bar>,
+    #[prost(message, repeated, tag = "3")]
+    pub trades: ::prost::alloc::vec::Vec<Trade>,
+    #[prost(message, repeated, tag = "4")]
+    pub quotes: ::prost::alloc::vec::Vec<Quote>,
+    #[prost(message, repeated, tag = "5")]
+    pub outcomes: ::prost::alloc::vec::Vec<Outcome>,
+    #[prost(message, repeated, tag = "6")]
+    pub unanswered: ::prost::alloc::vec::Vec<Unanswered>,
+    #[prost(message, repeated, tag = "7")]
+    pub datasets: ::prost::alloc::vec::Vec<DatasetRef>,
+    #[prost(message, optional, tag = "8")]
+    pub watermark: ::core::option::Option<Watermark>,
+    /// More rows matched than row_limit: the reply is cut at it, never paged.
+    #[prost(bool, tag = "9")]
+    pub truncated: bool,
+}
 /// What a plugin asks to hear. A row it names that no role it holds hears
 /// is refused, PERMISSION_DENIED, naming it.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3398,7 +3652,7 @@ pub struct Delivery {
     pub meta: ::core::option::Option<DeliveryMeta>,
     #[prost(
         oneof = "delivery::Item",
-        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41"
+        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44"
     )]
     pub item: ::core::option::Option<delivery::Item>,
 }
@@ -3492,6 +3746,25 @@ pub mod delivery {
         /// W11.35: platform.book.event.alert-changed.
         #[prost(message, tag = "41")]
         AlertChanged(super::AlertChangedEvent),
+        /// W12.3: platform.analytics.event.price-batch.
+        /// Reaches a pricing plugin only at the instance its
+        /// pricing_instance_id names (matrix/directed.tsv).
+        #[prost(message, tag = "42")]
+        PriceBatch(super::PriceBatchRequest),
+        /// W12.4: platform.analytics.event.job-finished.
+        /// Reaches a reporting plugin only at the instance its
+        /// client_instance_id names (matrix/directed.tsv).
+        /// Reaches a portfolio plugin only at the instance its
+        /// client_instance_id names (matrix/directed.tsv).
+        /// Reaches a compliance plugin only at the instance its
+        /// client_instance_id names (matrix/directed.tsv).
+        /// Reaches a signal plugin only at the instance its
+        /// client_instance_id names (matrix/directed.tsv).
+        #[prost(message, tag = "43")]
+        JobFinished(super::JobFinishedEvent),
+        /// W3.30: platform.reference.event.event-group-changed.
+        #[prost(message, tag = "44")]
+        EventGroupChanged(super::EventGroup),
     }
 }
 /// What is known of a delivery beside its message.
@@ -4585,6 +4858,29 @@ pub struct BinaryEventContract {
     /// When trading in it closes, as the venue states it; 0 when it states none.
     #[prost(int64, tag = "2")]
     pub closes_at_ns: i64,
+    /// Contract v26 (W1.24; spec/the-contract-gaps-v26-and-v27-close, A4,
+    /// approved 2026-10-14): a range market's bounds, fields of the binary
+    /// event contract template's v26 version, never the group's. An open tail
+    /// has one bound only; neither set where the contract is no range.
+    #[prost(message, optional, tag = "3")]
+    pub floor: ::core::option::Option<EventContractBound>,
+    #[prost(message, optional, tag = "4")]
+    pub cap: ::core::option::Option<EventContractBound>,
+    /// The unit both bounds are in: an instrument's ID where the bound is a
+    /// price, otherwise the venue's unit word (`degrees_f`, `index_points`,
+    /// `percent`); empty where neither bound is set.
+    #[prost(string, tag = "5")]
+    pub bound_unit: ::prost::alloc::string::String,
+}
+/// One bound of a range market (A4): Kalshi's `greater` and
+/// `greater_or_equal` are inclusive false and true.
+/// A mirror of meridian.v1.EventContractBound.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct EventContractBound {
+    #[prost(message, optional, tag = "1")]
+    pub value: ::core::option::Option<Decimal>,
+    #[prost(bool, tag = "2")]
+    pub inclusive: bool,
 }
 /// The only thing holdings are recorded against. A plugin creates one only by
 /// linking an external account to a new one, acting for a deployment admin in
@@ -5293,6 +5589,13 @@ pub struct AccountAttributes {
     /// balance left after booking holds the booking (W11.28).
     #[prost(bool, tag = "8")]
     pub allocation_account: bool,
+    /// Contract v26 (W9.13, W12.2; ruling 316, 2026-10-18): the platform's ID
+    /// of the base currency's cash instrument, which the book resolves from
+    /// base_currency_code when the base is set and keeps; empty while the
+    /// instrument store has not resolved the code. What the analytics
+    /// component values an account in.
+    #[prost(string, tag = "9")]
+    pub base_cash_instrument_id: ::prost::alloc::string::String,
 }
 /// The account's standing opening balance, set by the book when it journals
 /// W9.1 and cleared when it is reversed (Q21 of the sample operations plugin,
@@ -6541,6 +6844,14 @@ pub struct VenueCatalogue {
     /// answers it DK. Unspecified, as a v22 catalogue is, reads as none.
     #[prost(enumeration = "ExecutionAcknowledgement", tag = "6")]
     pub execution_acknowledgement: i32,
+    /// Contract v26 (W11.20; G1 question 5, approved 2026-10-14): the
+    /// environment the plugin's session actually reached, read from the
+    /// vendor's host, in the role-common setting's values -- `live`,
+    /// `sandbox` or `paper`; empty, as a v25 catalogue is, is no report. A
+    /// connection is demo only while its setting and this both say `sandbox`
+    /// or `paper`.
+    #[prost(string, tag = "7")]
+    pub environment: ::prost::alloc::string::String,
 }
 /// An order type the venue offers, with the times in force it takes.
 /// A mirror of meridian.v1.VenueOrderType.
@@ -7040,8 +7351,8 @@ pub struct SecurityTemplate {
     /// description and a currency; the platform mints no INS- record under it.
     #[prost(bool, tag = "6")]
     pub base: bool,
-    /// Its calculation package: the slot defined and empty until the template
-    /// calculations (row 6i').
+    /// The v24 slot for its calculation package, defined and kept empty: from
+    /// contract v26 the package is calculation_package.
     #[prost(string, tag = "7")]
     pub calculation: ::prost::alloc::string::String,
     /// Each by its path, its type and whether it is required.
@@ -7051,6 +7362,11 @@ pub struct SecurityTemplate {
     /// share_class_figi first.
     #[prost(string, repeated, tag = "9")]
     pub match_rule: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Contract v26 (W1.24; the intent's rulings 9 and 11; the v26 plan's
+    /// question 225): its calculation package, declarative data; unset on a
+    /// class's base template and on a version published before v26.
+    #[prost(message, optional, tag = "10")]
+    pub calculation_package: ::core::option::Option<CalculationPackage>,
 }
 /// One field of a template (W3.24).
 /// A mirror of meridian.v1.TemplateField.
@@ -7065,6 +7381,44 @@ pub struct TemplateField {
     /// A record without it is incomplete, its missing fields listed (W3.7).
     #[prost(bool, tag = "3")]
     pub required: bool,
+}
+/// A template version's calculation package (W1.24): the pricing model it
+/// binds, the market objects it reads, and test cases with exact answers,
+/// which the analytics engine's built-in model and every implementation
+/// routed for it must equal exactly. Data, never code.
+/// A mirror of meridian.v1.CalculationPackage.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CalculationPackage {
+    /// `cash`, `quoted_price` or `binary_event` in v26, and the version.
+    #[prost(string, tag = "1")]
+    pub model_id: ::prost::alloc::string::String,
+    #[prost(int32, tag = "2")]
+    pub model_version: i32,
+    /// The kinds of its pricing inputs, as the lake names them: `close`,
+    /// `nav`, `outcome`.
+    #[prost(string, repeated, tag = "3")]
+    pub pricing_inputs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Where its corporate-action factors come from, for returns (the first
+    /// release's Q7); empty where none applies.
+    #[prost(string, tag = "4")]
+    pub corporate_action_factors: ::prost::alloc::string::String,
+    /// Its version, which every valuation names.
+    #[prost(string, tag = "5")]
+    pub calculation_version: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "6")]
+    pub test_cases: ::prost::alloc::vec::Vec<CalculationTestCase>,
+}
+/// One test case of a calculation package: inputs and the exact answer, each
+/// as canonical JSON (RFC 8785).
+/// A mirror of meridian.v1.CalculationTestCase.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CalculationTestCase {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub inputs: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub expected: ::prost::alloc::string::String,
 }
 /// A price of one kind for one subject. An FX rate is the price of one
 /// currency's cash instrument in another (spec/the-lake, Q3); the lake never
@@ -7541,6 +7895,438 @@ pub struct DatasetEntitlement {
     /// (W6.27, W4.9; contract v20): empty otherwise, and before v20.
     #[prost(string, tag = "10")]
     pub prepared_call_id: ::prost::alloc::string::String,
+}
+/// A job (W12.1): what to compute, over what, against which inputs, named by
+/// reference. A read: it changes no record.
+/// A mirror of meridian.v1.Job.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Job {
+    /// The accounts it is over, each in the client's read scope, which the
+    /// sidecar stamps on the request; one outside it is refused naming it.
+    #[prost(string, repeated, tag = "1")]
+    pub account_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Its inputs, by reference.
+    #[prost(message, optional, tag = "2")]
+    pub inputs: ::core::option::Option<InputRefs>,
+    /// The measures, each by definition and version.
+    #[prost(message, repeated, tag = "3")]
+    pub measures: ::prost::alloc::vec::Vec<MeasureRef>,
+    /// Trades added to one account's positions (W12.5); unset for none.
+    #[prost(message, optional, tag = "4")]
+    pub what_if: ::core::option::Option<WhatIf>,
+}
+/// A job's inputs, by reference (requirement 3): one watermark and one as-of
+/// for the whole job (requirements 7, 8).
+/// A mirror of meridian.v1.InputRefs.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InputRefs {
+    /// The book's watermark; unset for now, which the component resolves to
+    /// the watermark it read and answers in the provenance.
+    #[prost(message, optional, tag = "1")]
+    pub book_at: ::core::option::Option<Watermark>,
+    /// The lake's recorded-time cut-off; 0 for now, resolved likewise.
+    #[prost(int64, tag = "2")]
+    pub lake_as_of_ns: i64,
+    /// The lake's source choice; none set is the deployment's default.
+    #[prost(message, optional, tag = "3")]
+    pub sources: ::core::option::Option<SourceChoice>,
+}
+/// A measure, by definition and version (requirement 14).
+/// A mirror of meridian.v1.MeasureRef.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MeasureRef {
+    /// A definition the component serves: `market_value`, `exposure`,
+    /// `concentration`, `pnl`, `historical_var`, `expected_shortfall`,
+    /// `resolution_payoff`, `implied_distribution` in v26.
+    #[prost(string, tag = "1")]
+    pub definition: ::prost::alloc::string::String,
+    /// Its version, 1 or more.
+    #[prost(int32, tag = "2")]
+    pub version: i32,
+    /// What to break the figures down by, each a breakdown the definition
+    /// allows: `account`, `asset_class`, `currency`, `instrument`, `sleeve`,
+    /// `country`, or a scheme the deployment holds by its name.
+    #[prost(string, repeated, tag = "3")]
+    pub breakdowns: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// For an event measure, the event group it is over (W3.30).
+    #[prost(string, tag = "4")]
+    pub event_group_id: ::prost::alloc::string::String,
+}
+/// Trades added to one account's positions for a what-if (W12.5): never a
+/// book record unless proposed.
+/// A mirror of meridian.v1.WhatIf.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WhatIf {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub trades: ::prost::alloc::vec::Vec<WhatIfTrade>,
+}
+/// A mirror of meridian.v1.WhatIfTrade.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WhatIfTrade {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "Side", tag = "2")]
+    pub side: i32,
+    #[prost(message, optional, tag = "3")]
+    pub quantity: ::core::option::Option<Decimal>,
+    /// An assumed price; unset for the price at the job's as-of.
+    #[prost(message, optional, tag = "4")]
+    pub price: ::core::option::Option<Money>,
+}
+/// A job's answer (W12.1, W12.4): figures, what was not evaluated and why,
+/// and what it was computed from. Not a record: recomputable from its
+/// provenance, cached by hash and losable (Q12).
+/// A mirror of meridian.v1.JobAnswer.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct JobAnswer {
+    #[prost(string, tag = "1")]
+    pub job_id: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub figures: ::prost::alloc::vec::Vec<Figure>,
+    #[prost(message, repeated, tag = "3")]
+    pub not_evaluated: ::prost::alloc::vec::Vec<NotEvaluated>,
+    #[prost(message, optional, tag = "4")]
+    pub provenance: ::core::option::Option<AnswerProvenance>,
+}
+/// One figure (requirement 5; the first release's Q13 and Q14).
+/// A mirror of meridian.v1.Figure.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Figure {
+    /// The measure it answers.
+    #[prost(message, optional, tag = "1")]
+    pub measure: ::core::option::Option<MeasureRef>,
+    /// The account it is for; empty for a figure across the job's accounts.
+    #[prost(string, tag = "2")]
+    pub account_id: ::prost::alloc::string::String,
+    /// Its place in each breakdown the measure asked for.
+    #[prost(message, repeated, tag = "3")]
+    pub breakdown: ::prost::alloc::vec::Vec<BreakdownValue>,
+    /// Which scenario it is under: base, a what-if, a historical day, an
+    /// outcome.
+    #[prost(message, optional, tag = "4")]
+    pub scenario_key: ::core::option::Option<ScenarioKey>,
+    /// The value, for a figure that is one; unset for a weight.
+    #[prost(message, optional, tag = "5")]
+    pub value: ::core::option::Option<Decimal>,
+    /// A weight or a probability, as its two parts, so a bound is compared by
+    /// cross-multiplication, never a rounded division; unset for a value.
+    #[prost(message, optional, tag = "6")]
+    pub numerator: ::core::option::Option<Decimal>,
+    #[prost(message, optional, tag = "7")]
+    pub denominator: ::core::option::Option<Decimal>,
+    /// The cash instrument a value is in: the account's base currency or the
+    /// client's stated reporting currency; empty for a weight.
+    #[prost(string, tag = "8")]
+    pub currency_instrument_id: ::prost::alloc::string::String,
+    /// How it was computed: exact in v26, model from v28.
+    #[prost(enumeration = "ComputedAs", tag = "9")]
+    pub computed_as: i32,
+}
+/// A figure's place in one breakdown.
+/// A mirror of meridian.v1.BreakdownValue.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BreakdownValue {
+    /// The breakdown, as MeasureRef.breakdowns names it.
+    #[prost(string, tag = "1")]
+    pub breakdown: ::prost::alloc::string::String,
+    /// Its value: an asset class's name, an ISO 4217 code or a cash
+    /// instrument's ID, an instrument's ID, a sleeve, a country's ISO 3166-1
+    /// alpha-2 code, or a scheme's class.
+    #[prost(string, tag = "2")]
+    pub value: ::prost::alloc::string::String,
+}
+/// Which scenario a figure is under (the first release's Q13, approved
+/// 2026-10-14): one shape for what-ifs, VaR's days, resolution payoffs and,
+/// from v28, a grid point, which adds a kind and no field.
+/// A mirror of meridian.v1.ScenarioKey.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ScenarioKey {
+    #[prost(enumeration = "ScenarioKind", tag = "1")]
+    pub kind: i32,
+    /// For a historical day, the business date, ISO 8601.
+    #[prost(string, tag = "2")]
+    pub business_date: ::prost::alloc::string::String,
+    /// For an outcome, the member of the event group that resolves YES.
+    #[prost(string, tag = "3")]
+    pub outcome_instrument_id: ::prost::alloc::string::String,
+}
+/// A position or a figure not evaluated, and why (requirement 9): never
+/// zero.
+/// A mirror of meridian.v1.NotEvaluated.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NotEvaluated {
+    #[prost(string, tag = "1")]
+    pub account_id: ::prost::alloc::string::String,
+    /// The instrument; empty where the whole measure is not evaluated.
+    #[prost(string, tag = "2")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub measure: ::core::option::Option<MeasureRef>,
+    #[prost(enumeration = "NotEvaluatedReason", tag = "4")]
+    pub reason: i32,
+    /// The dataset not entitled, the implementation unavailable, or the
+    /// scheme not held, where the reason names one.
+    #[prost(string, tag = "5")]
+    pub detail: ::prost::alloc::string::String,
+}
+/// What an answer was computed from (requirements 4 and 35; Q7). Named so it
+/// is not mistaken for meridian.v1.Provenance, a value's source.
+/// A mirror of meridian.v1.AnswerProvenance.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AnswerProvenance {
+    /// The watermark and the as-of the job read at.
+    #[prost(message, optional, tag = "1")]
+    pub book_watermark: ::core::option::Option<Watermark>,
+    #[prost(int64, tag = "2")]
+    pub lake_as_of_ns: i64,
+    /// Each dataset read, as the lake's replies named them.
+    #[prost(string, repeated, tag = "3")]
+    pub datasets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "4")]
+    pub instruments: ::prost::alloc::vec::Vec<InstrumentInput>,
+    #[prost(message, repeated, tag = "5")]
+    pub models: ::prost::alloc::vec::Vec<ModelRef>,
+    #[prost(message, repeated, tag = "6")]
+    pub measures: ::prost::alloc::vec::Vec<MeasureRef>,
+    /// Each event group read, at the version in force.
+    #[prost(message, repeated, tag = "7")]
+    pub event_groups: ::prost::alloc::vec::Vec<EventGroupInput>,
+    /// The routing table's version (W12.6).
+    #[prost(int64, tag = "8")]
+    pub routing_version: i64,
+    /// The component's version.
+    #[prost(string, tag = "9")]
+    pub engine_version: ::prost::alloc::string::String,
+    /// `sha256:` and the hex of SHA-256 over the RFC 8785 canonical JSON of
+    /// the inputs: two answers with the same hash are the same answer.
+    #[prost(string, tag = "10")]
+    pub answer_hash: ::prost::alloc::string::String,
+}
+/// One instrument a job read, by its record's and template's versions.
+/// A mirror of meridian.v1.InstrumentInput.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstrumentInput {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub record_version: i64,
+    #[prost(string, tag = "3")]
+    pub template_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub template_version: ::prost::alloc::string::String,
+    /// The template's calculation package's version (W1.24).
+    #[prost(string, tag = "5")]
+    pub calculation_version: ::prost::alloc::string::String,
+}
+/// A pricing model and the implementation that answered for it.
+/// A mirror of meridian.v1.ModelRef.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ModelRef {
+    /// `cash`, `quoted_price` or `binary_event` in v26.
+    #[prost(string, tag = "1")]
+    pub model_id: ::prost::alloc::string::String,
+    #[prost(int32, tag = "2")]
+    pub model_version: i32,
+    /// `built-in`, or a `pricing` plugin's instance ID.
+    #[prost(string, tag = "3")]
+    pub implementation: ::prost::alloc::string::String,
+    /// The component's version for the built-in one; the plugin's version
+    /// for a plugin's.
+    #[prost(string, tag = "4")]
+    pub implementation_version: ::prost::alloc::string::String,
+}
+/// One event group a job read, at its version.
+/// A mirror of meridian.v1.EventGroupInput.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EventGroupInput {
+    #[prost(string, tag = "1")]
+    pub event_group_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub version: i64,
+}
+/// A measure's versioned definition (requirements 14 to 17; Q15): shipped
+/// with the component, each fixing every parameter that changes its number.
+/// A mirror of meridian.v1.MeasureDefinition.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MeasureDefinition {
+    #[prost(string, tag = "1")]
+    pub definition: ::prost::alloc::string::String,
+    #[prost(int32, tag = "2")]
+    pub version: i32,
+    /// Its parameters, fixed by the version: a VaR's confidence, horizon,
+    /// window, return type, missing-day treatment and quantile.
+    #[prost(message, repeated, tag = "3")]
+    pub parameters: ::prost::alloc::vec::Vec<MeasureParameter>,
+    /// The breakdowns it allows.
+    #[prost(string, repeated, tag = "4")]
+    pub breakdowns: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The scale its values are rounded to, once, half to even; at most 18.
+    #[prost(int32, tag = "5")]
+    pub scale: i32,
+    /// The component's words for it.
+    #[prost(string, tag = "6")]
+    pub description: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.MeasureParameter.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MeasureParameter {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// As the definition writes it: `0.99`, `500`, `relative`.
+    #[prost(string, tag = "2")]
+    pub value: ::prost::alloc::string::String,
+}
+/// A batch the component hands the `pricing` instance a model id is routed
+/// to (W12.3), delivered to that instance alone and caught up by sequence.
+/// A mirror of meridian.v1.PriceBatchRequest.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PriceBatchRequest {
+    #[prost(string, tag = "1")]
+    pub batch_id: ::prost::alloc::string::String,
+    /// The routed instance, which alone hears it (matrix/directed.tsv).
+    #[prost(string, tag = "2")]
+    pub pricing_instance_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub model_id: ::prost::alloc::string::String,
+    #[prost(int32, tag = "4")]
+    pub model_version: i32,
+    #[prost(message, repeated, tag = "5")]
+    pub units: ::prost::alloc::vec::Vec<PricingUnit>,
+    /// When the component stops waiting for the answer.
+    #[prost(int64, tag = "6")]
+    pub deadline_ns: i64,
+    /// `sha256:` over the batch's inputs, naming it: a batch answered twice is
+    /// harmless.
+    #[prost(string, tag = "7")]
+    pub batch_hash: ::prost::alloc::string::String,
+    /// Its place in the instance's sequence, which ListPriceBatches reads
+    /// after.
+    #[prost(int64, tag = "8")]
+    pub sequence: i64,
+}
+/// One instrument to price under one scenario, with exactly the market
+/// objects its model declares (requirement 20).
+/// A mirror of meridian.v1.PricingUnit.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PricingUnit {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub template_version: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub scenario_key: ::core::option::Option<ScenarioKey>,
+    #[prost(message, repeated, tag = "4")]
+    pub inputs: ::prost::alloc::vec::Vec<MarketObjectValue>,
+}
+/// A market object's value, by the lake's terms (Q6): observed, or a
+/// scenario's in its place.
+/// A mirror of meridian.v1.MarketObjectValue.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MarketObjectValue {
+    /// The instrument it is about.
+    #[prost(string, tag = "1")]
+    pub subject_id: ::prost::alloc::string::String,
+    /// The lake's kind: `close`, `nav`, `mid`, `last`, or `outcome`.
+    #[prost(string, tag = "2")]
+    pub kind: ::prost::alloc::string::String,
+    /// A price, in the asset it is quoted in; for `outcome`, the settlement
+    /// value per contract.
+    #[prost(message, optional, tag = "3")]
+    pub value: ::core::option::Option<Money>,
+    /// The dataset it came from; empty for a scenario's value.
+    #[prost(string, tag = "4")]
+    pub dataset: ::prost::alloc::string::String,
+}
+/// A mirror of meridian.v1.PricedUnit.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PricedUnit {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub scenario_key: ::core::option::Option<ScenarioKey>,
+    /// A value per unit, in the base currency the batch's inputs convert to.
+    #[prost(message, optional, tag = "3")]
+    pub value_per_unit: ::core::option::Option<Money>,
+}
+/// A sensitivity a model declares: carried empty in v26.
+/// A mirror of meridian.v1.Sensitivity.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Sensitivity {
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub scenario_key: ::core::option::Option<ScenarioKey>,
+    /// The sensitivity's name, as the model declares it.
+    #[prost(string, tag = "3")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub value: ::core::option::Option<Decimal>,
+}
+/// A job answered later has finished (W12.4), heard by the instance that ran
+/// it alone.
+/// A mirror of meridian.v1.JobFinishedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct JobFinishedEvent {
+    #[prost(string, tag = "1")]
+    pub job_id: ::prost::alloc::string::String,
+    /// The instance that ran it, which alone hears it (matrix/directed.tsv).
+    #[prost(string, tag = "2")]
+    pub client_instance_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub answer_hash: ::prost::alloc::string::String,
+    #[prost(int64, tag = "4")]
+    pub finished_at_ns: i64,
+    /// Its place in the instance's sequence, which ListFinishedJobs reads
+    /// after.
+    #[prost(int64, tag = "5")]
+    pub sequence: i64,
+}
+/// An event's group of contracts, at a version.
+/// A mirror of meridian.v1.EventGroup.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EventGroup {
+    /// `EVG-` and a ULID, the platform's; `LCL-` and a ULID for a deployment's
+    /// own while it waits (A8's gap measure).
+    #[prost(string, tag = "1")]
+    pub event_group_id: ::prost::alloc::string::String,
+    /// The venue that states it, the venue master's ID.
+    #[prost(string, tag = "2")]
+    pub venue_id: ::prost::alloc::string::String,
+    /// The venue's reference for its event: Kalshi's event ticker,
+    /// Polymarket's event slug.
+    #[prost(string, tag = "3")]
+    pub venue_event_ref: ::prost::alloc::string::String,
+    /// The venue's words for it.
+    #[prost(string, tag = "4")]
+    pub title: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "5")]
+    pub member_instrument_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(enumeration = "EventGroupFlag", tag = "6")]
+    pub mutually_exclusive: i32,
+    #[prost(enumeration = "EventGroupFlag", tag = "7")]
+    pub exhaustive: i32,
+    /// The venue's series, for a recurring event (A5); no series record in
+    /// v26.
+    #[prost(string, tag = "8")]
+    pub series_id: ::prost::alloc::string::String,
+    /// Monotonic from 1; a new version for each change of a flag or a member.
+    #[prost(int64, tag = "9")]
+    pub version: i64,
+    /// When this version became true, as the venue states it.
+    #[prost(int64, tag = "10")]
+    pub valid_from_ns: i64,
+    /// Stamped by the store.
+    #[prost(int64, tag = "11")]
+    pub record_time_ns: i64,
+    /// True for the deployment's own `LCL-` group, not yet matched or minted.
+    #[prost(bool, tag = "12")]
+    pub provisional: bool,
+    /// Its place in the store's sequence of event groups, which a read after
+    /// a sequence catches up by.
+    #[prost(int64, tag = "13")]
+    pub sequence: i64,
 }
 /// A custodial position that changed, and the statement that changed it.
 /// A mirror of meridian.v1.CustodialPositionUpdatedEvent.
@@ -10584,6 +11370,9 @@ pub enum UnplacedReason {
     /// (W11.25, contract v23): kept in the account, so operations sees the
     /// venue's position and the book's differ.
     NothingPending = 4,
+    /// A give-up's answer naming an execution, or an allocation, the book does
+    /// not hold (W11.32, contract v26): kept whole in UnplacedFact.give_up.
+    UnknownExecution = 5,
 }
 impl UnplacedReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -10596,6 +11385,7 @@ impl UnplacedReason {
             Self::UnknownPlacement => "UNPLACED_REASON_UNKNOWN_PLACEMENT",
             Self::UnmappedVenueAccount => "UNPLACED_REASON_UNMAPPED_VENUE_ACCOUNT",
             Self::NothingPending => "UNPLACED_REASON_NOTHING_PENDING",
+            Self::UnknownExecution => "UNPLACED_REASON_UNKNOWN_EXECUTION",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -10605,6 +11395,7 @@ impl UnplacedReason {
             "UNPLACED_REASON_UNKNOWN_PLACEMENT" => Some(Self::UnknownPlacement),
             "UNPLACED_REASON_UNMAPPED_VENUE_ACCOUNT" => Some(Self::UnmappedVenueAccount),
             "UNPLACED_REASON_NOTHING_PENDING" => Some(Self::NothingPending),
+            "UNPLACED_REASON_UNKNOWN_EXECUTION" => Some(Self::UnknownExecution),
             _ => None,
         }
     }
@@ -11834,6 +12625,192 @@ impl ObservationMode {
             "OBSERVATION_MODE_PULL" => Some(Self::Pull),
             "OBSERVATION_MODE_PUSH" => Some(Self::Push),
             "OBSERVATION_MODE_STREAM" => Some(Self::Stream),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.ScenarioKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ScenarioKind {
+    /// Read as base.
+    Unspecified = 0,
+    /// The positions and market as they are.
+    Base = 1,
+    /// With the job's what-if trades added (W12.5).
+    WhatIf = 2,
+    /// One historical day's returns applied, for historical VaR and ES.
+    HistoricalDay = 3,
+    /// One member of an event group resolving YES (`resolution_payoff`).
+    Outcome = 4,
+    /// No named member resolving YES, for a group mutually exclusive and not
+    /// exhaustive (the options and event contracts spec's question 4).
+    NoneOfTheNamed = 5,
+}
+impl ScenarioKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SCENARIO_KIND_UNSPECIFIED",
+            Self::Base => "SCENARIO_KIND_BASE",
+            Self::WhatIf => "SCENARIO_KIND_WHAT_IF",
+            Self::HistoricalDay => "SCENARIO_KIND_HISTORICAL_DAY",
+            Self::Outcome => "SCENARIO_KIND_OUTCOME",
+            Self::NoneOfTheNamed => "SCENARIO_KIND_NONE_OF_THE_NAMED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SCENARIO_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "SCENARIO_KIND_BASE" => Some(Self::Base),
+            "SCENARIO_KIND_WHAT_IF" => Some(Self::WhatIf),
+            "SCENARIO_KIND_HISTORICAL_DAY" => Some(Self::HistoricalDay),
+            "SCENARIO_KIND_OUTCOME" => Some(Self::Outcome),
+            "SCENARIO_KIND_NONE_OF_THE_NAMED" => Some(Self::NoneOfTheNamed),
+            _ => None,
+        }
+    }
+}
+/// How a figure was computed (the first release's Q14, approved 2026-10-14
+/// as `exact` and `model`).
+/// A mirror of meridian.v1.ComputedAs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ComputedAs {
+    /// Read as exact by a v26 reader; never sent by the component.
+    Unspecified = 0,
+    /// Exact decimal from quantities, quoted prices and FX.
+    Exact = 1,
+    /// A model's floating-point value, crossing at its definition's scale,
+    /// rounded half to even (Q8): from v28.
+    Model = 2,
+}
+impl ComputedAs {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COMPUTED_AS_UNSPECIFIED",
+            Self::Exact => "COMPUTED_AS_EXACT",
+            Self::Model => "COMPUTED_AS_MODEL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COMPUTED_AS_UNSPECIFIED" => Some(Self::Unspecified),
+            "COMPUTED_AS_EXACT" => Some(Self::Exact),
+            "COMPUTED_AS_MODEL" => Some(Self::Model),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.NotEvaluatedReason.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum NotEvaluatedReason {
+    Unspecified = 0,
+    /// No price of the kind the model declares at the as-of.
+    PriceMissing = 1,
+    /// A price older than the client's setting for its source allows.
+    PriceStale = 2,
+    /// A conversion leg to the base or reporting currency missing.
+    ConversionMissing = 3,
+    /// A dataset the client is not entitled to, named in detail (Q11).
+    NotEntitled = 4,
+    /// A local `LCL-` record: never priced.
+    LocalRecord = 5,
+    /// The routed implementation did not answer by the deadline, for a figure
+    /// a compliance rule reads (requirement 22).
+    ImplementationUnavailable = 6,
+    /// A breakdown whose scheme the deployment does not hold (requirement 17).
+    SchemeNotHeld = 7,
+    /// An implied distribution over a group not exhaustive in the version in
+    /// force (the first release's Q5): the raw prices and their sum still
+    /// answered.
+    GroupNotExhaustive = 8,
+    /// History too short or too sparse for the definition's window.
+    HistoryInsufficient = 9,
+}
+impl NotEvaluatedReason {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "NOT_EVALUATED_REASON_UNSPECIFIED",
+            Self::PriceMissing => "NOT_EVALUATED_REASON_PRICE_MISSING",
+            Self::PriceStale => "NOT_EVALUATED_REASON_PRICE_STALE",
+            Self::ConversionMissing => "NOT_EVALUATED_REASON_CONVERSION_MISSING",
+            Self::NotEntitled => "NOT_EVALUATED_REASON_NOT_ENTITLED",
+            Self::LocalRecord => "NOT_EVALUATED_REASON_LOCAL_RECORD",
+            Self::ImplementationUnavailable => {
+                "NOT_EVALUATED_REASON_IMPLEMENTATION_UNAVAILABLE"
+            }
+            Self::SchemeNotHeld => "NOT_EVALUATED_REASON_SCHEME_NOT_HELD",
+            Self::GroupNotExhaustive => "NOT_EVALUATED_REASON_GROUP_NOT_EXHAUSTIVE",
+            Self::HistoryInsufficient => "NOT_EVALUATED_REASON_HISTORY_INSUFFICIENT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "NOT_EVALUATED_REASON_UNSPECIFIED" => Some(Self::Unspecified),
+            "NOT_EVALUATED_REASON_PRICE_MISSING" => Some(Self::PriceMissing),
+            "NOT_EVALUATED_REASON_PRICE_STALE" => Some(Self::PriceStale),
+            "NOT_EVALUATED_REASON_CONVERSION_MISSING" => Some(Self::ConversionMissing),
+            "NOT_EVALUATED_REASON_NOT_ENTITLED" => Some(Self::NotEntitled),
+            "NOT_EVALUATED_REASON_LOCAL_RECORD" => Some(Self::LocalRecord),
+            "NOT_EVALUATED_REASON_IMPLEMENTATION_UNAVAILABLE" => {
+                Some(Self::ImplementationUnavailable)
+            }
+            "NOT_EVALUATED_REASON_SCHEME_NOT_HELD" => Some(Self::SchemeNotHeld),
+            "NOT_EVALUATED_REASON_GROUP_NOT_EXHAUSTIVE" => Some(Self::GroupNotExhaustive),
+            "NOT_EVALUATED_REASON_HISTORY_INSUFFICIENT" => {
+                Some(Self::HistoryInsufficient)
+            }
+            _ => None,
+        }
+    }
+}
+/// A flag a venue may not state (A2): unknown is never false.
+/// A mirror of meridian.v1.EventGroupFlag.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EventGroupFlag {
+    /// Read as not stated.
+    Unspecified = 0,
+    True = 1,
+    False = 2,
+    NotStated = 3,
+}
+impl EventGroupFlag {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "EVENT_GROUP_FLAG_UNSPECIFIED",
+            Self::True => "EVENT_GROUP_FLAG_TRUE",
+            Self::False => "EVENT_GROUP_FLAG_FALSE",
+            Self::NotStated => "EVENT_GROUP_FLAG_NOT_STATED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "EVENT_GROUP_FLAG_UNSPECIFIED" => Some(Self::Unspecified),
+            "EVENT_GROUP_FLAG_TRUE" => Some(Self::True),
+            "EVENT_GROUP_FLAG_FALSE" => Some(Self::False),
+            "EVENT_GROUP_FLAG_NOT_STATED" => Some(Self::NotStated),
             _ => None,
         }
     }
@@ -14320,6 +15297,297 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W12.1: platform.analytics.query.run-job (query; preview).
+        pub async fn run_job(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RunJobParams>,
+        ) -> std::result::Result<tonic::Response<super::RunJobResult>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/RunJob",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "RunJob"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W12.1: platform.analytics.query.list-measure-definitions (query; preview).
+        pub async fn list_measure_definitions(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListMeasureDefinitionsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListMeasureDefinitionsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListMeasureDefinitions",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListMeasureDefinitions",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W12.3: platform.analytics.query.list-price-batches (query; preview).
+        pub async fn list_price_batches(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListPriceBatchesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListPriceBatchesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListPriceBatches",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListPriceBatches",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W12.3: platform.analytics.command.answer-price-batch (command; preview).
+        pub async fn answer_price_batch(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AnswerPriceBatchParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::AnswerPriceBatchResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/AnswerPriceBatch",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "AnswerPriceBatch",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W12.4: platform.analytics.query.list-finished-jobs (query; preview).
+        pub async fn list_finished_jobs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListFinishedJobsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListFinishedJobsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListFinishedJobs",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListFinishedJobs",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W12.4: platform.analytics.query.read-job-answer (query; preview).
+        pub async fn read_job_answer(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReadJobAnswerParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadJobAnswerResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReadJobAnswer",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReadJobAnswer",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W3.29: platform.reference.command.report-event-group (command; preview).
+        pub async fn report_event_group(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReportEventGroupParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportEventGroupResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReportEventGroup",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReportEventGroup",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W3.30: platform.reference.query.list-event-groups (query; preview).
+        pub async fn list_event_groups(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListEventGroupsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListEventGroupsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListEventGroups",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListEventGroups",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W11.39: platform.book.query.read-agent-orders-demo-only (query; preview).
+        pub async fn read_agent_orders_demo_only(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReadAgentOrdersDemoOnlyParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadAgentOrdersDemoOnlyResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ReadAgentOrdersDemoOnly",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ReadAgentOrdersDemoOnly",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W10.10: platform.lake.query.query-lake (query; preview).
+        pub async fn query_lake(
+            &mut self,
+            request: impl tonic::IntoRequest<super::QueryLakeParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::QueryLakeResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/QueryLake",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "QueryLake"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W4.3: every row this plugin's roles hear, within its read scope.
         pub async fn receive(
             &mut self,
@@ -14997,6 +16265,80 @@ pub mod plugin_operations_server {
             tonic::Response<super::ListDatasetsResult>,
             tonic::Status,
         >;
+        /// W12.1: platform.analytics.query.run-job (query; preview).
+        async fn run_job(
+            &self,
+            request: tonic::Request<super::RunJobParams>,
+        ) -> std::result::Result<tonic::Response<super::RunJobResult>, tonic::Status>;
+        /// W12.1: platform.analytics.query.list-measure-definitions (query; preview).
+        async fn list_measure_definitions(
+            &self,
+            request: tonic::Request<super::ListMeasureDefinitionsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListMeasureDefinitionsResult>,
+            tonic::Status,
+        >;
+        /// W12.3: platform.analytics.query.list-price-batches (query; preview).
+        async fn list_price_batches(
+            &self,
+            request: tonic::Request<super::ListPriceBatchesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListPriceBatchesResult>,
+            tonic::Status,
+        >;
+        /// W12.3: platform.analytics.command.answer-price-batch (command; preview).
+        async fn answer_price_batch(
+            &self,
+            request: tonic::Request<super::AnswerPriceBatchParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::AnswerPriceBatchResult>,
+            tonic::Status,
+        >;
+        /// W12.4: platform.analytics.query.list-finished-jobs (query; preview).
+        async fn list_finished_jobs(
+            &self,
+            request: tonic::Request<super::ListFinishedJobsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListFinishedJobsResult>,
+            tonic::Status,
+        >;
+        /// W12.4: platform.analytics.query.read-job-answer (query; preview).
+        async fn read_job_answer(
+            &self,
+            request: tonic::Request<super::ReadJobAnswerParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadJobAnswerResult>,
+            tonic::Status,
+        >;
+        /// W3.29: platform.reference.command.report-event-group (command; preview).
+        async fn report_event_group(
+            &self,
+            request: tonic::Request<super::ReportEventGroupParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReportEventGroupResult>,
+            tonic::Status,
+        >;
+        /// W3.30: platform.reference.query.list-event-groups (query; preview).
+        async fn list_event_groups(
+            &self,
+            request: tonic::Request<super::ListEventGroupsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListEventGroupsResult>,
+            tonic::Status,
+        >;
+        /// W11.39: platform.book.query.read-agent-orders-demo-only (query; preview).
+        async fn read_agent_orders_demo_only(
+            &self,
+            request: tonic::Request<super::ReadAgentOrdersDemoOnlyParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadAgentOrdersDemoOnlyResult>,
+            tonic::Status,
+        >;
+        /// W10.10: platform.lake.query.query-lake (query; preview).
+        async fn query_lake(
+            &self,
+            request: tonic::Request<super::QueryLakeParams>,
+        ) -> std::result::Result<tonic::Response<super::QueryLakeResult>, tonic::Status>;
         /// Server streaming response type for the Receive method.
         type ReceiveStream: tonic::codegen::tokio_stream::Stream<
                 Item = std::result::Result<super::Delivery, tonic::Status>,
@@ -18905,6 +20247,469 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListDatasetsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/RunJob" => {
+                    #[allow(non_camel_case_types)]
+                    struct RunJobSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::RunJobParams> for RunJobSvc<T> {
+                        type Response = super::RunJobResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RunJobParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::run_job(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RunJobSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListMeasureDefinitions" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListMeasureDefinitionsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListMeasureDefinitionsParams>
+                    for ListMeasureDefinitionsSvc<T> {
+                        type Response = super::ListMeasureDefinitionsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListMeasureDefinitionsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_measure_definitions(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListMeasureDefinitionsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListPriceBatches" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListPriceBatchesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListPriceBatchesParams>
+                    for ListPriceBatchesSvc<T> {
+                        type Response = super::ListPriceBatchesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListPriceBatchesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_price_batches(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListPriceBatchesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/AnswerPriceBatch" => {
+                    #[allow(non_camel_case_types)]
+                    struct AnswerPriceBatchSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::AnswerPriceBatchParams>
+                    for AnswerPriceBatchSvc<T> {
+                        type Response = super::AnswerPriceBatchResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AnswerPriceBatchParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::answer_price_batch(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = AnswerPriceBatchSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListFinishedJobs" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListFinishedJobsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListFinishedJobsParams>
+                    for ListFinishedJobsSvc<T> {
+                        type Response = super::ListFinishedJobsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListFinishedJobsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_finished_jobs(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListFinishedJobsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReadJobAnswer" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReadJobAnswerSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReadJobAnswerParams>
+                    for ReadJobAnswerSvc<T> {
+                        type Response = super::ReadJobAnswerResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReadJobAnswerParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::read_job_answer(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReadJobAnswerSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReportEventGroup" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReportEventGroupSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReportEventGroupParams>
+                    for ReportEventGroupSvc<T> {
+                        type Response = super::ReportEventGroupResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReportEventGroupParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::report_event_group(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReportEventGroupSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListEventGroups" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListEventGroupsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListEventGroupsParams>
+                    for ListEventGroupsSvc<T> {
+                        type Response = super::ListEventGroupsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListEventGroupsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_event_groups(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListEventGroupsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ReadAgentOrdersDemoOnly" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReadAgentOrdersDemoOnlySvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ReadAgentOrdersDemoOnlyParams>
+                    for ReadAgentOrdersDemoOnlySvc<T> {
+                        type Response = super::ReadAgentOrdersDemoOnlyResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReadAgentOrdersDemoOnlyParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::read_agent_orders_demo_only(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReadAgentOrdersDemoOnlySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/QueryLake" => {
+                    #[allow(non_camel_case_types)]
+                    struct QueryLakeSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::QueryLakeParams>
+                    for QueryLakeSvc<T> {
+                        type Response = super::QueryLakeResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::QueryLakeParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::query_lake(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = QueryLakeSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

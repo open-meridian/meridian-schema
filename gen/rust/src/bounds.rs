@@ -54,6 +54,10 @@ pub const DECIMAL_SCALE: Range = Range { least: 0, most: 18, capped: false };
 /// its magnitude below 10 to this power (decisions/023).
 pub const DECIMAL_DIGITS: u32 = 38;
 
+/// meridian.v1.MeasureDefinition.scale: states the scale values are rounded
+/// to
+pub const MEASURE_DEFINITION_SCALE_RANGE: Range = Range { least: 0, most: 18, capped: false };
+
 /// meridian.v1.ListPositionsRequest.page_size: bounds a page
 pub const LIST_POSITIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
@@ -193,6 +197,9 @@ pub const TENOR_DATE_INPUTS_PAIR_COUNT: Count = Count { least: 2, most: 2 };
 /// for (W1.22)
 pub const SPOT_DATE_RULE_PAIR_COUNT: Count = Count { least: 2, most: 2 };
 
+/// meridian.v1.ListEventGroupsRequest.page_size: bounds a page
+pub const LIST_EVENT_GROUPS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: false };
+
 /// meridian.v1.ObservationMeta.row_key: names one observation, so recording
 /// it again changes nothing
 pub const OBSERVATION_META_ROW_KEY_LENGTH: Length = Length { least: 1, most: 128 };
@@ -288,6 +295,12 @@ pub const RECORD_OUTCOMES_REQUEST_OUTCOMES_COUNT: Count = Count { least: 1, most
 /// meridian.v1.ListOutcomesRequest.subjects: names the event contracts'
 /// instruments a read is about (W10.6)
 pub const LIST_OUTCOMES_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.QueryLakeRequest.subjects: names the subjects a query reads
+pub const QUERY_LAKE_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.QueryLakeRequest.row_limit: caps the rows a query answers
+pub const QUERY_LAKE_REQUEST_ROW_LIMIT_RANGE: Range = Range { least: 0, most: 10000, capped: false };
 
 /// meridian.v1.AsReported.scheme: says whose vocabulary a value as reported
 /// is in
@@ -591,6 +604,10 @@ pub const DOCUMENTATION_SECTION_BYTES_RANGE: Range = Range { least: 1, most: 655
 /// meridian.v1.AlgorithmDeclaration.description: says what the algorithm is,
 /// for a person reading the plugin's page
 pub const ALGORITHM_DECLARATION_DESCRIPTION_LENGTH: Length = Length { least: 1, most: 1024 };
+
+/// meridian.v1.HeartbeatRequest.model_tokens: reports the model tokens the
+/// plugin used since it started (W4.5; item 191)
+pub const HEARTBEAT_REQUEST_MODEL_TOKENS_COUNT: Count = Count { least: 0, most: 64 };
 
 /// meridian.v1.RecordHoldingsStatementRequest.provenance: says where each
 /// value the plugin closed rather than read came from

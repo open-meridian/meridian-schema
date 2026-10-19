@@ -125,6 +125,26 @@ message MessageMeta {
   // REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED and records the refusal (the
   // order-path plan's refresh, Q30). Read on no other command.
   bool connectivity_allowed = 17;
+
+  // Stamped by the sidecar of an `ems` alone, on CreatePlacement and on
+  // AcceptExecution naming a new order (W4.9, W11.8, W11.23; contract v26;
+  // spec/the-contract-gaps-v26-and-v27-close, G1 question 5, approved
+  // 2026-10-14): true when the placement's connectivity instance, or the
+  // reported fills', is in the caller's
+  // CallerClaims.demo_connectivity_instance_ids -- its environment setting
+  // and its session's report both `sandbox` or `paper`. The book refuses an
+  // agent's act stamped false while agent_orders_demo_only is on, with
+  // REFUSAL_REASON_AGENT_LIVE_ORDER, and records the refusal. Never set by
+  // a plugin; read on no other command.
+  bool connectivity_demo = 18;
+
+  // Set by the analytics component alone, on its reads for a job (W4.9,
+  // W12.2; contract v26): the client instance it reads on behalf of, whose
+  // dataset entitlements and role's kinds the lake answers within, beside
+  // the account scope the client's sidecar stamped on the job, carried in
+  // account_scope. Never set by a sidecar; a store ignores it on a message
+  // from anything but the analytics component.
+  string on_behalf_of_instance_id = 19;
 }
 
 // The kind of user a subject is (contract v21): in the claims, whom the
