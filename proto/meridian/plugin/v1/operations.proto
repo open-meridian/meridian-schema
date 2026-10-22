@@ -198,6 +198,20 @@ service PluginOperations {
   rpc ReadAgentOrdersDemoOnly(ReadAgentOrdersDemoOnlyParams) returns (ReadAgentOrdersDemoOnlyResult);
   // W10.10: platform.lake.query.query-lake (query; preview).
   rpc QueryLake(QueryLakeParams) returns (QueryLakeResult);
+  // W4.16: platform.deployment.command.report-latency (command; preview).
+  rpc ReportLatency(ReportLatencyParams) returns (ReportLatencyResult);
+  // W10.4: platform.lake.command.record-rates (command; preview).
+  rpc RecordRates(RecordRatesParams) returns (RecordRatesResult);
+  // W10.6: platform.lake.query.list-rates (query; preview).
+  rpc ListRates(ListRatesParams) returns (ListRatesResult);
+  // W10.4: platform.lake.command.record-liveness (command; preview).
+  rpc RecordLiveness(RecordLivenessParams) returns (RecordLivenessResult);
+  // W10.11: platform.lake.query.list-execution-costs (query; preview).
+  rpc ListExecutionCosts(ListExecutionCostsParams) returns (ListExecutionCostsResult);
+  // W11.40: platform.book.command.report-placement-quote (command; preview).
+  rpc ReportPlacementQuote(ReportPlacementQuoteParams) returns (ReportPlacementQuoteResult);
+  // W11.41: platform.book.command.pick-placement-quote (command; preview).
+  rpc PickPlacementQuote(PickPlacementQuoteParams) returns (PickPlacementQuoteResult);
   // W4.3: every row this plugin's roles hear, within its read scope.
   rpc Receive(ReceiveRequest) returns (stream Delivery);
 }
@@ -1461,7 +1475,7 @@ message ProposeOrderParams {
   // (38) and CashOrderQty (152) are alternatives (ruled 2026-10-12): an
   // order naming both, or neither, is refused INVALID_ARGUMENT naming
   // `quantity` and `cash_quantity`. 0, a pass, is refused naming `quantity`
-  // until slice C defines it.
+  // until slice C's sell side defines it, which is not v27's.
   optional Decimal quantity = 6;
 
   optional Money cash_quantity = 7;
@@ -1535,6 +1549,17 @@ message ProposeOrderParams {
   // (REFUSAL_REASON_ORDER_STATE). Released on creation, its quantity the
   // sum of its members' idle quantities.
   repeated string block_member_order_ids = 36;
+
+  // Contract v27 (W11.1; the gaps spec's D2): the `oms`'s net order, in the
+  // allocation account, naming members of both sides, each a released FX
+  // order of one pair and one value date in no other live block or net.
+  // Released on creation, its quantity signed buys minus sells, its side
+  // the larger's.
+  repeated string net_member_order_ids = 37;
+
+  // Contract v27 (W11.1): an FX order's value date, ISO 8601 (FIX's
+  // SettlDate, 64); empty is spot.
+  string value_date = 38;
 
   // W4.9: the person this is sent for, as the assertion the plugin was
   // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
@@ -1764,6 +1789,13 @@ message SetWorkingConditionParams {
 
   string idempotency_key = 5;
 
+  // Contract v27 (W11.7): a hold's typed cause, and for a stale reference
+  // price what the check found; on any condition but held, refused
+  // INVALID_ARGUMENT naming `hold_cause`.
+  HoldCause hold_cause = 6;
+
+  StaleReference stale_reference = 7;
+
   // W4.9: the person this is sent for, as the assertion the plugin was
   // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
   // acts as itself. Set, the sidecar admits a command on an account only
@@ -1811,12 +1843,28 @@ message CreatePlacementParams {
 
   repeated string handling_instructions = 10;
 
-  // Offered empty until slice C.
+  // Offered empty: slice C's sell side and axes are not v27's.
   string rfq_id = 11;
 
   string axe_id = 12;
 
   string idempotency_key = 14;
+
+  // Contract v27 (W11.8): its type; a manual placement names no
+  // connectivity instance and carries its trade details, any other type
+  // names one and carries none (INVALID_ARGUMENT naming the field).
+  PlacementType placement_type = 15;
+
+  string counterparty_contact = 16;
+
+  int64 agreed_at_ns = 17;
+
+  TimePrecision agreed_precision = 18;
+
+  // Contract v27 (W11.8): set where the `ems` places on a stale reference
+  // price, its admin having chosen to warn; the placement then holds
+  // PLACEMENT_CONDITION_SENT_ON_STALE_REFERENCE.
+  StaleReference stale_reference = 19;
 
   // Set by the sidecar, never by a plugin (stamped.tsv).
   reserved 13;
@@ -2021,6 +2069,11 @@ message ReportExecutionParams {
   string venue_order_id = 34;
 
   string venue_client_order_id = 35;
+
+  // Contract v27 (W11.11): on the `oms`'s internal cross of a net order,
+  // which convention set its rate; refused INVALID_ARGUMENT naming it where
+  // missing on such a cross, or set on any other execution.
+  CrossRateSource cross_rate_source = 36;
 
   // Retired in the domain message, and never reused.
   reserved 22;
@@ -2923,6 +2976,10 @@ message ReadCalendarResult {
   CalendarCoverage coverage = 6;
 
   repeated CalendarSource sources = 7;
+
+  // Contract v27 (W3.19): a trading-sessions calendar's sessions, with the
+  // early closes falling in the range; unset on every other kind.
+  TradingSessions trading_sessions = 8;
 }
 
 // W3.20: one way to work out a date, in core. The same inputs and versions
@@ -3583,6 +3640,11 @@ message ReportEventGroupParams {
 
   RawRecordRef raw_record = 9;
 
+  // Contract v27 (W3.29; ruling 464): each range member's floor, cap and
+  // unit as the venue states them, taken as values offered for the
+  // member's record; a person's value wins.
+  repeated EventGroupMemberBound member_bounds = 11;
+
   // Set by the sidecar, never by a plugin (stamped.tsv).
   reserved 10;
   reserved "publisher_instance_id";
@@ -3651,8 +3713,8 @@ message ReadAgentOrdersDemoOnlyResult {
 // instance's entitlements and its roles' kinds, capped in rows and columns.
 // The params of QueryLake: meridian.v1.QueryLakeRequest, less what the sidecar sets.
 message QueryLakeParams {
-  // `prices`, `bars`, `trades`, `quotes` or `outcomes`; a kind the asking
-  // role does not read is refused naming it.
+  // `prices`, `bars`, `trades`, `quotes` or `outcomes`, and from contract
+  // v27 `rates`; a kind the asking role does not read is refused naming it.
   string kind = 1;
 
   // At most 500.
@@ -3707,6 +3769,256 @@ message QueryLakeResult {
 
   // More rows matched than row_limit: the reply is cut at it, never paged.
   bool truncated = 9;
+
+  // Contract v27 (W10.10): rates, for a query of the kind `rates`.
+  repeated Rate rates = 10;
+}
+
+// 1 to 500 snapshots, every 10 seconds, to core's monitor.
+// The params of ReportLatency: meridian.v1.ReportLatencyRequest, less what the sidecar sets.
+message ReportLatencyParams {
+  repeated LatencySnapshot snapshots = 1;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of ReportLatency: meridian.v1.ReportLatencyReply.
+message ReportLatencyResult {
+  uint32 accepted = 1;
+}
+
+// A batch of rates, recorded whole or refused naming the item and field:
+// 1 to 500.
+// The params of RecordRates: meridian.v1.RecordRatesRequest, less what the sidecar sets.
+message RecordRatesParams {
+  repeated Rate rates = 1;
+
+  // The want these answer (W10.7), as delivered; empty for rows recorded
+  // unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordRates: meridian.v1.RecordObservationsReply.
+message RecordRatesResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Rates for subjects (W10.6), at one of: the latest in force at a valid
+// time; a business date; or a valid-time range. As of a recorded time, and
+// optionally as the source had published them by a time.
+// The params of ListRates: meridian.v1.ListRatesRequest, less what the sidecar sets.
+message ListRatesParams {
+  // 1 to 500.
+  repeated SubjectRef subjects = 1;
+
+  // Which kinds; empty for every kind.
+  repeated RateKind kinds = 2;
+
+  // Which tenors; empty for every tenor.
+  repeated Tenor tenors = 3;
+
+  SourceChoice sources = 4;
+
+  int64 at_ns = 5;
+
+  string business_date = 6;
+
+  int64 valid_from_ns = 7;
+
+  int64 valid_until_ns = 8;
+
+  // The recorded-time cut-off, 0 for now: what the lake knew then.
+  int64 as_of_ns = 9;
+
+  // Shared additions 1 and 2: what the source had published by this time,
+  // the version in force by published time among the rows recorded by
+  // as_of_ns; 0 reads by recorded time alone, the default and the audit
+  // answer.
+  int64 published_as_of_ns = 10;
+
+  // At most 500 rows, 100 when 0.
+  uint32 page_size = 11;
+
+  string cursor = 12;
+}
+
+// The result of ListRates: meridian.v1.ListRatesReply.
+message ListRatesResult {
+  repeated Rate rates = 1;
+
+  repeated Unanswered unanswered = 2;
+
+  repeated DatasetRef datasets = 3;
+
+  Watermark watermark = 4;
+
+  string next_cursor = 5;
+}
+
+// 1 to 500 liveness items.
+// The params of RecordLiveness: meridian.v1.RecordLivenessRequest, less what the sidecar sets.
+message RecordLivenessParams {
+  repeated DatasetLiveness liveness = 1;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of RecordLiveness: meridian.v1.RecordLivenessReply.
+message RecordLivenessResult {
+  // The items kept, each the latest for its dataset and venue.
+  uint32 kept = 1;
+}
+
+// One account's execution costs (W10.11): by execution, by order or by trade
+// date, as of a recorded time.
+// The params of ListExecutionCosts: meridian.v1.ListExecutionCostsRequest, less what the sidecar sets.
+message ListExecutionCostsParams {
+  // The account, within the reader's read scope.
+  string account_id = 1;
+
+  // At most 500; empty for every execution the other filters name.
+  repeated string execution_ids = 2;
+
+  string order_id = 3;
+
+  // ISO 8601: the executions traded on that date.
+  string trade_date = 4;
+
+  // Empty for every benchmark.
+  repeated TcaBenchmark benchmarks = 5;
+
+  int64 as_of_ns = 6;
+
+  // At most 500 rows, 100 when 0.
+  uint32 page_size = 7;
+
+  string cursor = 8;
+}
+
+// The result of ListExecutionCosts: meridian.v1.ListExecutionCostsReply.
+message ListExecutionCostsResult {
+  repeated ExecutionCost costs = 1;
+
+  string next_cursor = 2;
+}
+
+// W11.40 (contract v27): a dealer's quote received on the firm's RFQ
+// placement, recorded by its connectivity plugin; or a later outcome of one
+// recorded, named by its quote ID. Answered with PlacementReply.
+// The params of ReportPlacementQuote: meridian.v1.ReportPlacementQuoteRequest, less what the sidecar sets.
+message ReportPlacementQuoteParams {
+  string placement_id = 1;
+
+  // Empty to record a new quote, which the book mints an ID for; a quote's
+  // ID to record its later outcome.
+  string quote_id = 2;
+
+  string dealer_id = 3;
+
+  string dealer_quote_id = 4;
+
+  Side side = 5;
+
+  optional Money price = 6;
+
+  optional Decimal quantity = 7;
+
+  int64 received_at_ns = 8;
+
+  int64 valid_until_ns = 9;
+
+  PlacementQuoteOutcome outcome = 10;
+
+  RawRecordRef raw_record = 11;
+
+  string idempotency_key = 12;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of ReportPlacementQuote: meridian.v1.PlacementReply.
+message ReportPlacementQuoteResult {
+  Placement placement = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  string change_request_id = 4;
+}
+
+// W11.41 (contract v27): the `ems` picks one open quote on an RFQ placement
+// it made. Answered with PlacementReply.
+// The params of PickPlacementQuote: meridian.v1.PickPlacementQuoteRequest, less what the sidecar sets.
+message PickPlacementQuoteParams {
+  string placement_id = 1;
+
+  string quote_id = 2;
+
+  string reason = 3;
+
+  string idempotency_key = 4;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// The result of PickPlacementQuote: meridian.v1.PlacementReply.
+message PickPlacementQuoteResult {
+  Placement placement = 1;
+
+  EntryMeta entry = 2;
+
+  JournalRef journal = 3;
+
+  string change_request_id = 4;
 }
 
 // What a plugin asks to hear. A row it names that no role it holds hears
@@ -3806,6 +4118,10 @@ message Delivery {
     JobFinishedEvent job_finished = 43;
     // W3.30: platform.reference.event.event-group-changed.
     EventGroup event_group_changed = 44;
+    // W10.5: platform.lake.{dataset}.event.rates-recorded.
+    RatesRecordedEvent rates_recorded = 45;
+    // W10.5: platform.lake.{dataset}.event.liveness-recorded.
+    LivenessRecordedEvent liveness_recorded = 46;
   }
 }
 
@@ -4844,6 +5160,11 @@ enum AssetClass {
   ASSET_CLASS_EVENT_CONTRACT = 6;
   // A holding of a currency's cash instrument (spec/the-account-side-fits-every-venue).
   ASSET_CLASS_CASH = 7;
+  // Contract v27 (W1.1; spec/a-public-rates-and-filings-data-plugin, Q3):
+  // what the lake observes and nobody holds -- an interest rate, a rate
+  // curve, an index -- following ISO 10962's category T. Never held: W9
+  // refuses a position in one.
+  ASSET_CLASS_REFERENTIAL = 8;
 }
 
 // What kind of instrument within its asset class (contract v11; the product
@@ -4865,6 +5186,15 @@ enum InstrumentType {
   // BinaryEventContract. A venue's YES and NO tokens are two instruments,
   // each one.
   INSTRUMENT_TYPE_BINARY_EVENT_CONTRACT = 2;
+  // Under referential (contract v27; the rates slice): a reference rate --
+  // SOFR, EFFR, €STR, an average, a bound of the FOMC range.
+  INSTRUMENT_TYPE_INTEREST_RATE = 3;
+  // Under referential (contract v27): a rate curve, one record whose points
+  // are the lake's rows by tenor -- Treasury's par curves, the Board's zero
+  // curve.
+  INSTRUMENT_TYPE_RATE_CURVE = 4;
+  // Under referential (contract v27): an index -- the SOFR Index.
+  INSTRUMENT_TYPE_INDEX = 5;
 }
 
 // Why a resolution did not produce exactly one instrument; on a conflict
@@ -5578,6 +5908,31 @@ message Lot {
 
   // Its position's sleeve (contract v22); empty for the unsleeved part.
   string sleeve = 8;
+
+  // Contract v27 (W9.10; rulings 320 and 396): each relief of the lot, in
+  // order, with what the quantity relieved was sold for, so a reader
+  // computes realized P&L; the book stores nothing derived. Empty for a lot
+  // never relieved, and for a relief before v27 the upgrade could not
+  // backfill from its execution.
+  repeated LotRelief reliefs = 9;
+}
+
+// One relief of a lot (contract v27; W9.10).
+// A mirror of meridian.v1.LotRelief.
+message LotRelief {
+  // The entry that relieved it, also listed in Lot.relieved_by.
+  JournalRef relieved_by = 1;
+
+  // The quantity relieved, positive.
+  Decimal quantity = 2;
+
+  // What that quantity was sold for, in the execution's asset, fees apart
+  // as the execution states them; unset for a relief with no execution
+  // behind it (a transfer out, a correction), never zero.
+  Money proceeds = 3;
+
+  // ISO 8601: the execution's trade date; empty with no execution.
+  string trade_date = 4;
 }
 
 // One encumbrance of a position, as the book holds it.
@@ -6126,7 +6481,8 @@ enum OrderType {
   ORDER_TYPE_LIMIT = 2;
   ORDER_TYPE_STOP = 3;
   ORDER_TYPE_STOP_LIMIT = 4;
-  // An RFQ order: its quotes and outcomes are slice C's, on its placement.
+  // An RFQ order: from contract v27 its quotes and outcomes are on its RFQ
+  // placement (W11.40, W11.41), the buy side as initiator only.
   ORDER_TYPE_REQUEST_FOR_QUOTE = 5;
 }
 
@@ -6272,7 +6628,8 @@ enum ReceiptQuoteSourceKind {
   RECEIPT_QUOTE_SOURCE_KIND_VENUE = 2;
 }
 
-// The split link on a child order (W11.1; Q41).
+// The link on a child order (W11.1; Q41), or, from contract v27, on a
+// member of a net order, naming the net as its parent.
 // A mirror of meridian.v1.OrderLink.
 message OrderLink {
   OrderLinkKind kind = 1;
@@ -6280,14 +6637,19 @@ message OrderLink {
   string parent_order_id = 2;
 }
 
-// The one named link in v22 (W11.1; step 5's link 1, Q6; the refresh's
-// Q41). Block, allocation, street order, two-way quote, alternatives and
-// basket join with their slices.
+// The named links (W11.1; step 5's link 1, Q6; the refresh's Q41): split
+// from v22, net from v27. Allocation, street order, two-way quote,
+// alternatives and basket join with their slices; a block names its members
+// on the block order (v24).
 // A mirror of meridian.v1.OrderLinkKind.
 enum OrderLinkKind {
   ORDER_LINK_KIND_UNSPECIFIED = 0;
   // A child order an `ems` (or the `oms`) worked out of its parent.
   ORDER_LINK_KIND_SPLIT = 1;
+  // Contract v27 (W11.1; the gaps spec's D2): a member of a net order, set
+  // by the book on each member when the `oms` proposes the net, naming it
+  // as the parent.
+  ORDER_LINK_KIND_NET = 2;
 }
 
 // The standard execution instructions (step 6's requirement 12; FIX's
@@ -6405,7 +6767,7 @@ message Order {
   // The orders a firm's order represents, recorded and not checked (Q37).
   repeated string represents_order_ids = 27;
 
-  // Slice C's, carried empty until it lands (the refresh's Q34): the axe an
+  // Slice C's sell side, carried empty, not v27's (the refresh's Q34): the axe an
   // order was made from in the lake, its source and counterparty.
   string axe_source = 28;
 
@@ -6448,6 +6810,16 @@ message Order {
   // Contract v24 (W11.33): each sleeve cross that filled the order; its
   // filled quantity counts each, and no execution is minted for one.
   repeated string sleeve_cross_ids = 46;
+
+  // Contract v27 (W11.1; the gaps spec's D2): on a net order, its members
+  // as proposed -- released FX orders of one pair and one value date, of
+  // both sides, each in no other live block or net. Empty on any other
+  // order.
+  repeated string net_member_order_ids = 47;
+
+  // Contract v27 (W11.1): the date an FX order settles on, as `portfolio`
+  // states it (FIX's SettlDate, 64), ISO 8601; empty is spot.
+  string value_date = 48;
 }
 
 // The people on an order, a placement or an entered execution (requirement
@@ -6525,6 +6897,13 @@ message StandingOrderCondition {
 
   // On does not tie out: why.
   TieOutReason tie_out_reason = 5;
+
+  // Contract v27 (W11.7): on held, its typed cause, and for a stale
+  // reference price the dataset, its age and the ceiling; unspecified and
+  // unset on any other condition, and on a hold with no typed cause.
+  HoldCause hold_cause = 6;
+
+  StaleReference stale_reference = 7;
 }
 
 // The nine conditions an order holds beside its state, each with its reason
@@ -6573,6 +6952,32 @@ enum TieOutReason {
   TIE_OUT_REASON_OVERFILL = 1;
   // A restatement past the order's intent.
   TIE_OUT_REASON_RESTATEMENT = 2;
+}
+
+// Contract v27 (W11.7; spec/sessions-and-data-report-their-latency-and-quality,
+// rulings 374 and 420): why an order is held, typed, beside the words.
+// A mirror of meridian.v1.HoldCause.
+enum HoldCause {
+  // A hold with no typed cause, as every hold before v27.
+  HOLD_CAUSE_UNSPECIFIED = 0;
+  // The `ems`'s reference price was past its stale ceiling at its
+  // pre-trade check, its admin having chosen to refuse.
+  HOLD_CAUSE_REFERENCE_PRICE_STALE = 1;
+}
+
+// A reference price found past its ceiling at an `ems`'s pre-trade check
+// (contract v27; W11.7, W11.8).
+// A mirror of meridian.v1.StaleReference.
+message StaleReference {
+  // The dataset the price came from, `instance:key`.
+  string dataset = 1;
+
+  // How old the price's confirmed time was at the check.
+  int64 age_ns = 2;
+
+  // The ceiling in force: the tighter of the dataset's and the `ems`
+  // admin's own.
+  int64 ceiling_ns = 3;
 }
 
 // The quantities, derived; idle may go negative, shown, never refused (Q3).
@@ -6764,7 +7169,7 @@ message Placement {
 
   repeated string handling_instructions = 15;
 
-  // Slice C's, carried empty until it lands (the refresh's Q34): the RFQ a
+  // Slice C's sell side, carried empty, not v27's (the refresh's Q34): the RFQ a
   // placement answers, as FIX's QuoteID (tag 117), and the axe, as FIX's
   // IOIID (tag 23).
   string rfq_id = 16;
@@ -6797,6 +7202,28 @@ message Placement {
   // its outcome (W11.9; approved 2026-10-13), so its connectivity plugin
   // hears each on the placement. The order's stay on the order.
   repeated ChangeRequest change_requests = 26;
+
+  // Contract v27 (W11.8; the gaps spec's B1): how it is executed, set by
+  // the `ems` at its creation and never changed; unspecified is read as
+  // DMA.
+  PlacementType placement_type = 27;
+
+  // Contract v27 (W11.8; B5): a manual placement's trade details, its
+  // evidence and not street data -- the counterparty's contact as the
+  // person states it, and the time agreed with its precision. Empty on any
+  // other type.
+  string counterparty_contact = 28;
+
+  int64 agreed_at_ns = 29;
+
+  TimePrecision agreed_precision = 30;
+
+  // Contract v27 (W11.40, W11.41; slice C's buy side): the dealers' quotes
+  // received on an RFQ placement, each with its outcome, and the one the
+  // `ems` picked. Empty on any other type.
+  repeated PlacementQuote quotes = 31;
+
+  string picked_quote_id = 32;
 }
 
 // A strategy for the venue to work (step 6's Q11): the kinds name which of
@@ -6894,6 +7321,10 @@ message StandingPlacementCondition {
   UnknownReason unknown_reason = 4;
 
   AsReported status_as_reported = 5;
+
+  // Contract v27 (W11.8): on sent on a stale reference, what the `ems`'s
+  // check found.
+  StaleReference stale_reference = 6;
 }
 
 // The conditions a placement holds beside its state.
@@ -6907,6 +7338,10 @@ enum PlacementCondition {
   PLACEMENT_CONDITION_SUSPENDED = 3;
   // Held at the venue until a stop or a condition triggers.
   PLACEMENT_CONDITION_AWAITING_TRIGGER = 4;
+  // Contract v27 (W11.8): sent while its reference price was past its
+  // ceiling, the `ems` admin having chosen to warn; its StaleReference on
+  // the condition. A record of the warning, never a refusal.
+  PLACEMENT_CONDITION_SENT_ON_STALE_REFERENCE = 5;
 }
 
 // Why a placement's outcome is unknown (requirement 20).
@@ -6931,6 +7366,82 @@ enum RejectionReason {
   REJECTION_REASON_VENUE_REJECTED = 2;
   // The connectivity plugin's own market-access check (Q18).
   REJECTION_REASON_HELD_BY_PRE_TRADE_CHECK = 3;
+}
+
+// Contract v27 (W11.8; spec/the-contract-gaps-v26-and-v27-close, B1 to B9):
+// how a placement is executed, set by the `ems` at its creation and never
+// changed, as FIX's HandlInst (21) is fixed for an order's life.
+// Unspecified is read as DMA: a placement from v22 to v26, never backfilled.
+// A mirror of meridian.v1.PlacementType.
+enum PlacementType {
+  PLACEMENT_TYPE_UNSPECIFIED = 0;
+  // Direct market access: HandlInst 1 at the edge; carries no strategy.
+  PLACEMENT_TYPE_DMA = 1;
+  // A broker's algorithm: HandlInst 1 or 2 with its strategy, which it
+  // requires.
+  PLACEMENT_TYPE_ALGO = 2;
+  // Worked by a broker: HandlInst 3 with ExecInst Not held; carries no
+  // strategy.
+  PLACEMENT_TYPE_CARE = 3;
+  // A request for quote: a QuoteRequest, then the picked quote hit as
+  // OrdType D (Previously quoted) with its QuoteID; the only type an order
+  // of ORDER_TYPE_REQUEST_FOR_QUOTE takes.
+  PLACEMENT_TYPE_RFQ = 4;
+  // Agreed by phone or chat: names no connectivity instance, delivered to
+  // none, its fills the `ems`'s manual entries for a person.
+  PLACEMENT_TYPE_MANUAL = 5;
+}
+
+// One dealer's quote received on the firm's RFQ placement (contract v27;
+// W11.40; requirement 50): a trade detail in the book, the buy side's
+// best-execution record, never copied into the lake.
+// A mirror of meridian.v1.PlacementQuote.
+message PlacementQuote {
+  // `PQT-` and a ULID, minted by the book, never reused.
+  string quote_id = 1;
+
+  // The dealer, the venue master's `VEN-` ID.
+  string dealer_id = 2;
+
+  // The dealer's own QuoteID (FIX 117), as delivered: an external
+  // reference, never a key.
+  string dealer_quote_id = 3;
+
+  // The side the dealer quoted to the firm: its offer to a buyer, its bid
+  // to a seller.
+  Side side = 4;
+
+  Money price = 5;
+
+  Decimal quantity = 6;
+
+  int64 received_at_ns = 7;
+
+  // Its ValidUntilTime (FIX 62); 0 when unstated.
+  int64 valid_until_ns = 8;
+
+  PlacementQuoteOutcome outcome = 9;
+
+  RawRecordRef raw_record = 10;
+}
+
+// Contract v27 (W11.40): what became of a dealer's quote on an RFQ placement.
+// A mirror of meridian.v1.PlacementQuoteOutcome.
+enum PlacementQuoteOutcome {
+  PLACEMENT_QUOTE_OUTCOME_UNSPECIFIED = 0;
+  // Received and standing.
+  PLACEMENT_QUOTE_OUTCOME_OPEN = 1;
+  // Picked by the `ems` (W11.41); the acceptance not yet confirmed.
+  PLACEMENT_QUOTE_OUTCOME_PICKED = 2;
+  // Accepted at the venue; its fill is reported as on any placement.
+  PLACEMENT_QUOTE_OUTCOME_ACCEPTED = 3;
+  // Past its valid-until time, or ended by the venue, unpicked or before
+  // the acceptance.
+  PLACEMENT_QUOTE_OUTCOME_EXPIRED = 4;
+  // Withdrawn by its dealer.
+  PLACEMENT_QUOTE_OUTCOME_WITHDRAWN = 5;
+  // Another quote was accepted.
+  PLACEMENT_QUOTE_OUTCOME_NOT_PICKED = 6;
 }
 
 // An execution, never edited (W11.11): a bust or a correction is another,
@@ -7046,6 +7557,10 @@ message Execution {
   // Contract v24 (W11.32): each prime's answer to a give-up of the
   // execution, in the order recorded; a rejection moves no position.
   repeated GiveUpRecord give_up_answers = 41;
+
+  // Contract v27 (W11.11; the gaps spec's D4): on an internal cross of a
+  // net order, which convention set its rate; unspecified on any other.
+  CrossRateSource cross_rate_source = 42;
 
   // Retired in the domain message, and never reused.
   reserved 25;
@@ -7194,6 +7709,18 @@ enum GiveUpAnswer {
   GIVE_UP_ANSWER_ACCEPTED = 1;
   // The trade stays with the executing side; no position moves.
   GIVE_UP_ANSWER_REJECTED = 2;
+}
+
+// Contract v27 (W11.11; the gaps spec's D4): which convention set an
+// internal cross's rate on a net order. Core supports both; the plugin
+// chooses.
+// A mirror of meridian.v1.CrossRateSource.
+enum CrossRateSource {
+  CROSS_RATE_SOURCE_UNSPECIFIED = 0;
+  // The net's street rate for every member: the platforms' allocate-back.
+  CROSS_RATE_SOURCE_NET_STREET_RATE = 1;
+  // The mid at the netting moment.
+  CROSS_RATE_SOURCE_MID_AT_NETTING = 2;
 }
 
 // A fee with no fill, on its placement (W11.12): it moves cash, pending to
@@ -7417,6 +7944,11 @@ message ReportExecutionRequest {
   string venue_order_id = 34;
 
   string venue_client_order_id = 35;
+
+  // Contract v27 (W11.11): on the `oms`'s internal cross of a net order,
+  // which convention set its rate; refused INVALID_ARGUMENT naming it where
+  // missing on such a cross, or set on any other execution.
+  CrossRateSource cross_rate_source = 36;
 
   // Retired in the domain message, and never reused.
   reserved 22;
@@ -7701,6 +8233,12 @@ message VenueCatalogue {
   // connection is demo only while its setting and this both say `sandbox`
   // or `paper`.
   string environment = 7;
+
+  // Contract v27 (W11.20; the gaps spec's B4): the placement types the
+  // venue takes beside its order types; one not listed is rejected
+  // unsupported by the connectivity plugin. Empty, as a v26 catalogue is,
+  // reads as DMA alone.
+  repeated PlacementType placement_types = 8;
 }
 
 // An order type the venue offers, with the times in force it takes.
@@ -8212,6 +8750,48 @@ message CalendarSource {
   string address = 3;
 
   int64 read_at_ns = 4;
+}
+
+// A venue's trading sessions (contract v27; W1.20, W3.19; ruling 419): the
+// minimal kind staleness needs, sessions a day in local time.
+// A mirror of meridian.v1.TradingSessions.
+message TradingSessions {
+  // IANA.
+  string time_zone = 1;
+
+  repeated TradingSession sessions = 2;
+
+  // Each day whose sessions differ: an early close, a late open, a day
+  // closed; an early close announced later is a new version.
+  repeated TradingSessionDay early_closes = 3;
+}
+
+// One session, on the weekdays it runs.
+// A mirror of meridian.v1.TradingSession.
+message TradingSession {
+  repeated Weekday weekdays = 1;
+
+  // Minutes after local midnight: the start, and the end, exclusive, at most
+  // 1440.
+  uint32 start_minute = 2;
+
+  uint32 end_minute = 3;
+
+  // An extended session: pre-market or after-hours.
+  bool extended = 4;
+}
+
+// One dated day's sessions, in place of the weekday's.
+// A mirror of meridian.v1.TradingSessionDay.
+message TradingSessionDay {
+  // ISO 8601, a plain date.
+  string date = 1;
+
+  // None for a day closed.
+  repeated TradingSession sessions = 2;
+
+  // A source_id among the version's sources.
+  string source = 3;
 }
 
 // W3.20: an instrument's settlement date by its market's rule.
@@ -8819,6 +9399,11 @@ message Outcome {
 
   // The venue's own word for the determination, as reported.
   AsReported determination_as_reported = 6;
+
+  // Contract v27 (W10.4; the options and event contracts spec's G1): when a
+  // proposed outcome's challenge window ends, as the venue reports it; 0
+  // when not stated. Never derived by core.
+  int64 challenge_ends_at_ns = 7;
 }
 
 // What an event contract's instrument pays (the lake plan's "vL1c", item 1).
@@ -8933,6 +9518,18 @@ message DatasetRef {
   uint64 closed_day_count = 8;
 
   uint64 outside_coverage_count = 9;
+
+  // Contract v27 (W10.9; rulings 369 and 417): the dataset's declared
+  // delay, from its catalogue, 0 for real time; and its stale ceiling, the
+  // data plugin admin's `stale_after` for it, 0 when none is set. Set in a
+  // listing and in every read's answer.
+  int64 declared_delay_ns = 10;
+
+  int64 stale_after_ns = 11;
+
+  // Contract v27 (W10.9; ruling 418): in a listing, the latest liveness the
+  // lake keeps for the dataset, one per venue; empty in a read's answer.
+  repeated DatasetLiveness liveness = 12;
 }
 
 // One dataset a data plugin serves. Its identity in a deployment is the instance
@@ -8993,6 +9590,12 @@ message DatasetDeclaration {
   // ruled 2026-10-12), recorded as reported and never refused. Empty names
   // none, as before.
   string calendar_id = 12;
+
+  // Its declared delay (W10.1; contract v27, rulings 368, 369 and 382): how
+  // far behind real time the vendor serves it, its staleness and its edge
+  // age judged against the delay plus the ceiling. 0 for real time. One
+  // dataset per timeliness.
+  int64 declared_delay_ns = 13;
 }
 
 // How a dataset's rows arrive (the lake intent's Q9 and Q10).
@@ -9025,9 +9628,15 @@ message DatasetLicence {
   // 36,500.
   uint32 retention_days = 3;
 
-  // Whether data derived from it may be made, and shown.
+  // Whether data derived from it may be made. Deprecated from contract v27
+  // (ruling 479), kept for one release: the terms' three answers are
+  // derived_use_terms. A reader finding derived_use_terms unspecified reads
+  // this, false as internal_only and true as not_restricted (ruling 180);
+  // a v27 writer sets both.
   bool derived_use = 4;
 
+  // Whether it may be shown. From contract v27 read as `meters` containing
+  // `display`, for one release, then retired.
   bool display = 5;
 
   // The fields readable by default, by their dictionary entries; empty for
@@ -9054,6 +9663,266 @@ message DatasetLicence {
   // The prepared change it was set from, where a person made it from one
   // (W6.27, W4.9; contract v20): empty otherwise, and before v20.
   string prepared_call_id = 13;
+
+  // §1a: the version of the platform's standard terms filled in; the basis;
+  // the timeliness and its delay, with the label shown beside every value;
+  // the licensing source behind the vendor, where one is.
+  string terms_version = 14;
+
+  AccessBasis access_basis = 15;
+
+  Timeliness timeliness = 16;
+
+  uint32 delay_minutes = 17;
+
+  string delay_label = 18;
+
+  string underlying_source = 19;
+
+  // §1b: the meters that apply, empty unless the basis is licensed, and how
+  // each counts.
+  repeated LicenceMeter meters = 20;
+
+  DisplayTerms display_terms = 21;
+
+  NonDisplayTerms non_display = 22;
+
+  EnterpriseTerms enterprise = 23;
+
+  // §1c: use rights. The derived-data answer, which replaces the boolean
+  // derived_use (ruling 479).
+  DerivedUse derived_use_terms = 36;
+
+  optional bool derived_multi_instrument_free = 24;
+
+  bool derived_creation_is_non_display = 25;
+
+  Redistribution redistribution = 26;
+
+  OutsideComputation outside_computation = 27;
+
+  repeated ProhibitedUse prohibited_uses = 28;
+
+  // §1d: attribution, which travels with the data into pages, exports and
+  // MCP answers.
+  bool attribution_required = 29;
+
+  string attribution_text = 30;
+
+  CopyrightClass copyright_class = 31;
+
+  bool no_more_restrictive_terms = 32;
+
+  string not_affiliated_notice = 33;
+
+  // §1e: the reporting owed to the vendor, which the deployment produces and
+  // never sends.
+  ReportCadence report_cadence = 34;
+
+  uint32 report_due_day = 35;
+}
+
+// A mirror of meridian.v1.AccessBasis.
+enum AccessBasis {
+  ACCESS_BASIS_UNSPECIFIED = 0;
+  // Meters apply.
+  ACCESS_BASIS_LICENSED = 1;
+  // Free; conditions may apply.
+  ACCESS_BASIS_OPEN = 2;
+  ACCESS_BASIS_PUBLIC_DOMAIN = 3;
+}
+
+// A mirror of meridian.v1.Timeliness.
+enum Timeliness {
+  TIMELINESS_UNSPECIFIED = 0;
+  TIMELINESS_REAL_TIME = 1;
+  TIMELINESS_DELAYED = 2;
+  TIMELINESS_END_OF_DAY = 3;
+  TIMELINESS_HISTORICAL = 4;
+}
+
+// A mirror of meridian.v1.LicenceMeter.
+enum LicenceMeter {
+  LICENCE_METER_UNSPECIFIED = 0;
+  // Counts persons (or devices).
+  LICENCE_METER_DISPLAY = 1;
+  // Counts plugins (or categories).
+  LICENCE_METER_NON_DISPLAY = 2;
+  // A flat fee per deployment.
+  LICENCE_METER_ENTERPRISE = 3;
+}
+
+// The display meter's terms (§1b).
+// A mirror of meridian.v1.DisplayTerms.
+message DisplayTerms {
+  DisplayUnit unit = 1;
+
+  CountBasis count_basis = 2;
+
+  // Separate professional and non-professional prices.
+  bool professional_split = 3;
+
+  ProfessionalDefinition professional_definition = 4;
+}
+
+// A mirror of meridian.v1.DisplayUnit.
+enum DisplayUnit {
+  DISPLAY_UNIT_UNSPECIFIED = 0;
+  DISPLAY_UNIT_PERSON = 1;
+  DISPLAY_UNIT_DEVICE = 2;
+}
+
+// The population the vendor bills on.
+// A mirror of meridian.v1.CountBasis.
+enum CountBasis {
+  COUNT_BASIS_UNSPECIFIED = 0;
+  COUNT_BASIS_SERVED = 1;
+  COUNT_BASIS_ENTITLED = 2;
+}
+
+// A mirror of meridian.v1.ProfessionalDefinition.
+enum ProfessionalDefinition {
+  PROFESSIONAL_DEFINITION_UNSPECIFIED = 0;
+  // The platform's one text, on the CT Plan's use-based test.
+  PROFESSIONAL_DEFINITION_STANDARD = 1;
+  // The vendor's, with a link.
+  PROFESSIONAL_DEFINITION_VENDOR = 2;
+}
+
+// The non-display meter's terms (§1b).
+// A mirror of meridian.v1.NonDisplayTerms.
+message NonDisplayTerms {
+  repeated NonDisplayCategory categories = 1;
+
+  NonDisplayCount counts = 2;
+
+  // One natural person's own automated use is free.
+  bool personal_exempt = 3;
+}
+
+// By name, never number: the plans number them differently.
+// A mirror of meridian.v1.NonDisplayCategory.
+enum NonDisplayCategory {
+  NON_DISPLAY_CATEGORY_UNSPECIFIED = 0;
+  // Matching or crossing.
+  NON_DISPLAY_CATEGORY_TRADING_PLATFORM = 1;
+  NON_DISPLAY_CATEGORY_AUTOMATED_TRADING = 2;
+  NON_DISPLAY_CATEGORY_INTERNAL = 3;
+  NON_DISPLAY_CATEGORY_FOR_CLIENTS = 4;
+}
+
+// A mirror of meridian.v1.NonDisplayCount.
+enum NonDisplayCount {
+  NON_DISPLAY_COUNT_UNSPECIFIED = 0;
+  NON_DISPLAY_COUNT_PER_PLUGIN = 1;
+  // One fee per category, whatever the number of plugins.
+  NON_DISPLAY_COUNT_PER_CATEGORY = 2;
+}
+
+// The enterprise meter's terms (§1b).
+// A mirror of meridian.v1.EnterpriseTerms.
+message EnterpriseTerms {
+  repeated EnterpriseReplaces replaces = 1;
+
+  EnterpriseForm form = 2;
+
+  EnterpriseScope scope = 3;
+
+  // Whether counts are no longer owed to the vendor; the deployment counts
+  // regardless.
+  bool reporting_waived = 4;
+}
+
+// A mirror of meridian.v1.EnterpriseReplaces.
+enum EnterpriseReplaces {
+  ENTERPRISE_REPLACES_UNSPECIFIED = 0;
+  ENTERPRISE_REPLACES_DISPLAY_PROFESSIONAL = 1;
+  ENTERPRISE_REPLACES_DISPLAY_NON_PROFESSIONAL = 2;
+  ENTERPRISE_REPLACES_NON_DISPLAY = 3;
+}
+
+// A mirror of meridian.v1.EnterpriseForm.
+enum EnterpriseForm {
+  ENTERPRISE_FORM_UNSPECIFIED = 0;
+  ENTERPRISE_FORM_FLAT = 1;
+  // The most the per-unit fees can sum to.
+  ENTERPRISE_FORM_CAP = 2;
+}
+
+// A mirror of meridian.v1.EnterpriseScope.
+enum EnterpriseScope {
+  ENTERPRISE_SCOPE_UNSPECIFIED = 0;
+  ENTERPRISE_SCOPE_DEPLOYMENT = 1;
+}
+
+// A mirror of meridian.v1.DerivedUse.
+enum DerivedUse {
+  // Not stated: read the deprecated boolean derived_use, false as
+  // internal_only and true as not_restricted.
+  DERIVED_USE_UNSPECIFIED = 0;
+  DERIVED_USE_NOT_RESTRICTED = 1;
+  DERIVED_USE_INTERNAL_ONLY = 2;
+  DERIVED_USE_REDISTRIBUTION_NEEDS_LICENCE = 3;
+}
+
+// A mirror of meridian.v1.Redistribution.
+enum Redistribution {
+  REDISTRIBUTION_UNSPECIFIED = 0;
+  REDISTRIBUTION_NOT_ALLOWED = 1;
+  REDISTRIBUTION_LICENCE_REQUIRED = 2;
+  REDISTRIBUTION_ALLOWED_WITH_ATTRIBUTION = 3;
+}
+
+// A mirror of meridian.v1.OutsideComputation.
+enum OutsideComputation {
+  OUTSIDE_COMPUTATION_UNSPECIFIED = 0;
+  OUTSIDE_COMPUTATION_ALLOWED = 1;
+  // Only inside one person's request, served uncached.
+  OUTSIDE_COMPUTATION_PER_REQUEST_NO_RETENTION = 2;
+  OUTSIDE_COMPUTATION_NOT_ALLOWED = 3;
+}
+
+// A mirror of meridian.v1.ProhibitedUse.
+enum ProhibitedUse {
+  PROHIBITED_USE_UNSPECIFIED = 0;
+  PROHIBITED_USE_MODEL_TRAINING = 1;
+  PROHIBITED_USE_REPLICATE_SERVICE = 2;
+  PROHIBITED_USE_INDEX_CREATION = 3;
+}
+
+// A mirror of meridian.v1.CopyrightClass.
+enum CopyrightClass {
+  COPYRIGHT_CLASS_UNSPECIFIED = 0;
+  COPYRIGHT_CLASS_PUBLIC_DOMAIN = 1;
+  COPYRIGHT_CLASS_COPYRIGHT_CITATION_REQUIRED = 2;
+  COPYRIGHT_CLASS_COPYRIGHT_PREAPPROVAL_REQUIRED = 3;
+}
+
+// A mirror of meridian.v1.ReportCadence.
+enum ReportCadence {
+  REPORT_CADENCE_UNSPECIFIED = 0;
+  REPORT_CADENCE_NONE = 1;
+  REPORT_CADENCE_MONTHLY = 2;
+  REPORT_CADENCE_ANNUAL_DECLARATION = 3;
+  REPORT_CADENCE_ON_CHANGE = 4;
+}
+
+// A dataset's latest sign of life: its source's heartbeat or poll, which
+// confirms the values in force. Not a row, and never kept as one.
+// A mirror of meridian.v1.DatasetLiveness.
+message DatasetLiveness {
+  // A dataset the recording instance declares, `instance:key`.
+  string dataset = 1;
+
+  // The venue it is for, the venue master's ID; empty for the dataset's
+  // consolidated view.
+  string venue_id = 2;
+
+  // The source's last heartbeat or poll, on the one clock.
+  int64 alive_at_ns = 3;
+
+  // The recording instance, stamped by its sidecar.
+  string instance = 4;
 }
 
 // A plugin instance's entitlement to a dataset, as the conductor keeps it
@@ -9106,6 +9975,17 @@ message Job {
 
   // Trades added to one account's positions (W12.5); unset for none.
   WhatIf what_if = 4;
+
+  // Contract v27 (W12.1; ruling 458): a business date, ISO 8601 in the
+  // deployment's time zone -- the book at that date's end, the lake at that
+  // date's closes; empty for now. Refused beside inputs.book_at or
+  // inputs.lake_as_of_ns, and for a date after today's.
+  string business_date = 5;
+
+  // Contract v27 (W12.1; ruling 459): the cash instrument the figures are
+  // converted to, by its `INS-` ID; empty answers each account in its base
+  // currency.
+  string reporting_currency = 6;
 }
 
 // A job's inputs, by reference (requirement 3): one watermark and one as-of
@@ -9128,7 +10008,8 @@ message InputRefs {
 message MeasureRef {
   // A definition the component serves: `market_value`, `exposure`,
   // `concentration`, `pnl`, `historical_var`, `expected_shortfall`,
-  // `resolution_payoff`, `implied_distribution` in v26.
+  // `resolution_payoff`, `implied_distribution` in v26; from v27 `pnl`
+  // version 2 (realized beside unrealized) and `execution_cost`.
   string definition = 1;
 
   // Its version, 1 or more.
@@ -9209,6 +10090,10 @@ message Figure {
 
   // How it was computed: exact in v26, model from v28.
   ComputedAs computed_as = 9;
+
+  // Contract v27 (W12.2; ruling 374): its oldest input's source time; 0 for
+  // a figure that read no market data.
+  int64 oldest_input_source_ns = 10;
 }
 
 // A figure's place in one breakdown.
@@ -9283,6 +10168,13 @@ message NotEvaluated {
   // The dataset not entitled, the implementation unavailable, or the
   // scheme not held, where the reason names one.
   string detail = 5;
+
+  // Contract v27 (W12.2; ruling 374): on a stale price, its age at the
+  // job's as-of and the ceiling in force, the tighter of the dataset's and
+  // the client's; 0 on any other reason.
+  int64 age_ns = 6;
+
+  int64 ceiling_ns = 7;
 }
 
 // A mirror of meridian.v1.NotEvaluatedReason.
@@ -9309,6 +10201,9 @@ enum NotEvaluatedReason {
   NOT_EVALUATED_REASON_GROUP_NOT_EXHAUSTIVE = 8;
   // History too short or too sparse for the definition's window.
   NOT_EVALUATED_REASON_HISTORY_INSUFFICIENT = 9;
+  // Contract v27 (W12.2; ruling 325): a lot's cost the book does not
+  // record, which the measure needs.
+  NOT_EVALUATED_REASON_COST_MISSING = 10;
 }
 
 // What an answer was computed from (requirements 4 and 35; Q7). Named so it
@@ -9341,6 +10236,16 @@ message AnswerProvenance {
   // `sha256:` and the hex of SHA-256 over the RFC 8785 canonical JSON of
   // the inputs: two answers with the same hash are the same answer.
   string answer_hash = 10;
+
+  // Contract v27 (W12.7): the job's business date, where it had one.
+  string business_date = 11;
+
+  // Contract v27 (W12.7; ruling 460): each position's input price.
+  repeated InputPrice input_prices = 12;
+
+  // Contract v27 (W12.7; ruling 462): each conversion leg, direct or
+  // derived, with the pivot a cross went through.
+  repeated ConversionLeg conversion_legs = 13;
 }
 
 // One instrument a job read, by its record's and template's versions.
@@ -9380,6 +10285,58 @@ message EventGroupInput {
   string event_group_id = 1;
 
   int64 version = 2;
+}
+
+// One position's input price (contract v27; ruling 460).
+// A mirror of meridian.v1.InputPrice.
+message InputPrice {
+  string instrument_id = 1;
+
+  Money price = 2;
+
+  // The lake row it came from: its dataset, row key and version.
+  string dataset = 3;
+
+  string row_key = 4;
+
+  uint64 version = 5;
+
+  // Its source time: the `event` time where present, else the earliest.
+  int64 source_ns = 6;
+}
+
+// One conversion leg (contract v27; ruling 462): from one cash instrument to
+// another, at a rate, direct from the lake or derived from it.
+// A mirror of meridian.v1.ConversionLeg.
+message ConversionLeg {
+  string from_instrument_id = 1;
+
+  string to_instrument_id = 2;
+
+  // Units of `to` per unit of `from`; an inverted rate is 1 ÷ x rounded half
+  // to even to 18 places.
+  Decimal rate = 3;
+
+  ConversionDerivation derivation = 4;
+
+  // A cross's pivot, by its cash instrument's ID; empty otherwise.
+  string via_instrument_id = 5;
+
+  // The dataset the lake's rate came from.
+  string dataset = 6;
+}
+
+// How a conversion leg's rate was found (contract v27; ruling 462). Never
+// for a crypto or stablecoin leg, which converts by its own lake price.
+// A mirror of meridian.v1.ConversionDerivation.
+enum ConversionDerivation {
+  CONVERSION_DERIVATION_UNSPECIFIED = 0;
+  // The lake's rate in the leg's direction.
+  CONVERSION_DERIVATION_DIRECT = 1;
+  // The lake's rate the other way, inverted.
+  CONVERSION_DERIVATION_INVERTED = 2;
+  // Through a pivot, by the deployment's pivot order.
+  CONVERSION_DERIVATION_CROSSED = 3;
 }
 
 // A measure's versioned definition (requirements 14 to 17; Q15): shipped
@@ -9477,6 +10434,9 @@ message PricedUnit {
   ScenarioKey scenario_key = 2;
 
   // A value per unit, in the base currency the batch's inputs convert to.
+  // From contract v27, under quoted_price, rounded half to even to 18
+  // decimal places, as the built-in implementation rounds it (rulings 453
+  // and 486).
   Money value_per_unit = 3;
 }
 
@@ -9521,6 +10481,20 @@ enum EventGroupFlag {
   EVENT_GROUP_FLAG_NOT_STATED = 3;
 }
 
+// One range member's bounds as its venue states them (contract v27; ruling
+// 464): the binary event contract template's floor, cap and bound_unit.
+// A mirror of meridian.v1.EventGroupMemberBound.
+message EventGroupMemberBound {
+  // One of the report's members.
+  string instrument_id = 1;
+
+  EventContractBound floor = 2;
+
+  EventContractBound cap = 3;
+
+  string bound_unit = 4;
+}
+
 // An event's group of contracts, at a version.
 // A mirror of meridian.v1.EventGroup.
 message EventGroup {
@@ -9563,6 +10537,375 @@ message EventGroup {
   // Its place in the store's sequence of event groups, which a read after
   // a sequence catches up by.
   int64 sequence = 13;
+}
+
+// A rate (W10.4): a fixing, an average, an index level or a curve point, for
+// one subject -- a referential `INS-` record -- as one source stated it. A
+// curve is one record; its points are rows, each with its tenor. Conflated
+// per subject, dataset, kind, tenor, maturity and convention.
+// A mirror of meridian.v1.Rate.
+message Rate {
+  ObservationMeta meta = 1;
+
+  RateKind kind = 2;
+
+  // The value with its unit: a percent, basis points or an index level.
+  UnitValue value = 3;
+
+  RateConvention convention = 4;
+
+  // A curve point's tenor, a count and a unit (`3M`, `10Y`, `ON`), or its
+  // exact maturity, ISO 8601; neither on a rate that is no curve point.
+  Tenor tenor = 5;
+
+  string maturity_date = 6;
+
+  // True while the source marks it preliminary; its final value is the next
+  // version of the row key.
+  bool preliminary = 7;
+
+  // Optional, as the source states them: the volume transacted, how many
+  // transactions, and the distribution's percentiles (SOFR's 1st, 25th,
+  // 75th and 99th). Not stated is unset, never zero.
+  optional Money volume = 8;
+
+  optional uint64 transaction_count = 9;
+
+  repeated RatePercentile percentiles = 10;
+}
+
+// What a rate is (FDP item 1).
+// A mirror of meridian.v1.RateKind.
+enum RateKind {
+  // Refused.
+  RATE_KIND_UNSPECIFIED = 0;
+  // A reference rate's daily fixing: SOFR, EFFR, €STR.
+  RATE_KIND_FIXING = 1;
+  // A compounded or simple average over a period: the SOFR averages.
+  RATE_KIND_AVERAGE = 2;
+  // An index's level: the SOFR Index.
+  RATE_KIND_INDEX_LEVEL = 3;
+  // A par yield curve's point.
+  RATE_KIND_PAR_YIELD = 4;
+  // A zero-coupon yield curve's point.
+  RATE_KIND_ZERO = 5;
+  // A bill's bank-discount rate.
+  RATE_KIND_DISCOUNT = 6;
+  // A bill's coupon-equivalent (bond-equivalent) yield.
+  RATE_KIND_COUPON_EQUIVALENT = 7;
+}
+
+// A value with its unit (contract v27, the lake's rates slice;
+// spec/the-lake-holds-researchs-kinds, shared addition 3 and Q8;
+// spec/a-public-rates-and-filings-data-plugin, §1 item 2): a Decimal that is
+// not money, in base units, with its unit from a closed list or, for a
+// physical unit, its UCUM code. A 3.87 per cent fixing is 3.87 percent, never
+// a Money.
+// A mirror of meridian.v1.UnitValue.
+message UnitValue {
+  Decimal value = 1;
+
+  ValueUnit unit = 2;
+
+  // For VALUE_UNIT_INDEX, the index's base period as its publisher states
+  // it (`2015=100`); empty otherwise.
+  string index_base = 3;
+
+  // For VALUE_UNIT_UCUM, the physical unit's UCUM code (`Cel`, `[bbl_us]`);
+  // empty otherwise.
+  string ucum_code = 4;
+}
+
+// The closed list of units a UnitValue takes (contract v27).
+// A mirror of meridian.v1.ValueUnit.
+enum ValueUnit {
+  // Refused.
+  VALUE_UNIT_UNSPECIFIED = 0;
+  VALUE_UNIT_PERCENT = 1;
+  VALUE_UNIT_BASIS_POINTS = 2;
+  VALUE_UNIT_SHARES = 3;
+  VALUE_UNIT_CONTRACTS = 4;
+  // A face amount, in its currency's major unit.
+  VALUE_UNIT_PRINCIPAL = 5;
+  VALUE_UNIT_RATIO = 6;
+  VALUE_UNIT_COUNT = 7;
+  VALUE_UNIT_DAYS = 8;
+  // An index level, with its base period in index_base.
+  VALUE_UNIT_INDEX = 9;
+  // A physical unit, named by ucum_code.
+  VALUE_UNIT_UCUM = 10;
+}
+
+// How a rate accrues (FDP item 1).
+// A mirror of meridian.v1.RateConvention.
+message RateConvention {
+  DayCount day_count = 1;
+
+  Compounding compounding = 2;
+
+  // For COMPOUNDING_COMPOUNDED, the periods a year (2 for a semi-annual
+  // bond-equivalent yield); 0 otherwise.
+  uint32 periods_per_year = 3;
+}
+
+// A mirror of meridian.v1.DayCount.
+enum DayCount {
+  // Not stated by the source.
+  DAY_COUNT_UNSPECIFIED = 0;
+  DAY_COUNT_ACT_360 = 1;
+  DAY_COUNT_ACT_365_FIXED = 2;
+  DAY_COUNT_ACT_ACT = 3;
+  DAY_COUNT_THIRTY_360 = 4;
+  DAY_COUNT_BUS_252 = 5;
+}
+
+// A mirror of meridian.v1.Compounding.
+enum Compounding {
+  // Refused.
+  COMPOUNDING_UNSPECIFIED = 0;
+  COMPOUNDING_SIMPLE = 1;
+  COMPOUNDING_COMPOUNDED = 2;
+  COMPOUNDING_CONTINUOUS = 3;
+  COMPOUNDING_DISCOUNT = 4;
+}
+
+// One percentile of a rate's distribution, as the source states it.
+// A mirror of meridian.v1.RatePercentile.
+message RatePercentile {
+  // 1 to 99.
+  uint32 percentile = 1;
+
+  Decimal value = 2;
+}
+
+// One histogram snapshot over an interval: a session's metric, or a dataset's
+// age at a hop.
+// A mirror of meridian.v1.LatencySnapshot.
+message LatencySnapshot {
+  int64 interval_start_ns = 1;
+
+  int64 interval_ns = 2;
+
+  // The session, by the plugin's own name for it; empty for a dataset's.
+  string session = 3;
+
+  // The dataset, `instance:key`, and the hop; empty and unspecified for a
+  // session's.
+  string dataset = 4;
+
+  AgeHop hop = 5;
+
+  LatencyMetric metric = 6;
+
+  LatencyHistogram histogram = 7;
+
+  LatencyCounters counters = 8;
+
+  // The source's clock minus ours, corrected by half the round trip.
+  int64 clock_skew_ns = 9;
+
+  // The session's last message or heartbeat.
+  int64 alive_at_ns = 10;
+
+  // The absolute ceilings in force, as the plugin's settings hold them.
+  LatencyCeilings ceilings = 11;
+
+  // The reporting instance, stamped by its sidecar.
+  string instance_id = 12;
+}
+
+// Where a dataset's age is measured.
+// A mirror of meridian.v1.AgeHop.
+enum AgeHop {
+  AGE_HOP_UNSPECIFIED = 0;
+  // The data plugin, on parsing the vendor's message: the feed delay.
+  AGE_HOP_EDGE = 1;
+  AGE_HOP_SIDECAR = 2;
+  AGE_HOP_LAKE = 3;
+  AGE_HOP_BUS = 4;
+  AGE_HOP_ANALYTICS = 5;
+  // The `ems`, at its pre-trade check.
+  AGE_HOP_EMS_CHECK = 6;
+  AGE_HOP_PAGE = 7;
+}
+
+// A mirror of meridian.v1.LatencyMetric.
+enum LatencyMetric {
+  LATENCY_METRIC_UNSPECIFIED = 0;
+  // Round trip: FIX TestRequest to its Heartbeat, a WebSocket ping to its
+  // pong, a REST call's duration.
+  LATENCY_METRIC_RTT = 1;
+  // Connectivity: placement sent to the venue's acknowledgement.
+  LATENCY_METRIC_ORDER_ACK = 2;
+  // Connectivity: the venue's transaction time to the fill received.
+  LATENCY_METRIC_FILL_DELAY = 3;
+  // A dataset's age at a hop.
+  LATENCY_METRIC_AGE = 4;
+}
+
+// A sparse log-linear histogram, HdrHistogram's layout (ruling 416).
+// A mirror of meridian.v1.LatencyHistogram.
+message LatencyHistogram {
+  int64 lowest_ns = 1;
+
+  // 2 in v27.
+  uint32 significant_digits = 2;
+
+  repeated LatencyBucket buckets = 3;
+
+  int64 min_ns = 4;
+
+  int64 max_ns = 5;
+
+  // Values recorded in the interval.
+  uint64 total = 6;
+}
+
+// One bucket with a count; empty buckets are not sent.
+// A mirror of meridian.v1.LatencyBucket.
+message LatencyBucket {
+  uint32 bucket = 1;
+
+  uint64 count = 2;
+}
+
+// A session's congestion in the interval.
+// A mirror of meridian.v1.LatencyCounters.
+message LatencyCounters {
+  uint64 gaps = 1;
+
+  uint64 resends = 2;
+
+  uint64 reconnects = 3;
+
+  uint64 rate_limited = 4;
+
+  // Messages queued to send, at their peak.
+  uint64 backlog_peak = 5;
+}
+
+// The plugin admin's session_ceilings for the connection, in force; 0 is no
+// ceiling.
+// A mirror of meridian.v1.LatencyCeilings.
+message LatencyCeilings {
+  int64 rtt_p99_ns = 1;
+
+  int64 order_ack_p99_ns = 2;
+
+  int64 fill_delay_p99_ns = 3;
+
+  int64 feed_delay_p99_ns = 4;
+
+  int64 clock_skew_max_ns = 5;
+
+  uint32 gaps_per_hour = 6;
+
+  uint32 reconnects_per_hour = 7;
+
+  uint32 backlog_max = 8;
+}
+
+// The standard benchmarks (C2).
+// A mirror of meridian.v1.TcaBenchmark.
+enum TcaBenchmark {
+  TCA_BENCHMARK_UNSPECIFIED = 0;
+  // The mid at the order's proposal.
+  TCA_BENCHMARK_DECISION = 1;
+  // The mid at the order's release to the desk.
+  TCA_BENCHMARK_ARRIVAL = 2;
+  // The mid at the placement's routed_at_ns: the broker's arrival.
+  TCA_BENCHMARK_PLACEMENT_ARRIVAL = 3;
+  TCA_BENCHMARK_MID_AT_FILL = 4;
+  // Needs trades: never measured for FX spot from one venue.
+  TCA_BENCHMARK_INTERVAL_VWAP = 5;
+  // A named fixing, licensed by the deployment.
+  TCA_BENCHMARK_FIX = 6;
+}
+
+// One execution's cost against one benchmark, written by the analytics
+// component (W12.1's `execution_cost`), keyed by execution and benchmark. The
+// lake's first rows naming an account: read within the reader's scope.
+// A mirror of meridian.v1.ExecutionCost.
+message ExecutionCost {
+  // The envelope: its subject the execution's instrument; its source the
+  // analytics component and the dataset `analytics:execution_cost`.
+  ObservationMeta meta = 1;
+
+  string execution_id = 2;
+
+  string order_id = 3;
+
+  // Empty for a fill on no placement accepted to a new order, and for an
+  // internal cross.
+  string placement_id = 4;
+
+  string account_id = 5;
+
+  TcaBenchmark benchmark = 6;
+
+  // The benchmark's price and the moment it was taken at; unset and 0 when
+  // unanswered.
+  Money benchmark_price = 7;
+
+  int64 benchmark_at_ns = 8;
+
+  // The quote the benchmark came from: its dataset and row key, never mixed
+  // silently.
+  string benchmark_dataset = 9;
+
+  string benchmark_row_key = 10;
+
+  // For TCA_BENCHMARK_FIX, the fixing's `INS-` record; empty otherwise.
+  string fixing_id = 11;
+
+  Money execution_price = 12;
+
+  Side side = 13;
+
+  // The execution's notional, in its asset.
+  Money notional = 14;
+
+  // Side-adjusted, positive a cost: s × (price − benchmark) ÷ benchmark ×
+  // 10⁴; unset when unanswered.
+  optional Decimal cost_bps = 15;
+
+  // Fees and financing, apart, in bps of notional; unset where none.
+  optional Decimal fees_bps = 16;
+
+  optional Decimal financing_bps = 17;
+
+  // As the connectivity plugin reported them.
+  LiquidityIndicator liquidity_indicator = 18;
+
+  string venue_id = 19;
+
+  // Why it was not measured, beside no price and no cost; unspecified when
+  // measured.
+  TcaUnanswered unanswered = 20;
+
+  // The quote's staleness bound in force: 5 seconds by default, the tighter
+  // of it and the dataset's stale ceiling.
+  int64 staleness_bound_ns = 21;
+
+  // The execution's time precision as stated: a manual fill's.
+  TimePrecision time_precision = 22;
+
+  // The placement's last-look rejections, and its time to fill; never a
+  // cost in bps.
+  uint32 reject_count = 23;
+
+  int64 time_to_fill_ns = 24;
+}
+
+// Why a benchmark was not measured (C4, C8).
+// A mirror of meridian.v1.TcaUnanswered.
+enum TcaUnanswered {
+  TCA_UNANSWERED_UNSPECIFIED = 0;
+  // No quote in force within the staleness bound: never an imputed value.
+  TCA_UNANSWERED_NO_QUOTE = 1;
+  // The benchmark has no moment for this execution: a venue-originated fill
+  // accepted to a new order has no decision or arrival time.
+  TCA_UNANSWERED_NOT_MEASURED = 2;
 }
 
 // A custodial position that changed, and the statement that changed it.
@@ -9842,4 +11185,16 @@ message AlertChangedEvent {
   JournalRef journal = 2;
 
   ChangeCause cause = 3;
+}
+
+// A rate the lake recorded, on its dataset's subject (W10.5): conflated.
+// A mirror of meridian.v1.RatesRecordedEvent.
+message RatesRecordedEvent {
+  Rate rate = 1;
+}
+
+// A dataset's liveness, on its subject: conflated per dataset and venue.
+// A mirror of meridian.v1.LivenessRecordedEvent.
+message LivenessRecordedEvent {
+  DatasetLiveness liveness = 1;
 }
