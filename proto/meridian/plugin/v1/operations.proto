@@ -5138,13 +5138,6 @@ message RecordQualityAssessmentsResult {
 // reference, and by the dashboard.
 // The params of ReadStaleReferenceActionsPermitted: meridian.v1.ReadStaleReferenceActionsPermittedRequest, less what the sidecar sets.
 message ReadStaleReferenceActionsPermittedParams {
-
-  // W4.9: the person this is sent for, as the assertion the plugin was
-  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
-  // reads as itself, which the sidecar refuses here: a read of the
-  // deployment's configuration (platform.config) is answered only in a
-  // session at ACCESS_LEVEL_ADMIN, and stamped with the person.
-  meridian.v1.CallerAssertion acting_for = 1000;
 }
 
 // The stale-reference actions permitted in force (W6.38).

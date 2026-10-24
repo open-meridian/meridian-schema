@@ -5054,16 +5054,8 @@ pub struct RecordQualityAssessmentsResult {
 /// W6.38: the setting read, by an ems plugin before it places on a stale
 /// reference, and by the dashboard.
 /// The params of ReadStaleReferenceActionsPermitted: meridian.v1.ReadStaleReferenceActionsPermittedRequest, less what the sidecar sets.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ReadStaleReferenceActionsPermittedParams {
-    /// W4.9: the person this is sent for, as the assertion the plugin was
-    /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
-    /// reads as itself, which the sidecar refuses here: a read of the
-    /// deployment's configuration (platform.config) is answered only in a
-    /// session at ACCESS_LEVEL_ADMIN, and stamped with the person.
-    #[prost(message, optional, tag = "1000")]
-    pub acting_for: ::core::option::Option<super::super::v1::CallerAssertion>,
-}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReadStaleReferenceActionsPermittedParams {}
 /// The stale-reference actions permitted in force (W6.38).
 /// The result of ReadStaleReferenceActionsPermitted: meridian.v1.StaleReferenceActionsPermittedSetting.
 #[derive(Clone, PartialEq, ::prost::Message)]

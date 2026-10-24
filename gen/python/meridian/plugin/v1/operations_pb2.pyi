@@ -5375,10 +5375,8 @@ class RecordQualityAssessmentsResult(_message.Message):
     def __init__(self, recorded: _Optional[int] = ...) -> None: ...
 
 class ReadStaleReferenceActionsPermittedParams(_message.Message):
-    __slots__ = ("acting_for",)
-    ACTING_FOR_FIELD_NUMBER: _ClassVar[int]
-    acting_for: _sidecar_pb2.CallerAssertion
-    def __init__(self, acting_for: _Optional[_Union[_sidecar_pb2.CallerAssertion, _Mapping]] = ...) -> None: ...
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class ReadStaleReferenceActionsPermittedResult(_message.Message):
     __slots__ = ("warn_permitted", "changed_at_ns", "changed_by")

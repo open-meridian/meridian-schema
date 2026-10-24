@@ -48949,25 +48949,6 @@
       "store": "sidecar"
     },
     {
-      "name": "meridian.plugin.v1.ReadStaleReferenceActionsPermittedParams.acting_for",
-      "type": "message CallerAssertion",
-      "required": [
-        {
-          "row": "ReadStaleReferenceActionsPermitted",
-          "since": "v28"
-        }
-      ],
-      "empty": "never unset: a read of the deployment's configuration (platform.config) is answered only for a person, in a session at admin",
-      "intent": "names the person ReadStaleReferenceActionsPermitted is sent for",
-      "meaning": "the assertion the plugin was handed for them, the same bytes, never altered; answered only in a session at admin, and stamped with the person (W4.9), as every platform.config read is",
-      "not_meaning": "the plugin's own identity, which the sidecar knows",
-      "filled": "as-reported",
-      "filled_by": "plugin",
-      "since": "v28",
-      "stability": "preview",
-      "store": "sidecar"
-    },
-    {
       "name": "meridian.plugin.v1.Delivery.statistics_recorded",
       "type": "message StatisticsRecordedEvent",
       "empty": "unset unless the delivery is a statistic the lake recorded",
