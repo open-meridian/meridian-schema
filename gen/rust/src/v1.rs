@@ -607,6 +607,11 @@ pub struct DatasetLicence {
     pub report_cadence: i32,
     #[prost(uint32, tag = "35")]
     pub report_due_day: u32,
+    /// Contract v28: personal or commercial use, and a buyer-revenue threshold,
+    /// as the vendor's terms state them; shown, never enforced by core. Unset:
+    /// the terms state no eligibility.
+    #[prost(message, optional, tag = "37")]
+    pub eligibility: ::core::option::Option<DataEligibility>,
 }
 /// The display meter's terms (§1b).
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -1924,6 +1929,26 @@ pub struct CallAsServiceAccountReply {
     /// otherwise.
     #[prost(string, tag = "3")]
     pub answer_json: ::prost::alloc::string::String,
+}
+/// Contract v28 (DatasetLicence.eligibility): states who may take the dataset
+/// (ruling 491).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DataEligibility {
+    /// Each use the terms admit. None: any use.
+    #[prost(enumeration = "DataUse", repeated, tag = "1")]
+    pub uses: ::prost::alloc::vec::Vec<i32>,
+    /// The terms admit a buyer whose annual revenue is below it. Unset: no upper
+    /// threshold.
+    #[prost(message, optional, tag = "2")]
+    pub buyer_revenue_below: ::core::option::Option<Decimal>,
+    /// The terms admit a buyer whose annual revenue is at least it. Unset: no
+    /// lower threshold.
+    #[prost(message, optional, tag = "3")]
+    pub buyer_revenue_at_least: ::core::option::Option<Decimal>,
+    /// The ISO 4217 code the terms state the thresholds in, USD. Empty where
+    /// neither threshold is set; set whenever one is.
+    #[prost(string, tag = "4")]
+    pub buyer_revenue_currency_code: ::prost::alloc::string::String,
 }
 /// How a dataset's rows arrive (the lake intent's Q9 and Q10).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -3290,6 +3315,38 @@ impl PreparedCallState {
             "PREPARED_CALL_STATE_DISCARDED" => Some(Self::Discarded),
             "PREPARED_CALL_STATE_WITHDRAWN" => Some(Self::Withdrawn),
             "PREPARED_CALL_STATE_LAPSED" => Some(Self::Lapsed),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DataUse {
+    /// Never sent.
+    Unspecified = 0,
+    /// A natural person's own investing.
+    Personal = 1,
+    /// A firm's use.
+    Commercial = 2,
+}
+impl DataUse {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DATA_USE_UNSPECIFIED",
+            Self::Personal => "DATA_USE_PERSONAL",
+            Self::Commercial => "DATA_USE_COMMERCIAL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DATA_USE_UNSPECIFIED" => Some(Self::Unspecified),
+            "DATA_USE_PERSONAL" => Some(Self::Personal),
+            "DATA_USE_COMMERCIAL" => Some(Self::Commercial),
             _ => None,
         }
     }

@@ -524,6 +524,10 @@ message DatasetLicence {
   // never sends.
   ReportCadence report_cadence = 34;
   uint32 report_due_day = 35;
+  // Contract v28: personal or commercial use, and a buyer-revenue threshold,
+  // as the vendor's terms state them; shown, never enforced by core. Unset:
+  // the terms state no eligibility.
+  DataEligibility eligibility = 37;
 }
 
 // The display meter's terms (§1b).
@@ -2301,4 +2305,33 @@ message CallAsServiceAccountReply {
   // answer, as a tool's call is answered (W6.20), at most 1 MiB. Empty
   // otherwise.
   string answer_json = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contract v28, the trailer tasks
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Contract v28 (DatasetLicence.eligibility): states who may take the dataset
+// (ruling 491).
+message DataEligibility {
+  // Each use the terms admit. None: any use.
+  repeated DataUse uses = 1;
+  // The terms admit a buyer whose annual revenue is below it. Unset: no upper
+  // threshold.
+  optional Decimal buyer_revenue_below = 2;
+  // The terms admit a buyer whose annual revenue is at least it. Unset: no
+  // lower threshold.
+  optional Decimal buyer_revenue_at_least = 3;
+  // The ISO 4217 code the terms state the thresholds in, USD. Empty where
+  // neither threshold is set; set whenever one is.
+  string buyer_revenue_currency_code = 4;
+}
+
+enum DataUse {
+  // Never sent.
+  DATA_USE_UNSPECIFIED = 0;
+  // A natural person's own investing.
+  DATA_USE_PERSONAL = 1;
+  // A firm's use.
+  DATA_USE_COMMERCIAL = 2;
 }
