@@ -58,6 +58,34 @@ pub const DECIMAL_DIGITS: u32 = 38;
 /// to
 pub const MEASURE_DEFINITION_SCALE_RANGE: Range = Range { least: 0, most: 18, capped: false };
 
+/// meridian.v1.Job.chains: names chains a job prices (contract v28)
+pub const JOB_CHAINS_COUNT: Count = Count { least: 0, most: 64 };
+
+/// meridian.v1.ChainRef.series_keys: names series of the chain
+pub const CHAIN_REF_SERIES_KEYS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.Scenario.name: names a scenario
+pub const SCENARIO_NAME_LENGTH: Length = Length { least: 1, most: 200 };
+
+/// meridian.v1.Scenario.shocks: carries the shocks applied together
+pub const SCENARIO_SHOCKS_COUNT: Count = Count { least: 0, most: 64 };
+
+/// meridian.v1.ScenarioSet.name: names a scenario set
+pub const SCENARIO_SET_NAME_LENGTH: Length = Length { least: 1, most: 200 };
+
+/// meridian.v1.ScenarioSet.axes: names the axes the set's points are
+/// generated from (ruling 582)
+pub const SCENARIO_SET_AXES_COUNT: Count = Count { least: 1, most: 4 };
+
+/// meridian.v1.ScenarioAxis.name: names an axis
+pub const SCENARIO_AXIS_NAME_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.ScenarioAxis.steps: lists an axis's steps in order
+pub const SCENARIO_AXIS_STEPS_COUNT: Count = Count { least: 1, most: 32 };
+
+/// meridian.v1.Shock.buckets: states a bucketed shock's values
+pub const SHOCK_BUCKETS_COUNT: Count = Count { least: 0, most: 32 };
+
 /// meridian.v1.ListPositionsRequest.page_size: bounds a page
 pub const LIST_POSITIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
@@ -105,6 +133,29 @@ pub const LIST_BOOKINGS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most:
 /// meridian.v1.ListAlertsRequest.page_size: bounds a page (approved
 /// 2026-10-14)
 pub const LIST_ALERTS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.LifecycleEvent.deliveries: states what changed hands on
+/// physical delivery
+pub const LIFECYCLE_EVENT_DELIVERIES_COUNT: Count = Count { least: 0, most: 16 };
+
+/// meridian.v1.LifecycleEvent.external_event_id: carries the broker's own
+/// identifier for the event
+pub const LIFECYCLE_EVENT_EXTERNAL_EVENT_ID_LENGTH: Length = Length { least: 0, most: 200 };
+
+/// meridian.v1.RecordLifecycleEventRequest.idempotency_key: makes a resend of
+/// one report apply once
+pub const RECORD_LIFECYCLE_EVENT_REQUEST_IDEMPOTENCY_KEY_LENGTH: Length = Length { least: 0, most: 128 };
+
+/// meridian.v1.ProposeLifecycleEventsRequest.events: carries the events
+/// servicing expects (W9.17)
+pub const PROPOSE_LIFECYCLE_EVENTS_REQUEST_EVENTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ReleaseLifecycleEventRequest.note: says why the proposal is
+/// booked with no report
+pub const RELEASE_LIFECYCLE_EVENT_REQUEST_NOTE_LENGTH: Length = Length { least: 1, most: 2000 };
+
+/// meridian.v1.ListLifecycleEventsRequest.page_size: bounds a page
+pub const LIST_LIFECYCLE_EVENTS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
 /// meridian.v1.AccountRecord.custodian: says where the account is held, for a
 /// person to find it by
@@ -202,6 +253,38 @@ pub const SPOT_DATE_RULE_PAIR_COUNT: Count = Count { least: 2, most: 2 };
 
 /// meridian.v1.ListEventGroupsRequest.page_size: bounds a page
 pub const LIST_EVENT_GROUPS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: false };
+
+/// meridian.v1.ListedOption.option_root: names the series' root (ruling 575)
+pub const LISTED_OPTION_OPTION_ROOT_LENGTH: Length = Length { least: 1, most: 6 };
+
+/// meridian.v1.ListedOption.contract_month: states a future option's contract
+/// month (FIX MaturityMonthYear, 200)
+pub const LISTED_OPTION_CONTRACT_MONTH_LENGTH: Length = Length { least: 6, most: 6 };
+
+/// meridian.v1.FutureContract.product_code: names the exchange's product
+/// (ruling 575)
+pub const FUTURE_CONTRACT_PRODUCT_CODE_LENGTH: Length = Length { least: 1, most: 12 };
+
+/// meridian.v1.FutureContract.contract_month: states the contract month (FIX
+/// MaturityMonthYear, 200; approved 573)
+pub const FUTURE_CONTRACT_CONTRACT_MONTH_LENGTH: Length = Length { least: 6, most: 6 };
+
+/// meridian.v1.ModelBinding.model_version: names the model's version
+pub const MODEL_BINDING_MODEL_VERSION_RANGE: Range = Range { least: 1, most: 1000, capped: false };
+
+/// meridian.v1.RequestSeriesRecordsRequest.series: names the series wanted
+/// (W3.31)
+pub const REQUEST_SERIES_RECORDS_REQUEST_SERIES_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.RequestSeriesRecordsRequest.note: says why
+pub const REQUEST_SERIES_RECORDS_REQUEST_NOTE_LENGTH: Length = Length { least: 0, most: 2000 };
+
+/// meridian.v1.SeriesWant.series_key: names the series by its key
+pub const SERIES_WANT_SERIES_KEY_COUNT: Count = Count { least: 1, most: 2 };
+
+/// meridian.v1.ResolveCompanyRequest.identifiers: names a company by its open
+/// identifiers
+pub const RESOLVE_COMPANY_REQUEST_IDENTIFIERS_COUNT: Count = Count { least: 0, most: 4 };
 
 /// meridian.v1.ObservationMeta.row_key: names one observation, so recording
 /// it again changes nothing
@@ -328,6 +411,150 @@ pub const LIST_EXECUTION_COSTS_REQUEST_EXECUTION_IDS_COUNT: Count = Count { leas
 
 /// meridian.v1.ListExecutionCostsRequest.page_size: bounds a page
 pub const LIST_EXECUTION_COSTS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ObservationMeta.series_key: keys a chain row by its series
+/// without minting it (ruling 561)
+pub const OBSERVATION_META_SERIES_KEY_COUNT: Count = Count { least: 0, most: 2 };
+
+/// meridian.v1.ListedSeries.fields: carries the series' terms as its source
+/// lists them
+pub const LISTED_SERIES_FIELDS_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.RecordSeriesRequest.series: carries a batch of listed series
+/// (W10.4)
+pub const RECORD_SERIES_REQUEST_SERIES_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListSeriesRequest.subjects: names the underlyings whose chains
+/// are read
+pub const LIST_SERIES_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.ListSeriesRequest.series_keys: asks for chain rows by series
+/// (contract v28)
+pub const LIST_SERIES_REQUEST_SERIES_KEYS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.ListSeriesRequest.page_size: bounds a page
+pub const LIST_SERIES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.RecordStatisticsRequest.statistics: carries a batch of
+/// statistics (W10.4)
+pub const RECORD_STATISTICS_REQUEST_STATISTICS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListStatisticsRequest.subjects: names the instruments or
+/// underlyings read
+pub const LIST_STATISTICS_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.ListStatisticsRequest.series_keys: asks for chain rows by
+/// series (contract v28)
+pub const LIST_STATISTICS_REQUEST_SERIES_KEYS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.ListStatisticsRequest.page_size: bounds a page
+pub const LIST_STATISTICS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ListQuotesRequest.series_keys: asks for chain rows by series
+/// (contract v28)
+pub const LIST_QUOTES_REQUEST_SERIES_KEYS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.ListTradesRequest.series_keys: asks for chain rows by series
+/// (contract v28)
+pub const LIST_TRADES_REQUEST_SERIES_KEYS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.DerivedSeries.series: names the plugin's series
+pub const DERIVED_SERIES_SERIES_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.DerivedSeries.inputs: names what the value was derived from
+pub const DERIVED_SERIES_INPUTS_COUNT: Count = Count { least: 1, most: 32 };
+
+/// meridian.v1.RecordDerivedSeriesRequest.values: carries a batch of derived
+/// values (W10.4)
+pub const RECORD_DERIVED_SERIES_REQUEST_VALUES_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListDerivedSeriesRequest.subjects: names the subjects read
+pub const LIST_DERIVED_SERIES_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.SavedScenario.description: says what the scenario is for
+pub const SAVED_SCENARIO_DESCRIPTION_LENGTH: Length = Length { least: 0, most: 2000 };
+
+/// meridian.v1.RecordScenariosRequest.scenarios: carries scenarios to save
+/// (W12.8)
+pub const RECORD_SCENARIOS_REQUEST_SCENARIOS_COUNT: Count = Count { least: 1, most: 50 };
+
+/// meridian.v1.FilingRef.accession_number: names the filing a value came from
+/// (shared addition 5)
+pub const FILING_REF_ACCESSION_NUMBER_LENGTH: Length = Length { least: 1, most: 32 };
+
+/// meridian.v1.FilingRef.form: says the form as reported
+pub const FILING_REF_FORM_LENGTH: Length = Length { least: 1, most: 32 };
+
+/// meridian.v1.RecordFilingsRequest.filings: carries a batch of filings
+/// (W10.4)
+pub const RECORD_FILINGS_REQUEST_FILINGS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListFilingsRequest.subjects: names the subjects read
+pub const LIST_FILINGS_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.ListFilingsRequest.page_size: bounds a page
+pub const LIST_FILINGS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.ReportedFact.concept: names the fact's concept
+pub const REPORTED_FACT_CONCEPT_LENGTH: Length = Length { least: 1, most: 256 };
+
+/// meridian.v1.ReportedFact.dimensions: qualifies the fact by its dimensions
+pub const REPORTED_FACT_DIMENSIONS_COUNT: Count = Count { least: 0, most: 16 };
+
+/// meridian.v1.RecordReportedFactsRequest.facts: carries a batch of reported
+/// facts (W10.4)
+pub const RECORD_REPORTED_FACTS_REQUEST_FACTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListReportedFactsRequest.subjects: names the subjects read
+pub const LIST_REPORTED_FACTS_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.ListReportedFactsRequest.page_size: bounds a page
+pub const LIST_REPORTED_FACTS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.RecordHoldingsReportsRequest.reports: carries a batch of
+/// holdings reports (W10.4)
+pub const RECORD_HOLDINGS_REPORTS_REQUEST_REPORTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.RecordHoldingsRequest.holdings: carries a batch of holdings
+/// (W10.4)
+pub const RECORD_HOLDINGS_REQUEST_HOLDINGS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListHoldingsRequest.subjects: names the subjects read
+pub const LIST_HOLDINGS_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.ListHoldingsRequest.page_size: bounds a page
+pub const LIST_HOLDINGS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.RecordCorporateActionsRequest.actions: carries a batch of
+/// announced corporate actions (W10.4)
+pub const RECORD_CORPORATE_ACTIONS_REQUEST_ACTIONS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListCorporateActionsRequest.subjects: names the subjects read
+pub const LIST_CORPORATE_ACTIONS_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.ListCorporateActionsRequest.page_size: bounds a page
+pub const LIST_CORPORATE_ACTIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.RatingAction.rating: states the rating as reported
+pub const RATING_ACTION_RATING_LENGTH: Length = Length { least: 0, most: 32 };
+
+/// meridian.v1.RatingAction.rating_class: states the rating's class as
+/// reported
+pub const RATING_ACTION_RATING_CLASS_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.RecordRatingActionsRequest.actions: carries a batch of rating
+/// actions (W10.4)
+pub const RECORD_RATING_ACTIONS_REQUEST_ACTIONS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListRatingActionsRequest.subjects: names the subjects read
+pub const LIST_RATING_ACTIONS_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 64 };
+
+/// meridian.v1.ListRatingActionsRequest.page_size: bounds a page
+pub const LIST_RATING_ACTIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.RecordQualityAssessmentsRequest.assessments: carries a batch
+/// of assessments (W10.12)
+pub const RECORD_QUALITY_ASSESSMENTS_REQUEST_ASSESSMENTS_COUNT: Count = Count { least: 1, most: 500 };
 
 /// meridian.v1.AsReported.scheme: says whose vocabulary a value as reported
 /// is in
@@ -647,6 +874,10 @@ pub const PRICING_MODEL_DECLARATION_MODEL_VERSION_RANGE: Range = Range { least: 
 /// meridian.v1.ReportLatencyRequest.snapshots: carries a plugin's latency and
 /// data-age snapshots to core's monitor (W4.16)
 pub const REPORT_LATENCY_REQUEST_SNAPSHOTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.DataEligibility.buyer_revenue_currency_code: names the
+/// currency both buyer-revenue thresholds are in
+pub const DATA_ELIGIBILITY_BUYER_REVENUE_CURRENCY_CODE_LENGTH: Length = Length { least: 0, most: 3 };
 
 /// meridian.v1.RecordHoldingsStatementRequest.provenance: says where each
 /// value the plugin closed rather than read came from
