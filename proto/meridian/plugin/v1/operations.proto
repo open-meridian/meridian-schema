@@ -3458,8 +3458,8 @@ message ListTradesParams {
   // from any other reader, naming it.
   bool latest_recorded = 9;
 
-  // Contract v28: the series' keys (occ_osi, or a symbol and its MIC), each
-  // row keyed by one answered with the subjects asked. None: rows keyed by a
+  // Contract v28: the series' keys (occ_osi, or a ticker carrying its venue's
+  // MIC in source), each row keyed by one answered with the subjects asked. None: rows keyed by a
   // series are not answered unless all_series is true.
   repeated Identifier series_keys = 10;
 
@@ -3507,8 +3507,8 @@ message ListQuotesParams {
 
   string cursor = 8;
 
-  // Contract v28: the series' keys (occ_osi, or a symbol and its MIC), each
-  // row keyed by one answered with the subjects asked. None: rows keyed by a
+  // Contract v28: the series' keys (occ_osi, or a ticker carrying its venue's
+  // MIC in source), each row keyed by one answered with the subjects asked. None: rows keyed by a
   // series are not answered unless all_series is true.
   repeated Identifier series_keys = 9;
 
@@ -4188,8 +4188,8 @@ message ListSeriesParams {
   // A plain date. Empty: to the latest.
   string expiration_to = 4;
 
-  // The series' keys (occ_osi, or a symbol and its MIC), each answered if
-  // listed under the subjects asked. None: every series of the subjects asked.
+  // The series' keys (occ_osi, or a ticker carrying its venue's MIC in
+  // source), each answered if listed under the subjects asked. None: every series of the subjects asked.
   repeated Identifier series_keys = 5;
 
   // The default, named datasets, or every entitled dataset side by side.
@@ -4285,8 +4285,8 @@ message ListStatisticsParams {
   // A plain date. Empty: no range.
   string to_date = 5;
 
-  // The series' keys (occ_osi, or a symbol and its MIC), each row keyed by one
-  // answered with the subjects asked. None: rows keyed by a series are not
+  // The series' keys (occ_osi, or a ticker carrying its venue's MIC in
+  // source), each row keyed by one answered with the subjects asked. None: rows keyed by a series are not
   // answered unless all_series is true.
   repeated Identifier series_keys = 6;
 
@@ -10531,9 +10531,9 @@ message ObservationMeta {
   DateCheck closed_day = 15;
 
   // Contract v28: the series' identifier -- the occ_osi symbol, or a future's
-  // or future option's exchange symbol and its MIC -- on a row whose subject
-  // is the underlying; in the row's conflation key. None: the row is about its
-  // subjects alone.
+  // or future option's exchange ticker carrying its venue's MIC in source --
+  // on a row whose subject is the underlying; in the row's conflation key.
+  // None: the row is about its subjects alone.
   repeated Identifier series_key = 16;
 
   // Contract v28: set at the edge; on a read, the row's effective state, the
@@ -11647,8 +11647,8 @@ message ChainRef {
   // A plain date. Empty: to the latest.
   string expiration_to = 3;
 
-  // Their occ_osi symbols, or symbol and MIC pairs. None: every series in the
-  // window.
+  // Their occ_osi symbols, or tickers each carrying its venue's MIC in source.
+  // None: every series in the window.
   repeated Identifier series_keys = 4;
 }
 
@@ -11848,8 +11848,8 @@ message Figure {
   // a figure that read no market data.
   int64 oldest_input_source_ns = 10;
 
-  // Contract v28: its occ_osi symbol, or symbol and MIC. None: the figure
-  // names an INS- record or none.
+  // Contract v28: its occ_osi symbol, or a ticker carrying its venue's MIC in
+  // source. None: the figure names an INS- record or none.
   repeated Identifier series_key = 11;
 }
 
@@ -12696,8 +12696,8 @@ enum TcaUnanswered {
 // (W3.31).
 // A mirror of meridian.v1.SeriesWant.
 message SeriesWant {
-  // The occ_osi symbol, or a future's or future option's exchange symbol and
-  // its MIC as two identifiers. Never empty.
+  // The occ_osi symbol, or a future's or future option's exchange ticker
+  // carrying its venue's ISO 10383 MIC in source. Never empty.
   repeated Identifier series_key = 1;
 
   // The INS- record the chain rows name as their subject. Never empty.
