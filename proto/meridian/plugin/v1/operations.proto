@@ -212,6 +212,60 @@ service PluginOperations {
   rpc ReportPlacementQuote(ReportPlacementQuoteParams) returns (ReportPlacementQuoteResult);
   // W11.41: platform.book.command.pick-placement-quote (command; preview).
   rpc PickPlacementQuote(PickPlacementQuoteParams) returns (PickPlacementQuoteResult);
+  // W3.31: platform.reference.command.request-series-records (command; preview).
+  rpc RequestSeriesRecords(RequestSeriesRecordsParams) returns (RequestSeriesRecordsResult);
+  // W10.4: platform.lake.command.record-series (command; preview).
+  rpc RecordSeries(RecordSeriesParams) returns (RecordSeriesResult);
+  // W10.6: platform.lake.query.list-series (query; preview).
+  rpc ListSeries(ListSeriesParams) returns (ListSeriesResult);
+  // W10.4: platform.lake.command.record-statistics (command; preview).
+  rpc RecordStatistics(RecordStatisticsParams) returns (RecordStatisticsResult);
+  // W10.6: platform.lake.query.list-statistics (query; preview).
+  rpc ListStatistics(ListStatisticsParams) returns (ListStatisticsResult);
+  // W9.16: platform.book.command.record-lifecycle-event (command; preview).
+  rpc RecordLifecycleEvent(RecordLifecycleEventParams) returns (RecordLifecycleEventResult);
+  // W9.17: platform.book.command.propose-lifecycle-events (command; preview).
+  rpc ProposeLifecycleEvents(ProposeLifecycleEventsParams) returns (ProposeLifecycleEventsResult);
+  // W9.18: platform.book.command.release-lifecycle-event (command; preview).
+  rpc ReleaseLifecycleEvent(ReleaseLifecycleEventParams) returns (ReleaseLifecycleEventResult);
+  // W9.19: platform.book.query.list-lifecycle-events (query; preview).
+  rpc ListLifecycleEvents(ListLifecycleEventsParams) returns (ListLifecycleEventsResult);
+  // W10.4: platform.lake.command.record-derived-series (command; preview).
+  rpc RecordDerivedSeries(RecordDerivedSeriesParams) returns (RecordDerivedSeriesResult);
+  // W10.6: platform.lake.query.list-derived-series (query; preview).
+  rpc ListDerivedSeries(ListDerivedSeriesParams) returns (ListDerivedSeriesResult);
+  // W12.8: platform.lake.command.record-scenarios (command; preview).
+  rpc RecordScenarios(RecordScenariosParams) returns (RecordScenariosResult);
+  // W12.8: platform.lake.query.list-scenarios (query; preview).
+  rpc ListScenarios(ListScenariosParams) returns (ListScenariosResult);
+  // W3.32: platform.reference.query.resolve-company (query; preview).
+  rpc ResolveCompany(ResolveCompanyParams) returns (ResolveCompanyResult);
+  // W10.4: platform.lake.command.record-filings (command; preview).
+  rpc RecordFilings(RecordFilingsParams) returns (RecordFilingsResult);
+  // W10.6: platform.lake.query.list-filings (query; preview).
+  rpc ListFilings(ListFilingsParams) returns (ListFilingsResult);
+  // W10.4: platform.lake.command.record-reported-facts (command; preview).
+  rpc RecordReportedFacts(RecordReportedFactsParams) returns (RecordReportedFactsResult);
+  // W10.6: platform.lake.query.list-reported-facts (query; preview).
+  rpc ListReportedFacts(ListReportedFactsParams) returns (ListReportedFactsResult);
+  // W10.4: platform.lake.command.record-holdings-reports (command; preview).
+  rpc RecordHoldingsReports(RecordHoldingsReportsParams) returns (RecordHoldingsReportsResult);
+  // W10.4: platform.lake.command.record-holdings (command; preview).
+  rpc RecordHoldings(RecordHoldingsParams) returns (RecordHoldingsResult);
+  // W10.6: platform.lake.query.list-holdings (query; preview).
+  rpc ListHoldings(ListHoldingsParams) returns (ListHoldingsResult);
+  // W10.4: platform.lake.command.record-corporate-actions (command; preview).
+  rpc RecordCorporateActions(RecordCorporateActionsParams) returns (RecordCorporateActionsResult);
+  // W10.6: platform.lake.query.list-corporate-actions (query; preview).
+  rpc ListCorporateActions(ListCorporateActionsParams) returns (ListCorporateActionsResult);
+  // W10.4: platform.lake.command.record-rating-actions (command; preview).
+  rpc RecordRatingActions(RecordRatingActionsParams) returns (RecordRatingActionsResult);
+  // W10.6: platform.lake.query.list-rating-actions (query; preview).
+  rpc ListRatingActions(ListRatingActionsParams) returns (ListRatingActionsResult);
+  // W10.12: platform.lake.command.record-quality-assessments (command; preview).
+  rpc RecordQualityAssessments(RecordQualityAssessmentsParams) returns (RecordQualityAssessmentsResult);
+  // W6.38: platform.config.query.read-stale-reference-actions-permitted (query; preview).
+  rpc ReadStaleReferenceActionsPermitted(ReadStaleReferenceActionsPermittedParams) returns (ReadStaleReferenceActionsPermittedResult);
   // W4.3: every row this plugin's roles hear, within its read scope.
   rpc Receive(ReceiveRequest) returns (stream Delivery);
 }
@@ -1561,6 +1615,10 @@ message ProposeOrderParams {
   // SettlDate, 64); empty is spot.
   string value_date = 38;
 
+  // Contract v28: as option brokers require it: buy to open, sell to close.
+  // Unspecified on an instrument that is no option or future.
+  PositionEffect position_effect = 39;
+
   // W4.9: the person this is sent for, as the assertion the plugin was
   // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
   // acts as itself. Set, the sidecar admits a command on an account only
@@ -2074,6 +2132,15 @@ message ReportExecutionParams {
   // which convention set its rate; refused INVALID_ARGUMENT naming it where
   // missing on such a cross, or set on any other execution.
   CrossRateSource cross_rate_source = 36;
+
+  // Contract v28: a package is reported once for the package and once per leg,
+  // linked. Unspecified: single.
+  MultiLegReportingType multi_leg_reporting_type = 37;
+
+  // Contract v28: on a leg reported, the package fill's venue_execution_id as
+  // reported; on a leg recorded, the package's execution_id. Empty except on a
+  // leg's fill.
+  string package_execution_id = 38;
 
   // Retired in the domain message, and never reused.
   reserved 22;
@@ -3390,6 +3457,16 @@ message ListTradesParams {
   // data plugin reads only its own instance's rows, by no entitlement; refused
   // from any other reader, naming it.
   bool latest_recorded = 9;
+
+  // Contract v28: the series' keys (occ_osi, or a ticker carrying its venue's
+  // MIC in source), each row keyed by one answered with the subjects asked. None: rows keyed by a
+  // series are not answered unless all_series is true.
+  repeated Identifier series_keys = 10;
+
+  // Contract v28: true: rows keyed by any series of the underlying are
+  // answered beside its own. False: rows keyed by a series are left out, so a
+  // v27 reader of an underlying never receives its chain.
+  bool all_series = 11;
 }
 
 // The result of ListTrades: meridian.v1.ListTradesReply.
@@ -3429,6 +3506,16 @@ message ListQuotesParams {
   uint32 page_size = 7;
 
   string cursor = 8;
+
+  // Contract v28: the series' keys (occ_osi, or a ticker carrying its venue's
+  // MIC in source), each row keyed by one answered with the subjects asked. None: rows keyed by a
+  // series are not answered unless all_series is true.
+  repeated Identifier series_keys = 9;
+
+  // Contract v28: true: rows keyed by any series of the underlying are
+  // answered beside its own. False: rows keyed by a series are left out, so a
+  // v27 reader of an underlying never receives its chain.
+  bool all_series = 10;
 }
 
 // The result of ListQuotes: meridian.v1.ListQuotesReply.
@@ -4021,6 +4108,1051 @@ message PickPlacementQuoteResult {
   string change_request_id = 4;
 }
 
+// Contract v28 (W3.31): RequestSeriesRecords's request.
+// The params of RequestSeriesRecords: meridian.v1.RequestSeriesRecordsRequest, less what the sidecar sets.
+message RequestSeriesRecordsParams {
+  // Each series by its key and its underlying, with why it is wanted. Never
+  // empty.
+  repeated SeriesWant series = 1;
+
+  // Kept on the request's record (decisions/031). Empty from a plugin;
+  // required through a delegation.
+  string note = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// Contract v28 (W3.31): RequestSeriesRecords's answer.
+// The result of RequestSeriesRecords: meridian.v1.RequestSeriesRecordsReply.
+message RequestSeriesRecordsResult {
+  // Its record, queued, or refused by the rule. One per series asked, in
+  // order.
+  repeated SeriesAnswer answers = 1;
+}
+
+// Contract v28 (W10.4): RecordSeries's request.
+// The params of RecordSeries: meridian.v1.RecordSeriesRequest, less what the sidecar sets.
+message RecordSeriesParams {
+  // 1 to 500 rows, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated ListedSeries series = 1;
+
+  // The want's identifier as it was delivered. Empty: recorded unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordSeries: meridian.v1.RecordObservationsReply.
+message RecordSeriesResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W10.6): ListSeries's request.
+// The params of ListSeries: meridian.v1.ListSeriesRequest, less what the sidecar sets.
+message ListSeriesParams {
+  // Each underlying's INS- record. Never empty.
+  repeated SubjectRef subjects = 1;
+
+  // Listed_option, future or future_option. Unspecified: every listed type.
+  InstrumentType instrument_type = 2;
+
+  // A plain date. Empty: from the earliest.
+  string expiration_from = 3;
+
+  // A plain date. Empty: to the latest.
+  string expiration_to = 4;
+
+  // The series' keys (occ_osi, or a ticker carrying its venue's MIC in
+  // source), each answered if listed under the subjects asked. None: every series of the subjects asked.
+  repeated Identifier series_keys = 5;
+
+  // The default, named datasets, or every entitled dataset side by side.
+  // Unset: the deployment's default.
+  SourceChoice sources = 6;
+
+  // The recorded-time cut-off: nothing recorded after it answers. 0: what the
+  // lake knows now.
+  int64 as_of_ns = 7;
+
+  // How many rows a page holds at most. 0 is 100; past 500, answered at 500.
+  uint32 page_size = 8;
+
+  // The previous reply's next_cursor, as given. Empty for the first page.
+  string cursor = 9;
+}
+
+// Contract v28 (W10.6): ListSeries's answer.
+// The result of ListSeries: meridian.v1.ListSeriesReply.
+message ListSeriesResult {
+  // Each series at the as-of, with its terms and, where held, its INS- record.
+  // None answered.
+  repeated ListedSeries series = 1;
+
+  // Each subject, dataset and field not answered, with its reason. None: every
+  // part answered.
+  repeated Unanswered unanswered = 2;
+
+  // Each dataset answered, with its vendor, declaration and liveness. None
+  // answered.
+  repeated DatasetRef datasets = 3;
+
+  // The sequence per partition the answer holds, from which a reader hears
+  // what follows. Never unset on an answer.
+  Watermark watermark = 4;
+
+  // Opaque, passed back as cursor. Empty on the last page.
+  string next_cursor = 5;
+}
+
+// Contract v28 (W10.4): RecordStatistics's request.
+// The params of RecordStatistics: meridian.v1.RecordStatisticsRequest, less what the sidecar sets.
+message RecordStatisticsParams {
+  // 1 to 500 rows, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated Statistic statistics = 1;
+
+  // The want's identifier as it was delivered. Empty: recorded unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordStatistics: meridian.v1.RecordObservationsReply.
+message RecordStatisticsResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W10.6): ListStatistics's request.
+// The params of ListStatistics: meridian.v1.ListStatisticsRequest, less what the sidecar sets.
+message ListStatisticsParams {
+  // Each INS- record; with series_keys or all_series, an underlying's chain.
+  // Never empty.
+  repeated SubjectRef subjects = 1;
+
+  // The kinds answered. None: every kind.
+  repeated StatisticKind kinds = 2;
+
+  // A plain date. Empty: the latest date each subject has.
+  string business_date = 3;
+
+  // A plain date; refused beside business_date. Empty: no range.
+  string from_date = 4;
+
+  // A plain date. Empty: no range.
+  string to_date = 5;
+
+  // The series' keys (occ_osi, or a ticker carrying its venue's MIC in
+  // source), each row keyed by one answered with the subjects asked. None: rows keyed by a series are not
+  // answered unless all_series is true.
+  repeated Identifier series_keys = 6;
+
+  // True: rows keyed by any series of the underlying are answered beside its
+  // own. False: rows keyed by a series are left out, so a v27 reader of an
+  // underlying never receives its chain.
+  bool all_series = 7;
+
+  // The default, named datasets, or every entitled dataset side by side.
+  // Unset: the deployment's default.
+  SourceChoice sources = 8;
+
+  // The recorded-time cut-off: nothing recorded after it answers. 0: what the
+  // lake knows now.
+  int64 as_of_ns = 9;
+
+  // How many rows a page holds at most. 0 is 100; past 500, answered at 500.
+  uint32 page_size = 10;
+
+  // The previous reply's next_cursor, as given. Empty for the first page.
+  string cursor = 11;
+}
+
+// Contract v28 (W10.6): ListStatistics's answer.
+// The result of ListStatistics: meridian.v1.ListStatisticsReply.
+message ListStatisticsResult {
+  // The rows, each naming its dataset. None answered.
+  repeated Statistic statistics = 1;
+
+  // Each subject, dataset and field not answered, with its reason. None: every
+  // part answered.
+  repeated Unanswered unanswered = 2;
+
+  // Each dataset answered, with its vendor, declaration and liveness. None
+  // answered.
+  repeated DatasetRef datasets = 3;
+
+  // The sequence per partition the answer holds, from which a reader hears
+  // what follows. Never unset on an answer.
+  Watermark watermark = 4;
+
+  // Opaque, passed back as cursor. Empty on the last page.
+  string next_cursor = 5;
+}
+
+// Contract v28 (W9.16): RecordLifecycleEvent's request.
+// The params of RecordLifecycleEvent: meridian.v1.RecordLifecycleEventRequest, less what the sidecar sets.
+message RecordLifecycleEventParams {
+  // The event as the broker states it, or as proposed. Never unset.
+  LifecycleEvent event = 1;
+
+  // The plugin's key for the report. Empty: the envelope's message identifier
+  // stands for it.
+  string idempotency_key = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// Contract v28 (W9.16): RecordLifecycleEvent's answer.
+// The result of RecordLifecycleEvent: meridian.v1.RecordLifecycleEventReply.
+message RecordLifecycleEventResult {
+  // Its event_id, state and the proposal it answered. Never unset.
+  LifecycleEvent event = 1;
+}
+
+// Contract v28 (W9.17): ProposeLifecycleEvents's request.
+// The params of ProposeLifecycleEvents: meridian.v1.ProposeLifecycleEventsRequest, less what the sidecar sets.
+message ProposeLifecycleEventsParams {
+  // Each in its account, recorded as proposed. Never empty.
+  repeated LifecycleEvent events = 1;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// Contract v28 (W9.17): ProposeLifecycleEvents's answer.
+// The result of ProposeLifecycleEvents: meridian.v1.ProposeLifecycleEventsReply.
+message ProposeLifecycleEventsResult {
+  // Its event_id and state. One per event proposed, in order.
+  repeated LifecycleEvent events = 1;
+}
+
+// Contract v28 (W9.18): ReleaseLifecycleEvent's request.
+// The params of ReleaseLifecycleEvent: meridian.v1.ReleaseLifecycleEventRequest, less what the sidecar sets.
+message ReleaseLifecycleEventParams {
+  // A proposal no report answered. Never empty.
+  string event_id = 1;
+
+  // Kept on the release's entry (decisions/031). Never empty: refused
+  // REFUSAL_REASON_REASON_REQUIRED.
+  string note = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// Contract v28 (W9.18): ReleaseLifecycleEvent's answer.
+// The result of ReleaseLifecycleEvent: meridian.v1.ReleaseLifecycleEventReply.
+message ReleaseLifecycleEventResult {
+  // The proposal, booked. Never unset.
+  LifecycleEvent event = 1;
+}
+
+// Contract v28 (W9.19): ListLifecycleEvents's request.
+// The params of ListLifecycleEvents: meridian.v1.ListLifecycleEventsRequest, less what the sidecar sets.
+message ListLifecycleEventsParams {
+  // An account in the reader's scope. Never empty.
+  string account_id = 1;
+
+  // Its INS- record. Empty: every instrument.
+  string instrument_id = 2;
+
+  // The kinds answered. None: every kind.
+  repeated LifecycleEventKind kinds = 3;
+
+  // A plain date, on event_date. Empty: from the account's opening balance.
+  string from_date = 4;
+
+  // A plain date, on event_date. Empty: to today.
+  string to_date = 5;
+
+  // A sequence per partition; events whose last change is above it (amendment
+  // to DESIGN28, 2026-10-24: a record row is caught up by watermark, as the
+  // book's other records are). Unset is everything.
+  Watermark since = 6;
+
+  // How many events a page holds at most. 0 is 100; past 500, answered at 500.
+  uint32 page_size = 7;
+
+  // The next_cursor a page answered, as written. Empty is the first page.
+  string cursor = 8;
+}
+
+// Contract v28 (W9.19): ListLifecycleEvents's answer.
+// The result of ListLifecycleEvents: meridian.v1.ListLifecycleEventsReply.
+message ListLifecycleEventsResult {
+  // Each with its state, in the account's sequence. None in the window.
+  repeated LifecycleEvent events = 1;
+
+  // The head of each partition the read saw, at one snapshot. Never empty.
+  Watermark as_of = 2;
+
+  // Opaque. Empty when nothing follows.
+  string next_cursor = 3;
+}
+
+// Contract v28 (W10.4): RecordDerivedSeries's request.
+// The params of RecordDerivedSeries: meridian.v1.RecordDerivedSeriesRequest, less what the sidecar sets.
+message RecordDerivedSeriesParams {
+  // 1 to 500 rows, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated DerivedSeries values = 1;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordDerivedSeries: meridian.v1.RecordObservationsReply.
+message RecordDerivedSeriesResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W10.6): ListDerivedSeries's request.
+// The params of ListDerivedSeries: meridian.v1.ListDerivedSeriesRequest, less what the sidecar sets.
+message ListDerivedSeriesParams {
+  // Each an INS- record. Never empty.
+  repeated SubjectRef subjects = 1;
+
+  // The plugin's own names. None: every series.
+  repeated string series = 2;
+
+  // A plain date. Empty: no lower bound.
+  string from_date = 3;
+
+  // A plain date. Empty: to the latest.
+  string to_date = 4;
+}
+
+// Contract v28 (W10.6): ListDerivedSeries's answer.
+// The result of ListDerivedSeries: meridian.v1.ListDerivedSeriesReply.
+message ListDerivedSeriesResult {
+  // Each naming its rule and inputs. None answered.
+  repeated DerivedSeries values = 1;
+}
+
+// Contract v28 (W12.8): RecordScenarios's request.
+// The params of RecordScenarios: meridian.v1.RecordScenariosRequest, less what the sidecar sets.
+message RecordScenariosParams {
+  // 1 to 50, each recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated SavedScenario scenarios = 1;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordScenarios: meridian.v1.RecordObservationsReply.
+message RecordScenariosResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W12.8): ListScenarios's request.
+// The params of ListScenarios: meridian.v1.ListScenariosRequest, less what the sidecar sets.
+message ListScenariosParams {
+  // Their row keys. None: every saved scenario.
+  repeated string row_keys = 1;
+
+  // The row key's version, with one row key. 0: the latest.
+  uint64 version = 2;
+}
+
+// Contract v28 (W12.8): ListScenarios's answer.
+// The result of ListScenarios: meridian.v1.ListScenariosReply.
+message ListScenariosResult {
+  // Each at the version asked. None saved.
+  repeated SavedScenario scenarios = 1;
+}
+
+// Contract v28 (W3.32): ResolveCompany's request.
+// The params of ResolveCompany: meridian.v1.ResolveCompanyRequest, less what the sidecar sets.
+message ResolveCompanyParams {
+  // Its ENT- ID. Empty where identifiers name it.
+  string company_id = 1;
+
+  // A cik or an lei. None where company_id names it.
+  repeated Identifier identifiers = 2;
+
+  // Nanoseconds since the epoch, against the identifiers' validity windows. 0:
+  // now.
+  int64 as_of_ns = 3;
+}
+
+// Contract v28: the platform's minimal company record: its ENT- ID, name, CIK
+// and LEI as dated identifiers and former names (contract v28, FDP Q6).
+// The result of ResolveCompany: meridian.v1.CompanyRecord.
+message ResolveCompanyResult {
+  // ENT- and a ULID, the platform's, never reused. Never empty.
+  string company_id = 1;
+
+  // The current name. Never empty.
+  string name = 2;
+
+  // Cik and lei, each with its validity window. Never empty.
+  repeated Identifier identifiers = 3;
+
+  // Each a name and the dates it was used, as EDGAR states them. None.
+  repeated FormerName former_names = 4;
+
+  // Assigned by the master. Never 0.
+  int64 version = 5;
+}
+
+// Contract v28 (W10.4): RecordFilings's request.
+// The params of RecordFilings: meridian.v1.RecordFilingsRequest, less what the sidecar sets.
+message RecordFilingsParams {
+  // 1 to 500 rows, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated Filing filings = 1;
+
+  // The want's identifier as it was delivered. Empty: recorded unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordFilings: meridian.v1.RecordObservationsReply.
+message RecordFilingsResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W10.6): ListFilings's request.
+// The params of ListFilings: meridian.v1.ListFilingsRequest, less what the sidecar sets.
+message ListFilingsParams {
+  // Each a company or an instrument, with the role it must hold on the row
+  // where given. Never empty.
+  repeated SubjectRef subjects = 1;
+
+  // A plain date on the kind's date. Empty: no lower bound.
+  string from_date = 2;
+
+  // A plain date on the kind's date. Empty: to the latest.
+  string to_date = 3;
+
+  // The kinds answered. None: every kind.
+  repeated FilingKind kinds = 4;
+
+  // The version in force by published time, among rows recorded by as_of_ns.
+  // 0: no published-time cut.
+  int64 published_as_of_ns = 5;
+
+  // The default, named datasets, or every entitled dataset side by side.
+  // Unset: the deployment's default.
+  SourceChoice sources = 6;
+
+  // The recorded-time cut-off: nothing recorded after it answers. 0: what the
+  // lake knows now.
+  int64 as_of_ns = 7;
+
+  // How many rows a page holds at most. 0 is 100; past 500, answered at 500.
+  uint32 page_size = 8;
+
+  // The previous reply's next_cursor, as given. Empty for the first page.
+  string cursor = 9;
+
+  // The watermark the reader last saw: answered the rows each dataset
+  // partition it names recorded after its sequence there, for the subjects
+  // asked, whatever their dates (amendment to DESIGN28, 2026-10-24: an
+  // unconflated row is caught up after a watermark, as trades and outcomes
+  // are). Unset: a read by dates, or as of as_of_ns.
+  Watermark after_watermark = 10;
+}
+
+// Contract v28 (W10.6): ListFilings's answer.
+// The result of ListFilings: meridian.v1.ListFilingsReply.
+message ListFilingsResult {
+  // The rows, each naming its dataset. None answered.
+  repeated Filing filings = 1;
+
+  // Each subject, dataset and field not answered, with its reason. None: every
+  // part answered.
+  repeated Unanswered unanswered = 2;
+
+  // Each dataset answered, with its vendor, declaration and liveness. None
+  // answered.
+  repeated DatasetRef datasets = 3;
+
+  // The sequence per partition the answer holds, from which a reader hears
+  // what follows. Never unset on an answer.
+  Watermark watermark = 4;
+
+  // Opaque, passed back as cursor. Empty on the last page.
+  string next_cursor = 5;
+}
+
+// Contract v28 (W10.4): RecordReportedFacts's request.
+// The params of RecordReportedFacts: meridian.v1.RecordReportedFactsRequest, less what the sidecar sets.
+message RecordReportedFactsParams {
+  // 1 to 500 rows, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated ReportedFact facts = 1;
+
+  // The want's identifier as it was delivered. Empty: recorded unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordReportedFacts: meridian.v1.RecordObservationsReply.
+message RecordReportedFactsResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W10.6): ListReportedFacts's request.
+// The params of ListReportedFacts: meridian.v1.ListReportedFactsRequest, less what the sidecar sets.
+message ListReportedFactsParams {
+  // Each a company or an instrument, with the role it must hold on the row
+  // where given. Never empty.
+  repeated SubjectRef subjects = 1;
+
+  // A plain date on the kind's date. Empty: no lower bound.
+  string from_date = 2;
+
+  // A plain date on the kind's date. Empty: to the latest.
+  string to_date = 3;
+
+  // The version in force by published time, among rows recorded by as_of_ns.
+  // 0: no published-time cut.
+  int64 published_as_of_ns = 4;
+
+  // The default, named datasets, or every entitled dataset side by side.
+  // Unset: the deployment's default.
+  SourceChoice sources = 5;
+
+  // The recorded-time cut-off: nothing recorded after it answers. 0: what the
+  // lake knows now.
+  int64 as_of_ns = 6;
+
+  // How many rows a page holds at most. 0 is 100; past 500, answered at 500.
+  uint32 page_size = 7;
+
+  // The previous reply's next_cursor, as given. Empty for the first page.
+  string cursor = 8;
+
+  // Taxonomy and name. None: every concept.
+  repeated string concepts = 9;
+}
+
+// Contract v28 (W10.6): ListReportedFacts's answer.
+// The result of ListReportedFacts: meridian.v1.ListReportedFactsReply.
+message ListReportedFactsResult {
+  // The rows, each naming its dataset. None answered.
+  repeated ReportedFact facts = 1;
+
+  // Each subject, dataset and field not answered, with its reason. None: every
+  // part answered.
+  repeated Unanswered unanswered = 2;
+
+  // Each dataset answered, with its vendor, declaration and liveness. None
+  // answered.
+  repeated DatasetRef datasets = 3;
+
+  // The sequence per partition the answer holds, from which a reader hears
+  // what follows. Never unset on an answer.
+  Watermark watermark = 4;
+
+  // Opaque, passed back as cursor. Empty on the last page.
+  string next_cursor = 5;
+}
+
+// Contract v28 (W10.4): RecordHoldingsReports's request.
+// The params of RecordHoldingsReports: meridian.v1.RecordHoldingsReportsRequest, less what the sidecar sets.
+message RecordHoldingsReportsParams {
+  // 1 to 500 rows, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated HoldingsReport reports = 1;
+
+  // The want's identifier as it was delivered. Empty: recorded unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordHoldingsReports: meridian.v1.RecordObservationsReply.
+message RecordHoldingsReportsResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W10.4): RecordHoldings's request.
+// The params of RecordHoldings: meridian.v1.RecordHoldingsRequest, less what the sidecar sets.
+message RecordHoldingsParams {
+  // 1 to 500 rows, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated Holding holdings = 1;
+
+  // The want's identifier as it was delivered. Empty: recorded unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordHoldings: meridian.v1.RecordObservationsReply.
+message RecordHoldingsResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W10.6): ListHoldings's request.
+// The params of ListHoldings: meridian.v1.ListHoldingsRequest, less what the sidecar sets.
+message ListHoldingsParams {
+  // Each a company or an instrument, with the role it must hold on the row
+  // where given. Never empty.
+  repeated SubjectRef subjects = 1;
+
+  // A plain date on the kind's date. Empty: no lower bound.
+  string from_date = 2;
+
+  // A plain date on the kind's date. Empty: to the latest.
+  string to_date = 3;
+
+  // The kinds answered. None: every kind.
+  repeated HoldingsReportKind kinds = 4;
+
+  // The version in force by published time, among rows recorded by as_of_ns.
+  // 0: no published-time cut.
+  int64 published_as_of_ns = 5;
+
+  // The default, named datasets, or every entitled dataset side by side.
+  // Unset: the deployment's default.
+  SourceChoice sources = 6;
+
+  // The recorded-time cut-off: nothing recorded after it answers. 0: what the
+  // lake knows now.
+  int64 as_of_ns = 7;
+
+  // How many rows a page holds at most. 0 is 100; past 500, answered at 500.
+  uint32 page_size = 8;
+
+  // The previous reply's next_cursor, as given. Empty for the first page.
+  string cursor = 9;
+}
+
+// Contract v28 (W10.6): ListHoldings's answer.
+// The result of ListHoldings: meridian.v1.ListHoldingsReply.
+message ListHoldingsResult {
+  // The rows, each naming its dataset. None answered.
+  repeated Holding holdings = 1;
+
+  // Each subject, dataset and field not answered, with its reason. None: every
+  // part answered.
+  repeated Unanswered unanswered = 2;
+
+  // Each dataset answered, with its vendor, declaration and liveness. None
+  // answered.
+  repeated DatasetRef datasets = 3;
+
+  // The sequence per partition the answer holds, from which a reader hears
+  // what follows. Never unset on an answer.
+  Watermark watermark = 4;
+
+  // Opaque, passed back as cursor. Empty on the last page.
+  string next_cursor = 5;
+
+  // Each once. None answered.
+  repeated HoldingsReport reports = 6;
+}
+
+// Contract v28 (W10.4): RecordCorporateActions's request.
+// The params of RecordCorporateActions: meridian.v1.RecordCorporateActionsRequest, less what the sidecar sets.
+message RecordCorporateActionsParams {
+  // 1 to 500 rows, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated CorporateActionAnnounced actions = 1;
+
+  // The want's identifier as it was delivered. Empty: recorded unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordCorporateActions: meridian.v1.RecordObservationsReply.
+message RecordCorporateActionsResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W10.6): ListCorporateActions's request.
+// The params of ListCorporateActions: meridian.v1.ListCorporateActionsRequest, less what the sidecar sets.
+message ListCorporateActionsParams {
+  // Each a company or an instrument, with the role it must hold on the row
+  // where given. Never empty.
+  repeated SubjectRef subjects = 1;
+
+  // A plain date on the kind's date. Empty: no lower bound.
+  string from_date = 2;
+
+  // A plain date on the kind's date. Empty: to the latest.
+  string to_date = 3;
+
+  // The kinds answered. None: every kind.
+  repeated CorporateActionKind kinds = 4;
+
+  // The version in force by published time, among rows recorded by as_of_ns.
+  // 0: no published-time cut.
+  int64 published_as_of_ns = 5;
+
+  // The default, named datasets, or every entitled dataset side by side.
+  // Unset: the deployment's default.
+  SourceChoice sources = 6;
+
+  // The recorded-time cut-off: nothing recorded after it answers. 0: what the
+  // lake knows now.
+  int64 as_of_ns = 7;
+
+  // How many rows a page holds at most. 0 is 100; past 500, answered at 500.
+  uint32 page_size = 8;
+
+  // The previous reply's next_cursor, as given. Empty for the first page.
+  string cursor = 9;
+
+  // The watermark the reader last saw: answered the rows each dataset
+  // partition it names recorded after its sequence there, for the subjects
+  // asked, whatever their dates (amendment to DESIGN28, 2026-10-24: an
+  // unconflated row is caught up after a watermark, as trades and outcomes
+  // are). Unset: a read by dates, or as of as_of_ns.
+  Watermark after_watermark = 10;
+}
+
+// Contract v28 (W10.6): ListCorporateActions's answer.
+// The result of ListCorporateActions: meridian.v1.ListCorporateActionsReply.
+message ListCorporateActionsResult {
+  // The rows, each naming its dataset. None answered.
+  repeated CorporateActionAnnounced actions = 1;
+
+  // Each subject, dataset and field not answered, with its reason. None: every
+  // part answered.
+  repeated Unanswered unanswered = 2;
+
+  // Each dataset answered, with its vendor, declaration and liveness. None
+  // answered.
+  repeated DatasetRef datasets = 3;
+
+  // The sequence per partition the answer holds, from which a reader hears
+  // what follows. Never unset on an answer.
+  Watermark watermark = 4;
+
+  // Opaque, passed back as cursor. Empty on the last page.
+  string next_cursor = 5;
+}
+
+// Contract v28 (W10.4): RecordRatingActions's request.
+// The params of RecordRatingActions: meridian.v1.RecordRatingActionsRequest, less what the sidecar sets.
+message RecordRatingActionsParams {
+  // 1 to 500 rows, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated RatingAction actions = 1;
+
+  // The want's identifier as it was delivered. Empty: recorded unasked.
+  string want_id = 2;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// What a batch did, once it committed.
+// The result of RecordRatingActions: meridian.v1.RecordObservationsReply.
+message RecordRatingActionsResult {
+  // Rows recorded for the first time.
+  uint32 recorded = 1;
+
+  // Rows recorded as a new version of a row key held.
+  uint32 restated = 2;
+
+  // Rows identical to the version in force, which changed nothing.
+  uint32 unchanged = 3;
+
+  // The dataset's sequence once the batch committed.
+  Watermark watermark = 4;
+}
+
+// Contract v28 (W10.6): ListRatingActions's request.
+// The params of ListRatingActions: meridian.v1.ListRatingActionsRequest, less what the sidecar sets.
+message ListRatingActionsParams {
+  // Each a company or an instrument, with the role it must hold on the row
+  // where given. Never empty.
+  repeated SubjectRef subjects = 1;
+
+  // A plain date on the kind's date. Empty: no lower bound.
+  string from_date = 2;
+
+  // A plain date on the kind's date. Empty: to the latest.
+  string to_date = 3;
+
+  // The kinds answered. None: every kind.
+  repeated RatingActionKind kinds = 4;
+
+  // The version in force by published time, among rows recorded by as_of_ns.
+  // 0: no published-time cut.
+  int64 published_as_of_ns = 5;
+
+  // The default, named datasets, or every entitled dataset side by side.
+  // Unset: the deployment's default.
+  SourceChoice sources = 6;
+
+  // The recorded-time cut-off: nothing recorded after it answers. 0: what the
+  // lake knows now.
+  int64 as_of_ns = 7;
+
+  // How many rows a page holds at most. 0 is 100; past 500, answered at 500.
+  uint32 page_size = 8;
+
+  // The previous reply's next_cursor, as given. Empty for the first page.
+  string cursor = 9;
+}
+
+// Contract v28 (W10.6): ListRatingActions's answer.
+// The result of ListRatingActions: meridian.v1.ListRatingActionsReply.
+message ListRatingActionsResult {
+  // The rows, each naming its dataset. None answered.
+  repeated RatingAction actions = 1;
+
+  // Each subject, dataset and field not answered, with its reason. None: every
+  // part answered.
+  repeated Unanswered unanswered = 2;
+
+  // Each dataset answered, with its vendor, declaration and liveness. None
+  // answered.
+  repeated DatasetRef datasets = 3;
+
+  // The sequence per partition the answer holds, from which a reader hears
+  // what follows. Never unset on an answer.
+  Watermark watermark = 4;
+
+  // Opaque, passed back as cursor. Empty on the last page.
+  string next_cursor = 5;
+}
+
+// Contract v28 (W10.12): RecordQualityAssessments's request.
+// The params of RecordQualityAssessments: meridian.v1.RecordQualityAssessmentsRequest, less what the sidecar sets.
+message RecordQualityAssessmentsParams {
+  // 1 to 500, recorded whole or refused naming the item and field. Never
+  // empty.
+  repeated QualityAssessment assessments = 1;
+
+  // W4.9: the person this is sent for, as the assertion the plugin was
+  // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
+  // acts as itself. Set, the sidecar admits a command on an account only
+  // in a session at ACCESS_LEVEL_WRITE, when the person may write the
+  // account it names, and stamps them on it; one to the deployment's
+  // configuration (platform.config) only in a session at
+  // ACCESS_LEVEL_ADMIN, and never without.
+  meridian.v1.CallerAssertion acting_for = 1000;
+}
+
+// Contract v28 (W10.12): RecordQualityAssessments's answer.
+// The result of RecordQualityAssessments: meridian.v1.RecordQualityAssessmentsReply.
+message RecordQualityAssessmentsResult {
+  // Each its own record. 0: none recorded.
+  uint32 recorded = 1;
+}
+
+// W6.38: the setting read, by an ems plugin before it places on a stale
+// reference, and by the dashboard.
+// The params of ReadStaleReferenceActionsPermitted: meridian.v1.ReadStaleReferenceActionsPermittedRequest, less what the sidecar sets.
+message ReadStaleReferenceActionsPermittedParams {
+}
+
+// The stale-reference actions permitted in force (W6.38).
+// The result of ReadStaleReferenceActionsPermitted: meridian.v1.StaleReferenceActionsPermittedSetting.
+message ReadStaleReferenceActionsPermittedResult {
+  // True: an ems plugin admin may choose warn; false: refuse only, and a
+  // plugin's warn is read as refuse.
+  bool warn_permitted = 1;
+
+  // The last change; 0 and empty for the default never changed.
+  int64 changed_at_ns = 2;
+
+  string changed_by = 3;
+}
+
 // What a plugin asks to hear. A row it names that no role it holds hears
 // is refused, PERMISSION_DENIED, naming it.
 message ReceiveRequest {
@@ -4122,6 +5254,14 @@ message Delivery {
     RatesRecordedEvent rates_recorded = 45;
     // W10.5: platform.lake.{dataset}.event.liveness-recorded.
     LivenessRecordedEvent liveness_recorded = 46;
+    // W10.5: platform.lake.{dataset}.event.statistics-recorded.
+    StatisticsRecordedEvent statistics_recorded = 47;
+    // W9.19: platform.book.event.lifecycle-event-recorded.
+    LifecycleEventRecordedEvent lifecycle_event_recorded = 48;
+    // W10.5: platform.lake.{dataset}.event.filings-recorded.
+    FilingsRecordedEvent filings_recorded = 49;
+    // W10.5: platform.lake.{dataset}.event.corporate-actions-recorded.
+    CorporateActionsRecordedEvent corporate_actions_recorded = 50;
   }
 }
 
@@ -5195,6 +6335,18 @@ enum InstrumentType {
   INSTRUMENT_TYPE_RATE_CURVE = 4;
   // Under referential (contract v27): an index -- the SOFR Index.
   INSTRUMENT_TYPE_INDEX = 5;
+  // Contract v28: Under derivative: a listed equity, ETF or index option, one
+  // series a record, with the attributes of ListedOption.
+  INSTRUMENT_TYPE_LISTED_OPTION = 6;
+  // Contract v28: Under derivative: a listed future, one contract month a
+  // record, with the attributes of FutureContract.
+  INSTRUMENT_TYPE_FUTURE = 7;
+  // Contract v28: Under derivative: an option whose underlying is a future
+  // record, with the attributes of ListedOption.
+  INSTRUMENT_TYPE_FUTURE_OPTION = 8;
+  // Contract v28: Under referential: a commodity a future is written on, never
+  // held.
+  INSTRUMENT_TYPE_COMMODITY = 9;
 }
 
 // Why a resolution did not produce exactly one instrument; on a conflict
@@ -5319,6 +6471,15 @@ message InstrumentRecord {
   // Never a gate on asking the platform.
   repeated string missing_fields = 21;
 
+  // Contract v28: the series' full terms, so the record read alone is complete
+  // (ruling 575); an adjustment is a new version of them, the INS- ID kept.
+  // Unset unless the record's type is listed_option or future_option.
+  ListedOption listed_option = 22;
+
+  // Contract v28: one contract month's full terms. Unset unless the record's
+  // type is future.
+  FutureContract future = 23;
+
   // Retired in the domain message, and never reused.
   reserved 3;
 }
@@ -5336,6 +6497,10 @@ enum InstrumentLifecycleState {
   // Retired. Existing holdings stay resolvable, because history does not stop
   // being true when an instrument stops trading.
   INSTRUMENT_LIFECYCLE_STATE_DECOMMISSIONED = 3;
+  // Contract v28: A listed series past its last lifecycle date, marked by the
+  // platform: still resolvable for a date it traded, never reused; never set
+  // on a venue.
+  INSTRUMENT_LIFECYCLE_STATE_EXPIRED = 4;
 }
 
 // Where a value in force on a deployment's record came from (W3,
@@ -5536,6 +6701,154 @@ message EventContractBound {
   Decimal value = 1;
 
   bool inclusive = 2;
+}
+
+// Contract v28 (InstrumentRecord.listed_option): carries a listed option's
+// terms.
+// A mirror of meridian.v1.ListedOption.
+message ListedOption {
+  // The underlying's INS- record: an equity, a fund, an index, or for a
+  // future_option a future record (FIX UnderlyingSecurityID, 309). Never
+  // empty.
+  string underlying_instrument_id = 1;
+
+  // The right the holder has. Unspecified is refused.
+  PutOrCall put_or_call = 2;
+
+  // The price per unit of the underlying at which the option is exercised, as
+  // listed; an adjusted strike is a new version. Never unset.
+  Money strike_price = 3;
+
+  // A plain date, YYYY-MM-DD, the expiration the series is listed for. Never
+  // empty.
+  string expiration_date = 4;
+
+  // A plain date, YYYY-MM-DD. Empty until the platform's source states it: the
+  // record is then incomplete, listing it.
+  string last_trade_date = 5;
+
+  // The style the series is listed with; the calculation package binds its
+  // model by it (ruling 576). Unspecified is refused.
+  ExerciseStyle exercise_style = 6;
+
+  // Physical or cash, as listed. Unspecified is refused.
+  SettlementMethod settlement_method = 7;
+
+  // When the settlement value is fixed, which is where time to expiry counts
+  // to (minutes over 525,600). Unspecified: the record is incomplete on a
+  // cash-settled option, listing it.
+  SettlementTime settlement_time = 8;
+
+  // What one contract's premium is multiplied by: 100 on a standard equity
+  // option; an adjustment may change it apart from the deliverable. Never
+  // unset.
+  Decimal contract_multiplier = 9;
+
+  // Each instrument and its quantity, cash among them as its cash instrument's
+  // quantity: 100 shares on a standard option, 150 after a 3-for-2 split,
+  // shares and cash after a merger. None until the platform's source states
+  // it: the record is then incomplete, listing it; a cash-settled option's
+  // states its cash.
+  repeated DeliverableComponent deliverable = 10;
+
+  // The OCC root (SPX, SPXW, AAPL, AAPL1 once adjusted); on a future option,
+  // the exchange's option product code. Never empty.
+  string option_root = 11;
+
+  // YYYYMM. Empty on a listed_option, and on a future option whose exchange
+  // lists no serial month.
+  string contract_month = 12;
+}
+
+// A mirror of meridian.v1.PutOrCall.
+enum PutOrCall {
+  // Refused.
+  PUT_OR_CALL_UNSPECIFIED = 0;
+  // A put: the right to sell the deliverable at the strike.
+  PUT_OR_CALL_PUT = 1;
+  // A call: the right to buy the deliverable at the strike.
+  PUT_OR_CALL_CALL = 2;
+}
+
+// A mirror of meridian.v1.ExerciseStyle.
+enum ExerciseStyle {
+  // Refused.
+  EXERCISE_STYLE_UNSPECIFIED = 0;
+  // Exercisable on any business day to expiration.
+  EXERCISE_STYLE_AMERICAN = 1;
+  // Exercisable at expiration only.
+  EXERCISE_STYLE_EUROPEAN = 2;
+}
+
+// A mirror of meridian.v1.SettlementMethod.
+enum SettlementMethod {
+  // Refused.
+  SETTLEMENT_METHOD_UNSPECIFIED = 0;
+  // The deliverable changes hands on exercise; for a future option, the
+  // future.
+  SETTLEMENT_METHOD_PHYSICAL = 1;
+  // Cash against the settlement value on exercise.
+  SETTLEMENT_METHOD_CASH = 2;
+}
+
+// A mirror of meridian.v1.SettlementTime.
+enum SettlementTime {
+  // Not stated: on a physically settled option, where it does not apply.
+  SETTLEMENT_TIME_UNSPECIFIED = 0;
+  // Settled on the expiration day's opening prints (SPX's monthly series).
+  SETTLEMENT_TIME_AM = 1;
+  // Settled on the expiration day's close (SPXW).
+  SETTLEMENT_TIME_PM = 2;
+}
+
+// Contract v28 (ListedOption.deliverable): states what one contract delivers
+// on exercise (ruling 559).
+// A mirror of meridian.v1.DeliverableComponent.
+message DeliverableComponent {
+  // An INS- record: the underlying, another company's shares after a merger,
+  // or a currency's cash instrument for cash. Never empty: a component naming
+  // no instrument is refused.
+  string instrument_id = 1;
+
+  // 100 shares; 150 after a 3-for-2 split; for cash, the amount in the cash
+  // instrument's major unit. Never unset.
+  Decimal quantity = 2;
+}
+
+// Contract v28 (InstrumentRecord.future): carries a listed future's terms.
+// A mirror of meridian.v1.FutureContract.
+message FutureContract {
+  // An index, an equity, a rate or a commodity's referential INS- record.
+  // Never empty.
+  string underlying_instrument_id = 1;
+
+  // The exchange's code for the product every month of it shares (ES, CL).
+  // Never empty.
+  string product_code = 2;
+
+  // YYYYMM. Never empty.
+  string contract_month = 3;
+
+  // A plain date, YYYY-MM-DD. Empty until the source states it: the record is
+  // then incomplete.
+  string last_trade_date = 4;
+
+  // A plain date, YYYY-MM-DD: after it the platform marks the record expired
+  // (ruling 579). Empty until the source states it: the record is then
+  // incomplete.
+  string final_settlement_date = 5;
+
+  // Physical or cash, as listed. Unspecified is refused.
+  SettlementMethod settlement_method = 6;
+
+  // What a one-point move in the price is worth per contract: 50 USD on ES.
+  // Never unset.
+  Decimal contract_multiplier = 7;
+
+  // A plain date, YYYY-MM-DD; the oms warns before it (W11.4), since v28 books
+  // no delivery. Empty on a cash-settled future; on a physically delivered one
+  // the record is incomplete until it is stated.
+  string first_notice_date = 8;
 }
 
 // The only thing holdings are recorded against. A plugin creates one only by
@@ -6495,6 +7808,22 @@ message Leg {
 
   // FIX's LegRatioQty (623).
   Decimal ratio = 3;
+
+  // Contract v28: as option brokers require it: buy to open, sell to close; on
+  // a package, per leg. Unspecified on an instrument that is no option or
+  // future.
+  PositionEffect position_effect = 4;
+}
+
+// A mirror of meridian.v1.PositionEffect.
+enum PositionEffect {
+  // Not stated: an instrument that is no option or future; refused on an
+  // option or a future.
+  POSITION_EFFECT_UNSPECIFIED = 0;
+  // Opens or adds to a position.
+  POSITION_EFFECT_OPEN = 1;
+  // Closes or reduces a position.
+  POSITION_EFFECT_CLOSE = 2;
 }
 
 // `portfolio`'s allocation instruction (principle 1; FIX's
@@ -6820,6 +8149,10 @@ message Order {
   // Contract v27 (W11.1): the date an FX order settles on, as `portfolio`
   // states it (FIX's SettlDate, 64), ISO 8601; empty is spot.
   string value_date = 48;
+
+  // Contract v28: as option brokers require it: buy to open, sell to close.
+  // Unspecified on an instrument that is no option or future.
+  PositionEffect position_effect = 49;
 }
 
 // The people on an order, a placement or an entered execution (requirement
@@ -7562,6 +8895,15 @@ message Execution {
   // net order, which convention set its rate; unspecified on any other.
   CrossRateSource cross_rate_source = 42;
 
+  // Contract v28: a package is reported once for the package and once per leg,
+  // linked. Unspecified: single.
+  MultiLegReportingType multi_leg_reporting_type = 43;
+
+  // Contract v28: on a leg reported, the package fill's venue_execution_id as
+  // reported; on a leg recorded, the package's execution_id. Empty except on a
+  // leg's fill.
+  string package_execution_id = 44;
+
   // Retired in the domain message, and never reused.
   reserved 25;
   reserved "derivative_terms";
@@ -7721,6 +9063,20 @@ enum CrossRateSource {
   CROSS_RATE_SOURCE_NET_STREET_RATE = 1;
   // The mid at the netting moment.
   CROSS_RATE_SOURCE_MID_AT_NETTING = 2;
+}
+
+// A mirror of meridian.v1.MultiLegReportingType.
+enum MultiLegReportingType {
+  // Read as single.
+  MULTI_LEG_REPORTING_TYPE_UNSPECIFIED = 0;
+  // A fill of a single-instrument order (FIX 442 = 1).
+  MULTI_LEG_REPORTING_TYPE_SINGLE = 1;
+  // One leg's fill of a package (442 = 2): the leg's instrument, side,
+  // quantity and price.
+  MULTI_LEG_REPORTING_TYPE_LEG = 2;
+  // The package's fill (442 = 3): no instrument, quantity in package units,
+  // the net price.
+  MULTI_LEG_REPORTING_TYPE_PACKAGE = 3;
 }
 
 // A fee with no fill, on its placement (W11.12): it moves cash, pending to
@@ -7949,6 +9305,15 @@ message ReportExecutionRequest {
   // which convention set its rate; refused INVALID_ARGUMENT naming it where
   // missing on such a cross, or set on any other execution.
   CrossRateSource cross_rate_source = 36;
+
+  // Contract v28: a package is reported once for the package and once per leg,
+  // linked. Unspecified: single.
+  MultiLegReportingType multi_leg_reporting_type = 37;
+
+  // Contract v28: on a leg reported, the package fill's venue_execution_id as
+  // reported; on a leg recorded, the package's execution_id. Empty except on a
+  // leg's fill.
+  string package_execution_id = 38;
 
   // Retired in the domain message, and never reused.
   reserved 22;
@@ -8982,6 +10347,15 @@ message SecurityTemplate {
   // question 225): its calculation package, declarative data; unset on a
   // class's base template and on a version published before v26.
   CalculationPackage calculation_package = 10;
+
+  // Contract v28: true: readable and runnable, so past answers recompute, and
+  // minted under no more; its instruments move to successor_version, each by a
+  // recorded change. False: in use.
+  bool withdrawn = 11;
+
+  // Contract v28: a published version of the same template. Empty unless
+  // withdrawn.
+  string successor_version = 12;
 }
 
 // One field of a template (W3.24).
@@ -8995,6 +10369,27 @@ message TemplateField {
 
   // A record without it is incomplete, its missing fields listed (W3.7).
   bool required = 3;
+
+  // Contract v28: mint, complete or optional, the intent's three levels.
+  // Unspecified on a version published before v28.
+  FieldRequirement requirement = 4;
+
+  // Contract v28: true: a repeating group, as FIX's are, its values offered by
+  // path with an index (deliverable[0].quantity). False: one value.
+  bool repeated = 5;
+}
+
+// A mirror of meridian.v1.FieldRequirement.
+enum FieldRequirement {
+  // A version published before v28: read from required, true as mint and false
+  // as optional.
+  FIELD_REQUIREMENT_UNSPECIFIED = 0;
+  // The platform mints an INS- record only when its source fills it.
+  FIELD_REQUIREMENT_MINT = 1;
+  // Minted without it, the record listing it missing until it is filled.
+  FIELD_REQUIREMENT_COMPLETE = 2;
+  // Never missing.
+  FIELD_REQUIREMENT_OPTIONAL = 3;
 }
 
 // A template version's calculation package (W1.24): the pricing model it
@@ -9020,6 +10415,11 @@ message CalculationPackage {
   string calculation_version = 5;
 
   repeated CalculationTestCase test_cases = 6;
+
+  // Contract v28: a table keyed by exercise style and, where it matters, the
+  // underlying's asset class; a combination with no row is refused at publish.
+  // None: the package's own model_id and model_version bind every instrument.
+  repeated ModelBinding model_bindings = 7;
 }
 
 // One test case of a calculation package: inputs and the exact answer, each
@@ -9031,6 +10431,25 @@ message CalculationTestCase {
   string inputs = 2;
 
   string expected = 3;
+}
+
+// Contract v28 (CalculationPackage.model_bindings): binds the model by term
+// (ruling 576).
+// A mirror of meridian.v1.ModelBinding.
+message ModelBinding {
+  // The style an instrument's terms state. Unspecified: any style.
+  ExerciseStyle exercise_style = 1;
+
+  // Equity or fund (the tree with discrete dividends), referential (an index).
+  // Unspecified: any underlying.
+  AssetClass underlying_asset_class = 2;
+
+  // American_binomial, black_scholes, black_76 or quoted_price in v28. Never
+  // empty.
+  string model_id = 3;
+
+  // 1 or more. Never 0.
+  int32 model_version = 4;
 }
 
 // A price of one kind for one subject. An FX rate is the price of one
@@ -9110,6 +10529,20 @@ message ObservationMeta {
   // date, each calendar with its version, the reason and the holiday's
   // name. Recorded as reported, never refused. Decided by the lake.
   DateCheck closed_day = 15;
+
+  // Contract v28: the series' identifier -- the occ_osi symbol, or a future's
+  // or future option's exchange ticker carrying its venue's MIC in source --
+  // on a row whose subject is the underlying; in the row's conflation key.
+  // None: the row is about its subjects alone.
+  repeated Identifier series_key = 16;
+
+  // Contract v28: set at the edge; on a read, the row's effective state, the
+  // highest of its own and every assessment of it. Unspecified: valid.
+  QualityState quality = 17;
+
+  // Contract v28: each check it failed, with the assessments' reasons on a
+  // read. None on a valid row.
+  repeated QualityReason quality_reasons = 18;
 }
 
 // One entity a row is about.
@@ -9118,6 +10551,32 @@ message SubjectRef {
   // The deployment's own ID for the entity: an instrument's in the lake's
   // 1a and 1b. 1 to 64 characters.
   string entity_id = 1;
+
+  // Contract v28: one of a small closed list; a row names up to 64 subjects.
+  // Unspecified: subject.
+  SubjectRole role = 2;
+}
+
+// A mirror of meridian.v1.SubjectRole.
+enum SubjectRole {
+  // Read as subject: every row before v28.
+  SUBJECT_ROLE_UNSPECIFIED = 0;
+  // What the row is about.
+  SUBJECT_ROLE_SUBJECT = 1;
+  // Who holds: a 13F manager, a 13D or 13G filer.
+  SUBJECT_ROLE_HOLDER = 2;
+  // What is held, or an issue rated.
+  SUBJECT_ROLE_HELD = 3;
+  // Who issued it.
+  SUBJECT_ROLE_ISSUER = 4;
+  // An insider reporting ownership.
+  SUBJECT_ROLE_REPORTING_OWNER = 5;
+  // Who filed.
+  SUBJECT_ROLE_FILER = 6;
+  // What a derivative is on.
+  SUBJECT_ROLE_UNDERLYING = 7;
+  // The rating agency (FDP Q7).
+  SUBJECT_ROLE_RATER = 8;
 }
 
 // Where a row came from.
@@ -9165,6 +10624,45 @@ enum SourceTimeKind {
   SOURCE_TIME_KIND_VENDOR_RECEIVED = 4;
   // When the source released it: a close, a panel, a model.
   SOURCE_TIME_KIND_PUBLISHED = 5;
+}
+
+// A mirror of meridian.v1.QualityState.
+enum QualityState {
+  // Read as valid: every row before v28.
+  QUALITY_STATE_UNSPECIFIED = 0;
+  // No check failed.
+  QUALITY_STATE_VALID = 1;
+  // Served, flagged.
+  QUALITY_STATE_SUSPICIOUS = 2;
+  // Left out of default and side-by-side reads; served only to a read naming
+  // its dataset with include_quarantined.
+  QUALITY_STATE_INVALID = 3;
+}
+
+// A mirror of meridian.v1.QualityReason.
+enum QualityReason {
+  // Refused on a row whose state is not valid.
+  QUALITY_REASON_UNSPECIFIED = 0;
+  // A field failing its dictionary bound, the raw record kept at the edge.
+  QUALITY_REASON_SCHEMA = 1;
+  // The same source sequence or content under a new row key.
+  QUALITY_REASON_DUPLICATE = 2;
+  // Bid above ask beyond the dataset's tolerance.
+  QUALITY_REASON_CROSSED_QUOTE = 3;
+  // After a gap in the source's sequence, until resynced.
+  QUALITY_REASON_SEQUENCE_GAP = 4;
+  // A source time earlier than the subject's last beyond tolerance.
+  QUALITY_REASON_OUT_OF_ORDER = 5;
+  // Arrived past the stale ceiling.
+  QUALITY_REASON_STALE = 6;
+  // A source time ahead of the clock beyond the skew allowance, or before the
+  // session's start.
+  QUALITY_REASON_IMPLAUSIBLE_TIMESTAMP = 7;
+  // Outside a robust rolling baseline, a signal plugin's judgment.
+  QUALITY_REASON_PRICE_OUTLIER = 8;
+  // Apart from another dataset for the same subject beyond tolerance, a signal
+  // plugin's judgment.
+  QUALITY_REASON_CROSS_SOURCE_DISAGREEMENT = 9;
 }
 
 // Which price.
@@ -9256,6 +10754,11 @@ message Trade {
 
   // True in a version saying the source withdrew the trade.
   bool cancelled = 7;
+
+  // Contract v28: the bid and ask, their sizes and the quote's own source
+  // time. Unset: the source states none and the plugin kept none; never joined
+  // from kept quotes.
+  QuoteAtTrade quote_at_trade = 8;
 }
 
 // What a trade may count for (spec/the-lake, "Trade attributes"): written on
@@ -9330,6 +10833,13 @@ enum TradeCharacteristic {
   TRADE_CHARACTERISTIC_CONTINGENT = 13;
   // A cross of two orders by one participant.
   TRADE_CHARACTERISTIC_CROSS = 14;
+  // Contract v28: A leg of a complex order's execution: its price is the
+  // package's, so a side inferred from it is not applicable.
+  TRADE_CHARACTERISTIC_MULTI_LEG = 15;
+  // Contract v28: An option print tied to a stock trade, or the reverse.
+  TRADE_CHARACTERISTIC_STOCK_OPTION_TIED = 16;
+  // Contract v28: A trade made on an exchange's floor.
+  TRADE_CHARACTERISTIC_FLOOR = 17;
 }
 
 // The side that took liquidity.
@@ -9341,6 +10851,33 @@ enum Aggressor {
   AGGRESSOR_BUY = 1;
   // The seller hit the bid.
   AGGRESSOR_SELL = 2;
+}
+
+// Contract v28 (Trade.quote_at_trade): carries the quote in force when the
+// print happened (G9; approved 573).
+// A mirror of meridian.v1.QuoteAtTrade.
+message QuoteAtTrade {
+  // As the source states it, or as the plugin last received it on the same
+  // feed. Unset: no bid in force.
+  optional Money bid = 1;
+
+  // As the source states it, or as the plugin last received it on the same
+  // feed. Unset: no ask in force.
+  optional Money ask = 2;
+
+  // As stated. Unset: not stated.
+  optional Decimal bid_quantity = 3;
+
+  // As stated. Unset: not stated.
+  optional Decimal ask_quantity = 4;
+
+  // The quote's own source time, so a reader can refuse a stale one. 0: the
+  // source states no quote time.
+  int64 source_time_ns = 5;
+
+  // True: the best bid and offer the plugin last received on the same feed
+  // before the print. False: the source stated the quote with the print.
+  bool as_last_received = 6;
 }
 
 // The best bid and offer, on a venue or consolidated: in force from its valid
@@ -9444,6 +10981,11 @@ message SourceChoice {
 
   // Every dataset the reader is entitled to, each row naming its own.
   bool side_by_side = 3;
+
+  // Contract v28: true, on a read naming its datasets: invalid rows are
+  // answered, each with its state and reasons; refused on a default or
+  // side-by-side read. False: invalid rows are left out.
+  bool include_quarantined = 4;
 }
 
 // A subject, dataset or field a read could not serve, and why; the rest still
@@ -9720,6 +11262,11 @@ message DatasetLicence {
   ReportCadence report_cadence = 34;
 
   uint32 report_due_day = 35;
+
+  // Contract v28: personal or commercial use, and a buyer-revenue threshold,
+  // as the vendor's terms state them; shown, never enforced by core. Unset:
+  // the terms state no eligibility.
+  DataEligibility eligibility = 37;
 }
 
 // A mirror of meridian.v1.AccessBasis.
@@ -9907,6 +11454,36 @@ enum ReportCadence {
   REPORT_CADENCE_ON_CHANGE = 4;
 }
 
+// Contract v28 (DatasetLicence.eligibility): states who may take the dataset
+// (ruling 491).
+// A mirror of meridian.v1.DataEligibility.
+message DataEligibility {
+  // Each use the terms admit. None: any use.
+  repeated DataUse uses = 1;
+
+  // The terms admit a buyer whose annual revenue is below it. Unset: no upper
+  // threshold.
+  optional Decimal buyer_revenue_below = 2;
+
+  // The terms admit a buyer whose annual revenue is at least it. Unset: no
+  // lower threshold.
+  optional Decimal buyer_revenue_at_least = 3;
+
+  // The ISO 4217 code the terms state the thresholds in, USD. Empty where
+  // neither threshold is set; set whenever one is.
+  string buyer_revenue_currency_code = 4;
+}
+
+// A mirror of meridian.v1.DataUse.
+enum DataUse {
+  // Never sent.
+  DATA_USE_UNSPECIFIED = 0;
+  // A natural person's own investing.
+  DATA_USE_PERSONAL = 1;
+  // A firm's use.
+  DATA_USE_COMMERCIAL = 2;
+}
+
 // A dataset's latest sign of life: its source's heartbeat or poll, which
 // confirms the values in force. Not a row, and never kept as one.
 // A mirror of meridian.v1.DatasetLiveness.
@@ -9986,6 +11563,19 @@ message Job {
   // converted to, by its `INS-` ID; empty answers each account in its base
   // currency.
   string reporting_currency = 6;
+
+  // Contract v28: each an underlying, an expiration window or series keys;
+  // series not held are priced from their chain rows, never minted (ruling
+  // 561). None: the job is over its accounts alone.
+  repeated ChainRef chains = 7;
+
+  // Contract v28: the axes the engine generates the points from; the answer's
+  // hash covers it. Unset: no inline scenario.
+  ScenarioSet scenario_set = 8;
+
+  // Contract v28: its row key and version in the lake (W12.8); refused beside
+  // scenario_set. Unset: no saved scenario.
+  ScenarioRef scenario_ref = 9;
 }
 
 // A job's inputs, by reference (requirement 3): one watermark and one as-of
@@ -10045,6 +11635,169 @@ message WhatIfTrade {
   optional Money price = 4;
 }
 
+// Contract v28 (Job.chains): names chains a job prices (contract v28).
+// A mirror of meridian.v1.ChainRef.
+message ChainRef {
+  // Its INS- record, the subject of its chain rows. Never empty.
+  string underlying_instrument_id = 1;
+
+  // A plain date. Empty: from the earliest.
+  string expiration_from = 2;
+
+  // A plain date. Empty: to the latest.
+  string expiration_to = 3;
+
+  // Their occ_osi symbols, or tickers each carrying its venue's MIC in source.
+  // None: every series in the window.
+  repeated Identifier series_keys = 4;
+}
+
+// Contract v28 (Job.scenario_set): carries a scenario set inline, unsaved (the
+// one-API spec's Q20).
+// A mirror of meridian.v1.ScenarioSet.
+message ScenarioSet {
+  // A person's or a plugin's words. Never empty.
+  string name = 1;
+
+  // Their product is the set; only the axes are saved, never the points. Never
+  // empty.
+  repeated ScenarioAxis axes = 2;
+}
+
+// Contract v28 (ScenarioSet.axes): names the axes the set's points are
+// generated from (ruling 582).
+// A mirror of meridian.v1.ScenarioAxis.
+message ScenarioAxis {
+  // Spot, vol, date, minutes, or a person's word. Never empty.
+  string name = 1;
+
+  // Each a scenario; position 0 first. Never empty.
+  repeated Scenario steps = 2;
+}
+
+// Contract v28 (ScenarioAxis.steps): lists an axis's steps in order.
+// A mirror of meridian.v1.Scenario.
+message Scenario {
+  // A person's or a plugin's words. Never empty.
+  string name = 1;
+
+  // Each to one object or every object of a kind. None: the base, nothing
+  // moved.
+  repeated Shock shocks = 2;
+}
+
+// Contract v28 (Scenario.shocks): carries the shocks applied together.
+// A mirror of meridian.v1.Shock.
+message Shock {
+  // The market object, by the lake's names. Unspecified is refused.
+  ShockObject object = 1;
+
+  // A subject ID, or every object of the kind. Never unset, except on a time
+  // shock.
+  ShockTarget target = 2;
+
+  // One of the forms its object takes. Unspecified is refused: a form is
+  // stated, never inferred (ruling 581).
+  ShockForm form = 3;
+
+  // The unit its value is in. Unspecified is refused but on a time shock to
+  // settlement.
+  ShockUnit unit = 4;
+
+  // Signed, in the shock's unit. Unset on a bucketed shock, whose buckets
+  // carry the values, and on a time shock to settlement.
+  optional Decimal value = 5;
+
+  // Each a tenor and its value; linear between key tenors. None except on a
+  // bucketed shock.
+  repeated ShockBucket buckets = 6;
+}
+
+// A mirror of meridian.v1.ShockObject.
+enum ShockObject {
+  // Refused.
+  SHOCK_OBJECT_UNSPECIFIED = 0;
+  // An instrument's price, or an FX rate as its currency's cash instrument's
+  // price (ruling 584).
+  SHOCK_OBJECT_SPOT = 1;
+  // An underlying's fitted volatility surface.
+  SHOCK_OBJECT_VOL_SURFACE = 2;
+  // A rate curve or a single rate, a referential record.
+  SHOCK_OBJECT_RATE = 3;
+  // The valuation time.
+  SHOCK_OBJECT_TIME = 4;
+}
+
+// Contract v28 (Shock.target): names the object shocked (ruling 583).
+// A mirror of meridian.v1.ShockTarget.
+message ShockTarget {
+  // An INS- record: an instrument, a currency's cash instrument, an underlying
+  // for its surface, a referential rate or curve. Empty where every is true.
+  string subject_id = 1;
+
+  // True: every spot, every surface or every rate the job reads; refused
+  // beside a subject_id. False: subject_id names the object.
+  bool every = 2;
+}
+
+// A mirror of meridian.v1.ShockForm.
+enum ShockForm {
+  // Refused.
+  SHOCK_FORM_UNSPECIFIED = 0;
+  // Spot: a relative move, the default for spot.
+  SHOCK_FORM_RELATIVE = 1;
+  // Spot: an absolute move in the price's currency; time: a shift by its unit.
+  SHOCK_FORM_ABSOLUTE = 2;
+  // Vol or rates: the same move at every expiry or tenor.
+  SHOCK_FORM_PARALLEL = 3;
+  // Vol by expiry bucket, rates by key tenor, linear between keys.
+  SHOCK_FORM_BUCKETED = 4;
+  // Time: each option moved to its own settlement time (G16).
+  SHOCK_FORM_TO_SETTLEMENT = 5;
+}
+
+// A mirror of meridian.v1.ShockUnit.
+enum ShockUnit {
+  // Refused, except on a time shock to settlement.
+  SHOCK_UNIT_UNSPECIFIED = 0;
+  // Spot, relative: 10 is +10%.
+  SHOCK_UNIT_PERCENT = 1;
+  // Spot, absolute, in the price's currency.
+  SHOCK_UNIT_PRICE = 2;
+  // Vol, absolute: 2 is +2 vol points.
+  SHOCK_UNIT_VOL_POINTS = 3;
+  // Rates: 25 is +25 bp.
+  SHOCK_UNIT_BASIS_POINTS = 4;
+  // Time, calendar days.
+  SHOCK_UNIT_DAYS = 5;
+  // Time, calendar minutes, counted over 525,600 a year (G16).
+  SHOCK_UNIT_MINUTES = 6;
+}
+
+// Contract v28 (Shock.buckets): states a bucketed shock's values.
+// A mirror of meridian.v1.ShockBucket.
+message ShockBucket {
+  // A count and a unit (1M, 3M, 10Y), v27's Tenor. Never unset.
+  Tenor tenor = 1;
+
+  // Signed, in the shock's unit. Never unset.
+  Decimal value = 2;
+}
+
+// Contract v28 (Job.scenario_ref): names a saved scenario or set.
+// A mirror of meridian.v1.ScenarioRef.
+message ScenarioRef {
+  // Its row key in the signal plugin's scenarios dataset. Never empty.
+  string row_key = 1;
+
+  // The signal plugin's scenarios dataset. Never empty.
+  string dataset = 2;
+
+  // The row key's version; an edited scenario is a new version. 0: the latest
+  // version.
+  uint64 version = 3;
+}
+
 // A job's answer (W12.1, W12.4): figures, what was not evaluated and why,
 // and what it was computed from. Not a record: recomputable from its
 // provenance, cached by hash and losable (Q12).
@@ -10094,6 +11847,10 @@ message Figure {
   // Contract v27 (W12.2; ruling 374): its oldest input's source time; 0 for
   // a figure that read no market data.
   int64 oldest_input_source_ns = 10;
+
+  // Contract v28: its occ_osi symbol, or a ticker carrying its venue's MIC in
+  // source. None: the figure names an INS- record or none.
+  repeated Identifier series_key = 11;
 }
 
 // A figure's place in one breakdown.
@@ -10120,6 +11877,18 @@ message ScenarioKey {
 
   // For an outcome, the member of the event group that resolves YES.
   string outcome_instrument_id = 3;
+
+  // Contract v28: the saved row key, or `inline` for a job's own set. Empty
+  // except on a scenario point.
+  string scenario_row_key = 4;
+
+  // Contract v28: the row key's version. 0 except on a saved scenario's point.
+  uint64 scenario_version = 5;
+
+  // Contract v28: one position per axis, from 0, in the set's axis order: the
+  // point is the product of those steps. None except on a scenario set's
+  // point.
+  repeated uint32 axis_positions = 6;
 }
 
 // A mirror of meridian.v1.ScenarioKind.
@@ -10137,6 +11906,9 @@ enum ScenarioKind {
   // No named member resolving YES, for a group mutually exclusive and not
   // exhaustive (the options and event contracts spec's question 4).
   SCENARIO_KIND_NONE_OF_THE_NAMED = 5;
+  // Contract v28: One point of a scenario or a scenario set, keyed by its set
+  // and axis positions.
+  SCENARIO_KIND_SCENARIO_POINT = 6;
 }
 
 // How a figure was computed (the first release's Q14, approved 2026-10-14
@@ -10175,6 +11947,9 @@ message NotEvaluated {
   int64 age_ns = 6;
 
   int64 ceiling_ns = 7;
+
+  // Contract v28: its key, as Figure.series_key. None.
+  repeated Identifier series_key = 8;
 }
 
 // A mirror of meridian.v1.NotEvaluatedReason.
@@ -10204,6 +11979,15 @@ enum NotEvaluatedReason {
   // Contract v27 (W12.2; ruling 325): a lot's cost the book does not
   // record, which the measure needs.
   NOT_EVALUATED_REASON_COST_MISSING = 10;
+  // Contract v28: An option quote below its intrinsic value: no implied
+  // volatility exists for it.
+  NOT_EVALUATED_REASON_BELOW_INTRINSIC = 11;
+  // Contract v28: A surface fit that failed a no-arbitrage check or did not
+  // converge.
+  NOT_EVALUATED_REASON_FIT_FAILED = 12;
+  // Contract v28: The only input in force is invalid, its dataset in detail
+  // (ruling 421).
+  NOT_EVALUATED_REASON_INPUT_QUARANTINED = 13;
 }
 
 // What an answer was computed from (requirements 4 and 35; Q7). Named so it
@@ -10908,6 +12692,549 @@ enum TcaUnanswered {
   TCA_UNANSWERED_NOT_MEASURED = 2;
 }
 
+// Contract v28 (RequestSeriesRecordsRequest.series): names the series wanted
+// (W3.31).
+// A mirror of meridian.v1.SeriesWant.
+message SeriesWant {
+  // The occ_osi symbol, or a future's or future option's exchange ticker
+  // carrying its venue's ISO 10383 MIC in source. Never empty.
+  repeated Identifier series_key = 1;
+
+  // The INS- record the chain rows name as their subject. Never empty.
+  string underlying_instrument_id = 2;
+
+  // Which part of the deployment's series request rule allows it (W6.37).
+  // Unspecified is refused.
+  SeriesRequestCause cause = 3;
+}
+
+// A mirror of meridian.v1.SeriesRequestCause.
+enum SeriesRequestCause {
+  // Refused.
+  SERIES_REQUEST_CAUSE_UNSPECIFIED = 0;
+  // An order or a proposal names it, or is about to.
+  SERIES_REQUEST_CAUSE_ORDER = 1;
+  // A standing want for an underlying's series.
+  SERIES_REQUEST_CAUSE_STANDING = 2;
+}
+
+// Contract v28 (RequestSeriesRecordsReply.answers): answers each series.
+// A mirror of meridian.v1.SeriesAnswer.
+message SeriesAnswer {
+  // As asked. Never empty.
+  repeated Identifier series_key = 1;
+
+  // The INS- record the platform matched or minted. Empty where queued or
+  // refused.
+  string instrument_id = 2;
+
+  // True: asked again daily, as W3.4's queued requests are. False.
+  bool pending_review = 3;
+
+  // True: nothing was sent to the platform. False.
+  bool refused_by_rule = 4;
+}
+
+// Contract v28: a listed option or future series as its source lists it: its
+// key, its underlying and its terms as the template's fields, never minting it
+// (contract v28).
+// A mirror of meridian.v1.ListedSeries.
+message ListedSeries {
+  // Its row key, the underlying as its subject, the series_key, its source,
+  // valid time and version; an adjustment is the next version of its key.
+  // Never unset.
+  ObservationMeta meta = 1;
+
+  // The listed_option, future or future_option template's TPL- ID. Never
+  // empty.
+  string template_id = 2;
+
+  // A published version the catalogue holds. Never empty.
+  string template_version = 3;
+
+  // Each by its template path, the values the platform needs for a
+  // template-complete request (W3.31). Never empty.
+  repeated TemplateFieldValue fields = 4;
+
+  // Filled by the lake on a read, from the instrument store, never minted.
+  // Empty: the deployment holds no record with the series' key; never set by a
+  // writer.
+  string instrument_id = 5;
+}
+
+// Contract v28: a value per contract per trading date as its source publishes
+// it: open interest, volume, block volume (contract v28).
+// A mirror of meridian.v1.Statistic.
+message Statistic {
+  // Its key, its subject (the contract's INS- record, or the underlying with
+  // the series_key), its source and its business_date, the trading date it is
+  // for. Never unset.
+  ObservationMeta meta = 1;
+
+  // The kind, a closed list growing by revision. Unspecified is refused.
+  StatisticKind kind = 2;
+
+  // Contracts for an option or a future, shares for an equity. Never unset; a
+  // source that does not state one records no row, never a zero.
+  UnitValue value = 3;
+}
+
+// A mirror of meridian.v1.StatisticKind.
+enum StatisticKind {
+  // Refused.
+  STATISTIC_KIND_UNSPECIFIED = 0;
+  // Contracts open at the trading date's end, as the clearing house or the
+  // chain states it.
+  STATISTIC_KIND_OPEN_INTEREST = 1;
+  // Contracts traded on the date; cleared volume where the source is the
+  // clearing house.
+  STATISTIC_KIND_VOLUME = 2;
+  // Contracts traded in blocks on the date, as the source states it.
+  STATISTIC_KIND_BLOCK_VOLUME = 3;
+  // Shares sold short on the date as reported to a FINRA facility, FINRA's
+  // daily short-sale volume file (ruling 593).
+  STATISTIC_KIND_SHORT_VOLUME = 4;
+  // All shares reported to that facility on the date, the same file's total
+  // (ruling 593).
+  STATISTIC_KIND_TOTAL_VOLUME = 5;
+}
+
+// Contract v28: a listed option's exercise, assignment or expiry, or a
+// future's day of settlement variation, reported, proposed or released, each
+// its own record (contract v28, W9.16 to W9.19).
+// A mirror of meridian.v1.LifecycleEvent.
+message LifecycleEvent {
+  // LCE- and a ULID, minted by the book, never reused. Empty on a request;
+  // never empty on a record.
+  string event_id = 1;
+
+  // An account in the sender's scope. Never empty.
+  string account_id = 2;
+
+  // A listed_option, future_option or future INS- record. Never empty.
+  string instrument_id = 3;
+
+  // The event's kind, a closed list. Unspecified is refused.
+  LifecycleEventKind kind = 4;
+
+  // Decided by the book. Unset on a request.
+  LifecycleEventState state = 5;
+
+  // Contracts exercised, assigned or expired; on a variation, the contracts
+  // held at the settlement. Never unset.
+  Decimal quantity = 6;
+
+  // A plain date: the exercise, assignment or expiry date, or the settlement's
+  // trading date. Never empty.
+  string event_date = 7;
+
+  // Each instrument and its signed quantity, as the broker states it, the
+  // deliverable's components among them. None: an expiry, a cash settlement or
+  // a variation; refused on a physical exercise or assignment.
+  repeated LifecycleDelivery deliveries = 8;
+
+  // Signed, positive received: a cash settlement's amount, a deliverable's
+  // cash component, or a day's variation. Unset where no cash moves.
+  optional Money cash = 9;
+
+  // The exchange's settlement price for a variation; the settlement value for
+  // a cash-settled option. Unset on an exercise or assignment with physical
+  // delivery and on an expiry; refused unset on a variation.
+  optional Money settlement_price = 10;
+
+  // As the plugin read it; with the account, the book's key for a report sent
+  // twice. Empty on a proposal, and where the broker states none.
+  string external_event_id = 11;
+
+  // The proposal's event_id. Empty except on a report that answered a
+  // proposal, and on a release.
+  string answers_event_id = 12;
+
+  // The underlying's close against the strike for an exercise by exception, or
+  // the settlement price. Unset except on a proposal.
+  optional Money proposal_basis = 13;
+
+  // The plugin's raw record, kept at the edge. Unset on a proposal.
+  RawRecordRef raw_record = 14;
+
+  // Its journal entry. Unset on a request.
+  JournalRef last_change = 15;
+}
+
+// A mirror of meridian.v1.LifecycleEventKind.
+enum LifecycleEventKind {
+  // Refused.
+  LIFECYCLE_EVENT_KIND_UNSPECIFIED = 0;
+  // A long option exercised: by the holder, or by exception at expiry.
+  LIFECYCLE_EVENT_KIND_EXERCISE = 1;
+  // A short option assigned, as the broker allocated it.
+  LIFECYCLE_EVENT_KIND_ASSIGNMENT = 2;
+  // An option expired with nothing delivered or paid.
+  LIFECYCLE_EVENT_KIND_EXPIRY = 3;
+  // A future's day of variation against the settlement price, a cash line only
+  // (ruling 562).
+  LIFECYCLE_EVENT_KIND_SETTLEMENT_VARIATION = 4;
+}
+
+// A mirror of meridian.v1.LifecycleEventState.
+enum LifecycleEventState {
+  // Never on a record; a sender leaves it unset.
+  LIFECYCLE_EVENT_STATE_UNSPECIFIED = 0;
+  // Proposed by servicing, moving nothing.
+  LIFECYCLE_EVENT_STATE_PROPOSED = 1;
+  // A proposal a report answered.
+  LIFECYCLE_EVENT_STATE_ANSWERED = 2;
+  // A report, or a released proposal, its movement lines journaled.
+  LIFECYCLE_EVENT_STATE_BOOKED = 3;
+  // A booked event a later correction names.
+  LIFECYCLE_EVENT_STATE_SUPERSEDED = 4;
+}
+
+// Contract v28 (LifecycleEvent.deliveries): states what changed hands on
+// physical delivery.
+// A mirror of meridian.v1.LifecycleDelivery.
+message LifecycleDelivery {
+  // The underlying, a deliverable component, or a currency's cash instrument.
+  // Never empty.
+  string instrument_id = 1;
+
+  // Signed: positive received into the account, negative delivered out. Never
+  // unset; never zero.
+  Decimal quantity = 2;
+
+  // The strike, or an adjusted deliverable's stated price. Unset: the strike,
+  // by the option's terms.
+  optional Money price = 3;
+}
+
+// Contract v28: one value of a signal plugin's own series, naming its rule and
+// inputs, never presented as a publisher's figure (contract v28).
+// A mirror of meridian.v1.DerivedSeries.
+message DerivedSeries {
+  // Its key, subject, the signal plugin's own derived dataset, its business
+  // date and version. Never unset.
+  ObservationMeta meta = 1;
+
+  // Its own name for it: iv30, the index's level, a positioning summary's
+  // part. Never empty.
+  string series = 2;
+
+  // As derived. Never unset.
+  UnitValue value = 3;
+
+  // A definition and its version, an analytics measure's where one was used.
+  // Never unset.
+  MeasureRef rule = 4;
+
+  // Each dataset read and the as-of it was read at, so licences and counts can
+  // follow it. Never empty.
+  repeated DerivedInput inputs = 5;
+}
+
+// Contract v28 (DerivedSeries.inputs): names what the value was derived from.
+// A mirror of meridian.v1.DerivedInput.
+message DerivedInput {
+  // As the lake named it. Never empty.
+  string dataset = 1;
+
+  // Nanoseconds since the epoch. 0: not pinned.
+  int64 as_of_ns = 2;
+}
+
+// Contract v28: a scenario or scenario set a signal plugin saved, each change
+// the next version of its key (contract v28, W12.8).
+// A mirror of meridian.v1.SavedScenario.
+message SavedScenario {
+  // Its row key (the plugin's), its dataset and version; an edit is the next
+  // version. Never unset.
+  ObservationMeta meta = 1;
+
+  // One point. Unset where scenario_set is set.
+  Scenario scenario = 2;
+
+  // Its axes, never its points. Unset where scenario is set.
+  ScenarioSet scenario_set = 3;
+
+  // A person's words. Empty: no description.
+  string description = 4;
+}
+
+// Contract v28 (CompanyRecord.former_names): carries its former names, dated.
+// A mirror of meridian.v1.FormerName.
+message FormerName {
+  // As the source states it. Never empty.
+  string name = 1;
+
+  // A plain date. Empty where the source states none.
+  string valid_from = 2;
+
+  // A plain date. Never empty.
+  string valid_until = 3;
+}
+
+// Contract v28: a filing as its publisher accepted it, keyed by accession, its
+// documents kept at the edge (contract v28).
+// A mirror of meridian.v1.Filing.
+message Filing {
+  // Its row key, its subjects with their roles, its source, valid time and
+  // business date where it has one, its published time, version and sequence.
+  // Never unset.
+  ObservationMeta meta = 1;
+
+  // Its accession and form. Never unset.
+  FilingRef filing = 2;
+
+  // A short platform list over the forms as reported. Unspecified is refused.
+  FilingKind kind = 3;
+
+  // 2.02 for results of operations, which dates an earnings report. None: the
+  // form has no items, or none stated.
+  repeated string items = 4;
+
+  // A plain date. Empty where the form states none.
+  string period_of_report = 5;
+
+  // A plain date; the acceptance time is the envelope's published source time.
+  // Never empty.
+  string filed_date = 6;
+}
+
+// Contract v28 (Filing.filing): names the filing.
+// A mirror of meridian.v1.FilingRef.
+message FilingRef {
+  // EDGAR's accession number, 0000320193-26-000105. Never empty.
+  string accession_number = 1;
+
+  // 10-K, 8-K, 13F-HR, SC 13D/A. Never empty.
+  string form = 2;
+}
+
+// A mirror of meridian.v1.FilingKind.
+enum FilingKind {
+  // Refused.
+  FILING_KIND_UNSPECIFIED = 0;
+  // 10-K, 20-F, 40-F.
+  FILING_KIND_ANNUAL_REPORT = 1;
+  // 10-Q.
+  FILING_KIND_QUARTERLY_REPORT = 2;
+  // 8-K, 6-K.
+  FILING_KIND_CURRENT_REPORT = 3;
+  // DEF 14A and its kin.
+  FILING_KIND_PROXY = 4;
+  // S-1, F-1 and their amendments.
+  FILING_KIND_REGISTRATION = 5;
+  // Forms 3, 4 and 5.
+  FILING_KIND_OWNERSHIP = 6;
+  // 13F-HR.
+  FILING_KIND_HOLDINGS_REPORT = 7;
+  // Schedules 13D and 13G.
+  FILING_KIND_BENEFICIAL_OWNERSHIP = 8;
+  // Any other form, its form as reported.
+  FILING_KIND_OTHER = 9;
+}
+
+// Contract v28: a value a filer reported for a concept and period, each later
+// filing's different value the next version (contract v28).
+// A mirror of meridian.v1.ReportedFact.
+message ReportedFact {
+  // Its row key, its subjects with their roles, its source, valid time and
+  // business date where it has one, its published time, version and sequence.
+  // Never unset.
+  ObservationMeta meta = 1;
+
+  // Its taxonomy prefix and name, us-gaap:EarningsPerShareBasic. Never empty.
+  string concept = 2;
+
+  // In the currency the filer reported. Unset where value is set.
+  optional Money amount = 3;
+
+  // Shares, a ratio, a per-share figure as reported. Unset where amount is
+  // set; a fact with neither is refused.
+  UnitValue value = 4;
+
+  // A plain date. Empty on an instant.
+  string period_start = 5;
+
+  // A plain date. Never empty.
+  string period_end = 6;
+
+  // Each an axis and a member, as reported. None: the fact is for the filer as
+  // a whole.
+  repeated FactDimension dimensions = 7;
+
+  // Its accession and form. Never unset.
+  FilingRef filing = 8;
+}
+
+// Contract v28 (ReportedFact.dimensions): qualifies the fact by its
+// dimensions.
+// A mirror of meridian.v1.FactDimension.
+message FactDimension {
+  // As reported, us-gaap:StatementBusinessSegmentsAxis. Never empty.
+  string axis = 1;
+
+  // As reported. Never empty.
+  string member = 2;
+}
+
+// Contract v28: a holder's report of its holdings as of a date, complete or
+// not (contract v28).
+// A mirror of meridian.v1.HoldingsReport.
+message HoldingsReport {
+  // Its row key, its subjects with their roles, its source, valid time and
+  // business date where it has one, its published time, version and sequence.
+  // Never unset.
+  ObservationMeta meta = 1;
+
+  // The form family. Unspecified is refused.
+  HoldingsReportKind kind = 2;
+
+  // A plain date: a 13F's quarter end, a 13D's event date. Never empty.
+  string report_date = 3;
+
+  // True: a security missing from it reads as sold (a 13F). False: a security
+  // missing from it says nothing.
+  bool complete = 4;
+
+  // Its accession and form. Never unset.
+  FilingRef filing = 5;
+}
+
+// A mirror of meridian.v1.HoldingsReportKind.
+enum HoldingsReportKind {
+  // Refused.
+  HOLDINGS_REPORT_KIND_UNSPECIFIED = 0;
+  // A 13F-HR.
+  HOLDINGS_REPORT_KIND_FORM_13F = 1;
+  // A Schedule 13D or its amendment.
+  HOLDINGS_REPORT_KIND_SCHEDULE_13D = 2;
+  // A Schedule 13G or its amendment.
+  HOLDINGS_REPORT_KIND_SCHEDULE_13G = 3;
+}
+
+// Contract v28: one holding of a holdings report (contract v28).
+// A mirror of meridian.v1.Holding.
+message Holding {
+  // Its row key, its subjects with their roles, its source, valid time and
+  // business date where it has one, its published time, version and sequence.
+  // Never unset.
+  ObservationMeta meta = 1;
+
+  // The HoldingsReport's row key. Never empty.
+  string report_row_key = 2;
+
+  // Shares or principal, as reported. Unset where the report states none.
+  UnitValue quantity = 3;
+
+  // As reported. Unset where the report states none.
+  optional Money market_value = 4;
+
+  // A percent, as reported. Unset where the report states none (a 13F).
+  UnitValue percent_of_class = 5;
+}
+
+// Contract v28: a corporate action as announced, a declared dividend in v28:
+// market data, never a servicing event (contract v28).
+// A mirror of meridian.v1.CorporateActionAnnounced.
+message CorporateActionAnnounced {
+  // Its row key, its subjects with their roles, its source, valid time and
+  // business date where it has one, its published time, version and sequence.
+  // Never unset.
+  ObservationMeta meta = 1;
+
+  // The action's kind, growing by revision. Unspecified is refused.
+  CorporateActionKind kind = 2;
+
+  // As declared. Never unset on a cash dividend.
+  Money amount_per_share = 3;
+
+  // A plain date. Never empty: a row is recorded only where the rule finds it.
+  string declared_date = 4;
+
+  // A plain date. Never empty: a row is recorded only where the rule finds it.
+  string ex_date = 5;
+
+  // A plain date. Never empty: a row is recorded only where the rule finds it.
+  string record_date = 6;
+
+  // A plain date. Never empty: a row is recorded only where the rule finds it.
+  string payment_date = 7;
+
+  // A definition and its version. Never unset.
+  MeasureRef rule = 8;
+
+  // An 8-K's accession. Unset where the source is no filing.
+  FilingRef filing = 9;
+}
+
+// A mirror of meridian.v1.CorporateActionKind.
+enum CorporateActionKind {
+  // Refused.
+  CORPORATE_ACTION_KIND_UNSPECIFIED = 0;
+  // A declared cash dividend.
+  CORPORATE_ACTION_KIND_CASH_DIVIDEND = 1;
+}
+
+// Contract v28: a rating agency's action on a rating, from its published
+// history (contract v28).
+// A mirror of meridian.v1.RatingAction.
+message RatingAction {
+  // Its row key, its subjects with their roles, its source, valid time and
+  // business date where it has one, its published time, version and sequence.
+  // Never unset.
+  ObservationMeta meta = 1;
+
+  // The agency's symbol, AA+, Baa2. Empty on a withdrawal.
+  string rating = 2;
+
+  // The 17g-7 rating type: issuer, issue, long or short term. Never empty.
+  string rating_class = 3;
+
+  // The action, from the history's action type. Unspecified is refused.
+  RatingActionKind action = 4;
+}
+
+// A mirror of meridian.v1.RatingActionKind.
+enum RatingActionKind {
+  // Refused.
+  RATING_ACTION_KIND_UNSPECIFIED = 0;
+  // A new rating.
+  RATING_ACTION_KIND_NEW = 1;
+  // Raised.
+  RATING_ACTION_KIND_UPGRADE = 2;
+  // Lowered.
+  RATING_ACTION_KIND_DOWNGRADE = 3;
+  // Affirmed.
+  RATING_ACTION_KIND_AFFIRMED = 4;
+  // Withdrawn.
+  RATING_ACTION_KIND_WITHDRAWN = 5;
+}
+
+// Contract v28: a signal plugin's escalation of one row version's quality, its
+// own record, never a rewrite (contract v28, W10.12).
+// A mirror of meridian.v1.QualityAssessment.
+message QualityAssessment {
+  // As the lake names it. Never empty.
+  string dataset = 1;
+
+  // Its row key as recorded. Never empty.
+  string row_key = 2;
+
+  // The row key's version; a later version is assessed afresh. Never 0.
+  uint64 version = 3;
+
+  // Suspicious or invalid; refused when lower than the row's effective state,
+  // since states only escalate. Unspecified is refused.
+  QualityState state = 4;
+
+  // Price_outlier, cross_source_disagreement, or an edge reason re-judged.
+  // Never empty.
+  repeated QualityReason reasons = 5;
+
+  // Stamped by the sidecar. Never empty on a record; a plugin leaves it empty.
+  string assessed_by_instance = 6;
+}
+
 // A custodial position that changed, and the statement that changed it.
 // A mirror of meridian.v1.CustodialPositionUpdatedEvent.
 message CustodialPositionUpdatedEvent {
@@ -11197,4 +13524,41 @@ message RatesRecordedEvent {
 // A mirror of meridian.v1.LivenessRecordedEvent.
 message LivenessRecordedEvent {
   DatasetLiveness liveness = 1;
+}
+
+// Contract v28 (W10.5): StatisticsRecorded's event.
+// A mirror of meridian.v1.StatisticsRecordedEvent.
+message StatisticsRecordedEvent {
+  // The row as recorded, with its version and sequence. Never unset.
+  Statistic statistic = 1;
+}
+
+// Contract v28 (W9.19): LifecycleEventRecorded's event.
+// A mirror of meridian.v1.LifecycleEventRecordedEvent.
+message LifecycleEventRecordedEvent {
+  // The event as committed. Never unset.
+  LifecycleEvent event = 1;
+
+  // The partition and sequence the entry committed at; the event is sent only
+  // after it commits (W9's invariants; amendment to DESIGN28, 2026-10-24).
+  // Never unset.
+  JournalRef journal = 2;
+
+  // The message that caused it, its instance and its identifiers, as every
+  // delivery's cause (W9.8). Never unset.
+  ChangeCause cause = 3;
+}
+
+// Contract v28 (W10.5): FilingsRecorded's event.
+// A mirror of meridian.v1.FilingsRecordedEvent.
+message FilingsRecordedEvent {
+  // The row as recorded. Never unset.
+  Filing filing = 1;
+}
+
+// Contract v28 (W10.5): CorporateActionsRecorded's event.
+// A mirror of meridian.v1.CorporateActionsRecordedEvent.
+message CorporateActionsRecordedEvent {
+  // The row as recorded. Never unset.
+  CorporateActionAnnounced action = 1;
 }
