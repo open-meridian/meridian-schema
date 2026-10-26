@@ -280,7 +280,7 @@ pub const REQUEST_SERIES_RECORDS_REQUEST_SERIES_COUNT: Count = Count { least: 1,
 pub const REQUEST_SERIES_RECORDS_REQUEST_NOTE_LENGTH: Length = Length { least: 0, most: 2000 };
 
 /// meridian.v1.SeriesWant.series_key: names the series by its key
-pub const SERIES_WANT_SERIES_KEY_COUNT: Count = Count { least: 1, most: 2 };
+pub const SERIES_WANT_SERIES_KEY_COUNT: Count = Count { least: 1, most: 1 };
 
 /// meridian.v1.ResolveCompanyRequest.identifiers: names a company by its open
 /// identifiers
@@ -414,7 +414,7 @@ pub const LIST_EXECUTION_COSTS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0
 
 /// meridian.v1.ObservationMeta.series_key: keys a chain row by its series
 /// without minting it (ruling 561)
-pub const OBSERVATION_META_SERIES_KEY_COUNT: Count = Count { least: 0, most: 2 };
+pub const OBSERVATION_META_SERIES_KEY_COUNT: Count = Count { least: 0, most: 1 };
 
 /// meridian.v1.ListedSeries.fields: carries the series' terms as its source
 /// lists them
@@ -793,6 +793,9 @@ pub const SIDECAR_RECEIVE_LIMIT_RANGE: Range = Range { least: 0, most: 1024, cap
 /// meridian.plugin.v1.ReceiveRequest.subjects: names the subjects a plugin
 /// wants of the conflated rows
 pub const RECEIVE_REQUEST_SUBJECTS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.v1.PluginCatalogueRequest.page_size: bounds a page
+pub const PLUGIN_CATALOGUE_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
 /// meridian.v1.ToolDeclaration.checked_by: names the read tool that checks an
 /// act without changing anything (W6.26)
