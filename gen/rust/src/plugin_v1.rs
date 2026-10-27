@@ -3537,11 +3537,26 @@ pub struct ListFinishedJobsResult {
     #[prost(int64, tag = "2")]
     pub sequence: i64,
 }
+/// A finished job's answer, read one page at a time (W12.4).
+/// Contract v28's amendment (ruling 794): an answer grew past the broker's
+/// 1 MiB on a long window of a listed chain, so the component ends a page at
+/// about 512 KiB -- the figures first, then what was not evaluated, in
+/// order, the job's provenance on every page.
 /// The params of ReadJobAnswer: meridian.v1.ReadJobAnswerRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReadJobAnswerParams {
     #[prost(string, tag = "1")]
     pub job_id: ::prost::alloc::string::String,
+    /// How many entries -- figures and not-evaluated together -- a page holds
+    /// at most; 0 for as many as the page's budget takes, and past 500
+    /// answered at 500. Whatever it says, the component ends a page at about
+    /// 512 KiB, and says so with next_cursor.
+    #[prost(int32, tag = "2")]
+    pub page_size: i32,
+    /// next_cursor from the page before, of this job; empty for the first
+    /// page.
+    #[prost(string, tag = "3")]
+    pub cursor: ::prost::alloc::string::String,
 }
 /// A job's answer (W12.1, W12.4): figures, what was not evaluated and why,
 /// and what it was computed from. Not a record: recomputable from its
@@ -3557,6 +3572,11 @@ pub struct ReadJobAnswerResult {
     pub not_evaluated: ::prost::alloc::vec::Vec<NotEvaluated>,
     #[prost(message, optional, tag = "4")]
     pub provenance: ::core::option::Option<AnswerProvenance>,
+    /// Where ReadJobAnswer's next page starts, for its cursor; empty on the
+    /// last page, and on an answer RunJob gave inline, which is always whole
+    /// (contract v28's amendment, ruling 794).
+    #[prost(string, tag = "5")]
+    pub next_cursor: ::prost::alloc::string::String,
 }
 /// W3.29: a venue's data plugin reports the grouping its venue states.
 /// The params of ReportEventGroup: meridian.v1.ReportEventGroupRequest, less what the sidecar sets.
@@ -10192,6 +10212,11 @@ pub struct JobAnswer {
     pub not_evaluated: ::prost::alloc::vec::Vec<NotEvaluated>,
     #[prost(message, optional, tag = "4")]
     pub provenance: ::core::option::Option<AnswerProvenance>,
+    /// Where ReadJobAnswer's next page starts, for its cursor; empty on the
+    /// last page, and on an answer RunJob gave inline, which is always whole
+    /// (contract v28's amendment, ruling 794).
+    #[prost(string, tag = "5")]
+    pub next_cursor: ::prost::alloc::string::String,
 }
 /// One figure (requirement 5; the first release's Q13 and Q14).
 /// A mirror of meridian.v1.Figure.

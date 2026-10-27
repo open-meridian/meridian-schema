@@ -58,6 +58,9 @@ pub const DECIMAL_DIGITS: u32 = 38;
 /// to
 pub const MEASURE_DEFINITION_SCALE_RANGE: Range = Range { least: 0, most: 18, capped: false };
 
+/// meridian.v1.ReadJobAnswerRequest.page_size: bounds a page
+pub const READ_JOB_ANSWER_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
 /// meridian.v1.Job.chains: names chains a job prices (contract v28)
 pub const JOB_CHAINS_COUNT: Count = Count { least: 0, most: 64 };
 
