@@ -8300,6 +8300,28 @@
           "required": false,
           "required_unless": "",
           "bounds": {}
+        },
+        {
+          "name": "page_size",
+          "type": "int32",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {
+            "range": {
+              "least": "0",
+              "most": "500"
+            },
+            "past": "capped"
+          }
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
         }
       ],
       "result": "meridian.v1.JobAnswer",
@@ -8331,6 +8353,14 @@
         {
           "name": "provenance",
           "type": "message AnswerProvenance",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "next_cursor",
+          "type": "string",
           "repeated": false,
           "required": false,
           "required_unless": "",
