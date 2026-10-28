@@ -3774,6 +3774,96 @@
       }
     },
     {
+      "name": "ListExpirations",
+      "step": "W10.6",
+      "title": "Read prices, bars, trades and quotes, point in time, by source",
+      "kind": "query",
+      "topic": "platform.lake.query.list-expirations",
+      "roles": {
+        "reads": [
+          "ems",
+          "oms",
+          "portfolio",
+          "signal"
+        ]
+      },
+      "stability": "preview",
+      "message": "meridian.v1.ListExpirationsRequest",
+      "parameters": [
+        {
+          "name": "underlying_id",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "instrument_type",
+          "type": "enum InstrumentType",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "expiration_from",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "expiration_to",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        }
+      ],
+      "result": "meridian.v1.ListExpirationsReply",
+      "result_fields": [
+        {
+          "name": "expirations",
+          "type": "repeated message Expiration",
+          "repeated": true,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "unanswered",
+          "type": "repeated message Unanswered",
+          "repeated": true,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "datasets",
+          "type": "repeated message DatasetRef",
+          "repeated": true,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "watermark",
+          "type": "message Watermark",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        }
+      ],
+      "refusals": [],
+      "methods": {
+        "python": "Operations.list_expirations"
+      }
+    },
+    {
       "name": "ListFilings",
       "step": "W10.6",
       "title": "Read prices, bars, trades and quotes, point in time, by source",

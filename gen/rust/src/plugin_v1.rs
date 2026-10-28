@@ -5150,6 +5150,45 @@ pub struct ReadStaleReferenceActionsPermittedResult {
     #[prost(string, tag = "3")]
     pub changed_by: ::prost::alloc::string::String,
 }
+/// Contract v28, amended 2026-10-28 (W10.6): ListExpirations's request.
+/// The params of ListExpirations: meridian.v1.ListExpirationsRequest, less what the sidecar sets.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListExpirationsParams {
+    /// The underlying's INS- record. Never empty.
+    #[prost(string, tag = "1")]
+    pub underlying_id: ::prost::alloc::string::String,
+    /// Listed_option, future or future_option, as ListSeries reads it.
+    /// Unspecified: every listed type.
+    #[prost(enumeration = "InstrumentType", tag = "2")]
+    pub instrument_type: i32,
+    /// A plain date. Empty: from the earliest.
+    #[prost(string, tag = "3")]
+    pub expiration_from: ::prost::alloc::string::String,
+    /// A plain date, on or after expiration_from. Empty: to the latest.
+    #[prost(string, tag = "4")]
+    pub expiration_to: ::prost::alloc::string::String,
+}
+/// Contract v28, amended 2026-10-28 (W10.6): ListExpirations's answer.
+/// The result of ListExpirations: meridian.v1.ListExpirationsReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListExpirationsResult {
+    /// Each expiration date the lake's listing holds, once, in date order. None:
+    /// the listing holds no series of the type asked expiring in the window.
+    #[prost(message, repeated, tag = "1")]
+    pub expirations: ::prost::alloc::vec::Vec<Expiration>,
+    /// Each subject and dataset not answered, with its reason. None: every part
+    /// answered.
+    #[prost(message, repeated, tag = "2")]
+    pub unanswered: ::prost::alloc::vec::Vec<Unanswered>,
+    /// Each dataset answered, with its vendor, declaration and liveness. None
+    /// answered.
+    #[prost(message, repeated, tag = "3")]
+    pub datasets: ::prost::alloc::vec::Vec<DatasetRef>,
+    /// The sequence per partition the answer holds, from which a reader hears
+    /// what follows. Never unset on an answer.
+    #[prost(message, optional, tag = "4")]
+    pub watermark: ::core::option::Option<Watermark>,
+}
 /// What a plugin asks to hear. A row it names that no role it holds hears
 /// is refused, PERMISSION_DENIED, naming it.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -11417,6 +11456,21 @@ pub struct QualityAssessment {
     /// Stamped by the sidecar. Never empty on a record; a plugin leaves it empty.
     #[prost(string, tag = "6")]
     pub assessed_by_instance: ::prost::alloc::string::String,
+}
+/// Contract v28, amended 2026-10-28 (W10.6; rulings 856, 858 and 859): one
+/// expiration of an underlying's listed series, as the lake's listing holds it.
+/// A mirror of meridian.v1.Expiration.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Expiration {
+    /// The series' expiration_date as listed, else its last_trade_date, else its
+    /// final_settlement_date. Never empty.
+    #[prost(string, tag = "1")]
+    pub expiration_date: ::prost::alloc::string::String,
+    /// The listed series of the type asked expiring on the date, each counted
+    /// once however many datasets list it. Never 0: a date no series expires on
+    /// is not answered.
+    #[prost(uint32, tag = "2")]
+    pub series_count: u32,
 }
 /// A custodial position that changed, and the statement that changed it.
 /// A mirror of meridian.v1.CustodialPositionUpdatedEvent.
@@ -21926,6 +21980,36 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W10.6: platform.lake.query.list-expirations (query; preview).
+        pub async fn list_expirations(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListExpirationsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListExpirationsResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListExpirations",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListExpirations",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W4.3: every row this plugin's roles hear, within its read scope.
         pub async fn receive(
             &mut self,
@@ -22944,6 +23028,14 @@ pub mod plugin_operations_server {
             request: tonic::Request<super::ReadStaleReferenceActionsPermittedParams>,
         ) -> std::result::Result<
             tonic::Response<super::ReadStaleReferenceActionsPermittedResult>,
+            tonic::Status,
+        >;
+        /// W10.6: platform.lake.query.list-expirations (query; preview).
+        async fn list_expirations(
+            &self,
+            request: tonic::Request<super::ListExpirationsParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListExpirationsResult>,
             tonic::Status,
         >;
         /// Server streaming response type for the Receive method.
@@ -28941,6 +29033,52 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ReadStaleReferenceActionsPermittedSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListExpirations" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListExpirationsSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListExpirationsParams>
+                    for ListExpirationsSvc<T> {
+                        type Response = super::ListExpirationsResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListExpirationsParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_expirations(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListExpirationsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
