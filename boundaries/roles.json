@@ -511,7 +511,8 @@
           "QueryLake",
           "ListExecutionCosts",
           "ListSeries",
-          "ReadStaleReferenceActionsPermitted"
+          "ReadStaleReferenceActionsPermitted",
+          "ListExpirations"
         ],
         "hears": [
           "ReplaceMergedInstrument",
@@ -665,7 +666,8 @@
           "ListEventGroups",
           "ReadAgentOrdersDemoOnly",
           "ListExecutionCosts",
-          "ListSeries"
+          "ListSeries",
+          "ListExpirations"
         ],
         "hears": [
           "ReplaceMergedInstrument",
@@ -878,7 +880,8 @@
           "ListReportedFacts",
           "ListHoldings",
           "ListCorporateActions",
-          "ListRatingActions"
+          "ListRatingActions",
+          "ListExpirations"
         ],
         "hears": [
           "ReplaceMergedInstrument",
@@ -1158,7 +1161,8 @@
           "ListReportedFacts",
           "ListHoldings",
           "ListCorporateActions",
-          "ListRatingActions"
+          "ListRatingActions",
+          "ListExpirations"
         ],
         "hears": [
           "ReplaceMergedInstrument",
@@ -1987,6 +1991,22 @@
           "operations",
           "portfolio",
           "reporting",
+          "signal"
+        ]
+      },
+      "stability": "preview"
+    },
+    {
+      "name": "ListExpirations",
+      "step": "W10.6",
+      "title": "Read prices, bars, trades and quotes, point in time, by source",
+      "kind": "query",
+      "topic": "platform.lake.query.list-expirations",
+      "roles": {
+        "reads": [
+          "ems",
+          "oms",
+          "portfolio",
           "signal"
         ]
       },
