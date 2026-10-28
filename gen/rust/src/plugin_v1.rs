@@ -3310,6 +3310,24 @@ pub struct ListTradesParams {
     /// v27 reader of an underlying never receives its chain.
     #[prost(bool, tag = "11")]
     pub all_series: bool,
+    /// Contract v28, amended 2026-10-28 (ruling 821): a plain date. Narrows
+    /// the series rows all_series answers to the series expiring in the window,
+    /// inclusive, as the lake's listing holds them. Set only with all_series, or
+    /// refused naming expiration_from. Empty: from the earliest.
+    #[prost(string, tag = "12")]
+    pub expiration_from: ::prost::alloc::string::String,
+    /// Contract v28, amended 2026-10-28 (ruling 821): a plain date, inclusive.
+    /// Set only with all_series, or refused naming expiration_from. Empty: to
+    /// the latest.
+    #[prost(string, tag = "13")]
+    pub expiration_to: ::prost::alloc::string::String,
+    /// Contract v28, amended 2026-10-28 (ruling 821): the dictionary entries of
+    /// meridian.v1.Trade to answer, 0 to 32. The envelope (meta) is always
+    /// answered. A field not asked is left unset and is not listed as
+    /// unanswered; an entry of another message is refused naming fields. None:
+    /// every field.
+    #[prost(string, repeated, tag = "14")]
+    pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// The result of ListTrades: meridian.v1.ListTradesReply.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3361,6 +3379,24 @@ pub struct ListQuotesParams {
     /// v27 reader of an underlying never receives its chain.
     #[prost(bool, tag = "10")]
     pub all_series: bool,
+    /// Contract v28, amended 2026-10-28 (ruling 821): a plain date. Narrows
+    /// the series rows all_series answers to the series expiring in the window,
+    /// inclusive, as the lake's listing holds them. Set only with all_series, or
+    /// refused naming expiration_from. Empty: from the earliest.
+    #[prost(string, tag = "11")]
+    pub expiration_from: ::prost::alloc::string::String,
+    /// Contract v28, amended 2026-10-28 (ruling 821): a plain date, inclusive.
+    /// Set only with all_series, or refused naming expiration_from. Empty: to
+    /// the latest.
+    #[prost(string, tag = "12")]
+    pub expiration_to: ::prost::alloc::string::String,
+    /// Contract v28, amended 2026-10-28 (ruling 821): the dictionary entries of
+    /// meridian.v1.Quote to answer, 0 to 32. The envelope (meta) is always
+    /// answered. A field not asked is left unset and is not listed as
+    /// unanswered; an entry of another message is refused naming fields. None:
+    /// every field.
+    #[prost(string, repeated, tag = "13")]
+    pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// The result of ListQuotes: meridian.v1.ListQuotesReply.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4096,6 +4132,12 @@ pub struct ListSeriesParams {
     /// The previous reply's next_cursor, as given. Empty for the first page.
     #[prost(string, tag = "9")]
     pub cursor: ::prost::alloc::string::String,
+    /// Contract v28, amended 2026-10-28 (ruling 821): the template paths of
+    /// ListedSeries.fields to answer, 0 to 64: put_or_call, strike_price,
+    /// expiration_date. meta, template_id, template_version and instrument_id
+    /// are always answered. None: every path.
+    #[prost(string, repeated, tag = "10")]
+    pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Contract v28 (W10.6): ListSeries's answer.
 /// The result of ListSeries: meridian.v1.ListSeriesReply.
@@ -4203,6 +4245,24 @@ pub struct ListStatisticsParams {
     /// The previous reply's next_cursor, as given. Empty for the first page.
     #[prost(string, tag = "11")]
     pub cursor: ::prost::alloc::string::String,
+    /// Contract v28, amended 2026-10-28 (ruling 821): a plain date. Narrows
+    /// the series rows all_series answers to the series expiring in the window,
+    /// inclusive, as the lake's listing holds them. Set only with all_series, or
+    /// refused naming expiration_from. Empty: from the earliest.
+    #[prost(string, tag = "12")]
+    pub expiration_from: ::prost::alloc::string::String,
+    /// Contract v28, amended 2026-10-28 (ruling 821): a plain date, inclusive.
+    /// Set only with all_series, or refused naming expiration_from. Empty: to
+    /// the latest.
+    #[prost(string, tag = "13")]
+    pub expiration_to: ::prost::alloc::string::String,
+    /// Contract v28, amended 2026-10-28 (ruling 821): the dictionary entries of
+    /// meridian.v1.Statistic to answer, 0 to 32. The envelope (meta) is always
+    /// answered. A field not asked is left unset and is not listed as
+    /// unanswered; an entry of another message is refused naming fields. None:
+    /// every field.
+    #[prost(string, repeated, tag = "14")]
+    pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Contract v28 (W10.6): ListStatistics's answer.
 /// The result of ListStatistics: meridian.v1.ListStatisticsReply.
@@ -11501,6 +11561,22 @@ pub struct ObservationsWantedEvent {
     /// vendor's stream where the dataset is streamed, by its schedule otherwise.
     #[prost(bool, tag = "10")]
     pub standing: bool,
+    /// Contract v28, amended 2026-10-28 (ruling 821; the v29 plan's item E9):
+    /// a chain want's window, plain dates, inclusive, the union of its readers'
+    /// windows. Empty: from the earliest; to the latest.
+    #[prost(string, tag = "11")]
+    pub expiration_from: ::prost::alloc::string::String,
+    #[prost(string, tag = "12")]
+    pub expiration_to: ::prost::alloc::string::String,
+    /// Contract v28, amended 2026-10-28: the series a chain want is of, by key,
+    /// as ListQuotesRequest.series_keys names them, 0 to 500. None: not a want
+    /// of named series.
+    #[prost(message, repeated, tag = "13")]
+    pub series_keys: ::prost::alloc::vec::Vec<Identifier>,
+    /// Contract v28, amended 2026-10-28: true: every series of the subjects,
+    /// narrowed by the window. False: the subjects' own rows only.
+    #[prost(bool, tag = "14")]
+    pub all_series: bool,
 }
 /// A standing want no reader has asked within the dataset's cadence.
 /// A mirror of meridian.v1.WantWithdrawnEvent.

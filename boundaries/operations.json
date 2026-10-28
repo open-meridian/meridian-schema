@@ -4990,6 +4990,35 @@
           "required": false,
           "required_unless": "",
           "bounds": {}
+        },
+        {
+          "name": "expiration_from",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "expiration_to",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "fields",
+          "type": "repeated string",
+          "repeated": true,
+          "required": false,
+          "required_unless": "",
+          "bounds": {
+            "count": [
+              0,
+              32
+            ]
+          }
         }
       ],
       "result": "meridian.v1.ListQuotesReply",
@@ -5723,6 +5752,19 @@
           "required": false,
           "required_unless": "",
           "bounds": {}
+        },
+        {
+          "name": "paths",
+          "type": "repeated string",
+          "repeated": true,
+          "required": false,
+          "required_unless": "",
+          "bounds": {
+            "count": [
+              0,
+              64
+            ]
+          }
         }
       ],
       "result": "meridian.v1.ListSeriesReply",
@@ -5985,6 +6027,35 @@
           "required": false,
           "required_unless": "",
           "bounds": {}
+        },
+        {
+          "name": "expiration_from",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "expiration_to",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "fields",
+          "type": "repeated string",
+          "repeated": true,
+          "required": false,
+          "required_unless": "",
+          "bounds": {
+            "count": [
+              0,
+              32
+            ]
+          }
         }
       ],
       "result": "meridian.v1.ListStatisticsReply",
@@ -6291,6 +6362,35 @@
           "required": false,
           "required_unless": "",
           "bounds": {}
+        },
+        {
+          "name": "expiration_from",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "expiration_to",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "fields",
+          "type": "repeated string",
+          "repeated": true,
+          "required": false,
+          "required_unless": "",
+          "bounds": {
+            "count": [
+              0,
+              32
+            ]
+          }
         }
       ],
       "result": "meridian.v1.ListTradesReply",
@@ -6687,6 +6787,43 @@
         },
         {
           "name": "standing",
+          "type": "bool",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "expiration_from",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "expiration_to",
+          "type": "string",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        },
+        {
+          "name": "series_keys",
+          "type": "repeated message Identifier",
+          "repeated": true,
+          "required": false,
+          "required_unless": "",
+          "bounds": {
+            "count": [
+              0,
+              500
+            ]
+          }
+        },
+        {
+          "name": "all_series",
           "type": "bool",
           "repeated": false,
           "required": false,
