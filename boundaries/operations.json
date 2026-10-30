@@ -14431,6 +14431,39 @@
       }
     },
     {
+      "name": "SeriesRecorded",
+      "step": "W10.5",
+      "title": "Record, sequence and publish each row",
+      "kind": "event",
+      "topic": "platform.lake.{dataset}.event.series-recorded",
+      "roles": {
+        "hears": [
+          "ems",
+          "oms",
+          "portfolio",
+          "signal"
+        ]
+      },
+      "stability": "preview",
+      "message": "meridian.v1.SeriesRecordedEvent",
+      "parameters": [
+        {
+          "name": "series",
+          "type": "message ListedSeries",
+          "repeated": false,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
+        }
+      ],
+      "result": "",
+      "result_fields": [],
+      "refusals": [],
+      "methods": {
+        "python": "Operations.series_recorded"
+      }
+    },
+    {
       "name": "SetAllocationInstruction",
       "step": "W11.26",
       "title": "Set an order's allocation instruction",

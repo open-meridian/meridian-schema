@@ -525,7 +525,8 @@
           "TradesRecorded",
           "QuotesRecorded",
           "EventGroupChanged",
-          "LivenessRecorded"
+          "LivenessRecorded",
+          "SeriesRecorded"
         ]
       }
     },
@@ -682,7 +683,8 @@
           "ReportVenueCatalogue",
           "BookingUpdated",
           "AlertChanged",
-          "EventGroupChanged"
+          "EventGroupChanged",
+          "SeriesRecorded"
         ]
       }
     },
@@ -902,7 +904,8 @@
           "RatesRecorded",
           "LivenessRecorded",
           "StatisticsRecorded",
-          "LifecycleEventRecorded"
+          "LifecycleEventRecorded",
+          "SeriesRecorded"
         ]
       }
     },
@@ -1177,7 +1180,8 @@
           "LivenessRecorded",
           "StatisticsRecorded",
           "FilingsRecorded",
-          "CorporateActionsRecorded"
+          "CorporateActionsRecorded",
+          "SeriesRecorded"
         ]
       }
     },
@@ -3619,6 +3623,22 @@
           "compliance",
           "portfolio",
           "reporting",
+          "signal"
+        ]
+      },
+      "stability": "preview"
+    },
+    {
+      "name": "SeriesRecorded",
+      "step": "W10.5",
+      "title": "Record, sequence and publish each row",
+      "kind": "event",
+      "topic": "platform.lake.{dataset}.event.series-recorded",
+      "roles": {
+        "hears": [
+          "ems",
+          "oms",
+          "portfolio",
           "signal"
         ]
       },

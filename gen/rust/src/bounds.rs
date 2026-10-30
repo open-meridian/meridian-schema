@@ -370,6 +370,18 @@ pub const OBSERVATIONS_WANTED_EVENT_SERIES_KEYS_COUNT: Count = Count { least: 0,
 /// meridian.v1.DeclineWantRequest.subjects: names the subjects declined
 pub const DECLINE_WANT_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
 
+/// meridian.v1.RenewWantsRequest.wants: keeps upstream interest alive for a
+/// sidecar's open subscriptions (amended 2026-10-30, 885)
+pub const RENEW_WANTS_REQUEST_WANTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.RenewedWant.subjects: names the subjects a subscription keeps
+/// current (amended 2026-10-30, 885)
+pub const RENEWED_WANT_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.RenewedWant.series_keys: names the series a chain subscription
+/// keeps current (amended 2026-10-30, 885)
+pub const RENEWED_WANT_SERIES_KEYS_COUNT: Count = Count { least: 0, most: 500 };
+
 /// meridian.v1.DatasetEntitlement.fields: narrows an entitlement to some
 /// fields
 pub const DATASET_ENTITLEMENT_FIELDS_COUNT: Count = Count { least: 0, most: 64 };
@@ -813,9 +825,37 @@ pub const RECORD_MOVE_REQUEST_RULE_LENGTH: Length = Length { least: 0, most: 200
 /// reads slowly
 pub const SIDECAR_RECEIVE_LIMIT_RANGE: Range = Range { least: 0, most: 1024, capped: true };
 
+/// meridian.plugin.v1.DeliveryMeta.subscription_ids: routes a delivery to the
+/// views it keeps current (amended 2026-10-30)
+pub const DELIVERY_META_SUBSCRIPTION_IDS_COUNT: Count = Count { least: 0, most: 256 };
+
 /// meridian.plugin.v1.ReceiveRequest.subjects: names the subjects a plugin
 /// wants of the conflated rows
 pub const RECEIVE_REQUEST_SUBJECTS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.plugin.v1.SubscribeRequest.subscription_id: names a subscription
+/// so the plugin can drop it and route what it hears (amended 2026-10-30)
+pub const SUBSCRIBE_REQUEST_SUBSCRIPTION_ID_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.plugin.v1.SubscribeRequest.subjects: narrows a subscription to
+/// what a page shows (amended 2026-10-30)
+pub const SUBSCRIBE_REQUEST_SUBJECTS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.plugin.v1.SubscribeRequest.series_keys: narrows a lake row's
+/// subscription to named series (amended 2026-10-30)
+pub const SUBSCRIBE_REQUEST_SERIES_KEYS_COUNT: Count = Count { least: 0, most: 500 };
+
+/// meridian.plugin.v1.SubscribeRequest.fields: narrows what a subscription
+/// delivers to what a page shows (amended 2026-10-30)
+pub const SUBSCRIBE_REQUEST_FIELDS_COUNT: Count = Count { least: 0, most: 32 };
+
+/// SidecarSubscribe.limit: bounds what one sidecar matches for its plugin
+/// (amended 2026-10-30)
+pub const SIDECAR_SUBSCRIBE_LIMIT_RANGE: Range = Range { least: 0, most: 256, capped: false };
+
+/// meridian.plugin.v1.UnsubscribeRequest.subscription_id: names the
+/// subscription dropped (amended 2026-10-30)
+pub const UNSUBSCRIBE_REQUEST_SUBSCRIPTION_ID_LENGTH: Length = Length { least: 1, most: 64 };
 
 /// meridian.v1.PluginCatalogueRequest.page_size: bounds a page
 pub const PLUGIN_CATALOGUE_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
