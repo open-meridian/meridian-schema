@@ -270,6 +270,11 @@ service PluginOperations {
   rpc ListExpirations(ListExpirationsParams) returns (ListExpirationsResult);
   // W4.3: every row this plugin's roles hear, within its read scope.
   rpc Receive(ReceiveRequest) returns (stream Delivery);
+  // W4.3: a targeted read kept open on the one stream (contract v28,
+  // amended 2026-10-30; spec/one-data-access-model, step 2).
+  rpc Subscribe(SubscribeRequest) returns (SubscribeReply);
+  // W4.3: a subscription dropped by its subscription_id.
+  rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeReply);
 }
 
 // What an event answers: the message's identifier on the bus. A refusal is
@@ -5381,6 +5386,8 @@ message Delivery {
     FilingsRecordedEvent filings_recorded = 49;
     // W10.5: platform.lake.{dataset}.event.corporate-actions-recorded.
     CorporateActionsRecordedEvent corporate_actions_recorded = 50;
+    // W10.5: platform.lake.{dataset}.event.series-recorded.
+    SeriesRecordedEvent series_recorded = 51;
   }
 }
 
@@ -5402,6 +5409,11 @@ message DeliveryMeta {
 
   // The cause's instance is this plugin's (Q6).
   bool own = 8;
+
+  // Contract v28, amended 2026-10-30: each open subscription the delivery
+  // matched, by its subscription_id, the sidecar the one matcher. None: heard
+  // by the stream's own rows and subjects alone, or a Lost.
+  repeated string subscription_ids = 9;
 }
 
 // The sidecar dropped deliveries it knows of, at this point in the stream:
@@ -5414,6 +5426,61 @@ message Lost {
   // The rows they were of; empty when it cannot say, which is every row.
   repeated string rows = 2;
 }
+
+// A targeted read kept open (W4.3; contract v28, amended 2026-10-30):
+// from the reply on, every delivery matching the selector is queued on the
+// plugin's one stream, its fields masked by the plugin's entitlements, decided
+// when it opens and again on EntitlementsChanged. Refused PERMISSION_DENIED
+// for a row no role the plugin holds hears, FAILED_PRECONDITION with no
+// stream open, ALREADY_EXISTS for a subscription_id open with another
+// selector, RESOURCE_EXHAUSTED past 256 open, INVALID_ARGUMENT naming the
+// field otherwise. The same subscription_id and selector again is answered
+// as the first.
+message SubscribeRequest {
+  // The plugin's own name for it, as FIX's MDReqID (262) is the
+  // requester's: 1 to 64 characters, unique among its open subscriptions.
+  string subscription_id = 1;
+
+  // The one row it hears, by its matrix name ("QuotesRecorded").
+  string row = 2;
+
+  // A lake row's subjects by their entity IDs, as ReceiveRequest names
+  // them; a book row's accounts. 0 to 500. None: a lake row is about none,
+  // so nothing is heard of it; a book row's every account in the read
+  // scope.
+  repeated string subjects = 3;
+
+  // A lake row's series, by key, as the reads name them (contract v28). None:
+  // rows keyed by a series are heard only with all_series.
+  repeated Identifier series_keys = 4;
+
+  // True: rows keyed by any series of the subjects, narrowed by the window.
+  bool all_series = 5;
+
+  // Plain dates, inclusive, narrowing all_series to the series expiring in
+  // the window as the lake's listing holds them; set only with all_series,
+  // or refused naming expiration_from. Empty: from the earliest; to the
+  // latest.
+  string expiration_from = 6;
+  string expiration_to = 7;
+
+  // The dictionary entries of the row's message to hear, 0 to 32, as the
+  // reads name them; intersected with the plugin's entitled fields. None:
+  // every field it may read.
+  repeated string fields = 8;
+}
+
+// Subscribe's answer, once the sidecar is delivering what the selector
+// matches: the plugin then reads its snapshot.
+message SubscribeReply {}
+
+// A subscription dropped. An id not open is answered as dropped.
+message UnsubscribeRequest {
+  string subscription_id = 1;
+}
+
+// Unsubscribe's answer: nothing more is queued for it.
+message UnsubscribeReply {}
 
 // One account a connection reaches, as the custodian presents it.
 // A mirror of meridian.v1.ExternalAccount.
@@ -13715,4 +13782,15 @@ message FilingsRecordedEvent {
 message CorporateActionsRecordedEvent {
   // The row as recorded. Never unset.
   CorporateActionAnnounced action = 1;
+}
+
+// Contract v28, amended 2026-10-30 (W10.5; spec/one-data-access-model,
+// step 2; rulings 847 and 886): a listed series the lake recorded, new or the
+// next version of its key, on its dataset's subject, heard by ListSeries'
+// askers so a copy of a chain follows its listing. Delivered latest value
+// first per subject, dataset and series key (conflated); after a loss a
+// reader reads the listing again by its underlying (ListSeries).
+// A mirror of meridian.v1.SeriesRecordedEvent.
+message SeriesRecordedEvent {
+  ListedSeries series = 1;
 }

@@ -5213,7 +5213,7 @@ pub struct Delivery {
     pub meta: ::core::option::Option<DeliveryMeta>,
     #[prost(
         oneof = "delivery::Item",
-        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50"
+        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51"
     )]
     pub item: ::core::option::Option<delivery::Item>,
 }
@@ -5344,6 +5344,9 @@ pub mod delivery {
         /// W10.5: platform.lake.{dataset}.event.corporate-actions-recorded.
         #[prost(message, tag = "50")]
         CorporateActionsRecorded(super::CorporateActionsRecordedEvent),
+        /// W10.5: platform.lake.{dataset}.event.series-recorded.
+        #[prost(message, tag = "51")]
+        SeriesRecorded(super::SeriesRecordedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -5370,6 +5373,11 @@ pub struct DeliveryMeta {
     /// The cause's instance is this plugin's (Q6).
     #[prost(bool, tag = "8")]
     pub own: bool,
+    /// Contract v28, amended 2026-10-30: each open subscription the delivery
+    /// matched, by its subscription_id, the sidecar the one matcher. None: heard
+    /// by the stream's own rows and subjects alone, or a Lost.
+    #[prost(string, repeated, tag = "9")]
+    pub subscription_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// The sidecar dropped deliveries it knows of, at this point in the stream:
 /// its queue for the plugin full (1024), or the bus's drop count for the
@@ -5383,6 +5391,64 @@ pub struct Lost {
     #[prost(string, repeated, tag = "2")]
     pub rows: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+/// A targeted read kept open (W4.3; contract v28, amended 2026-10-30):
+/// from the reply on, every delivery matching the selector is queued on the
+/// plugin's one stream, its fields masked by the plugin's entitlements, decided
+/// when it opens and again on EntitlementsChanged. Refused PERMISSION_DENIED
+/// for a row no role the plugin holds hears, FAILED_PRECONDITION with no
+/// stream open, ALREADY_EXISTS for a subscription_id open with another
+/// selector, RESOURCE_EXHAUSTED past 256 open, INVALID_ARGUMENT naming the
+/// field otherwise. The same subscription_id and selector again is answered
+/// as the first.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SubscribeRequest {
+    /// The plugin's own name for it, as FIX's MDReqID (262) is the
+    /// requester's: 1 to 64 characters, unique among its open subscriptions.
+    #[prost(string, tag = "1")]
+    pub subscription_id: ::prost::alloc::string::String,
+    /// The one row it hears, by its matrix name ("QuotesRecorded").
+    #[prost(string, tag = "2")]
+    pub row: ::prost::alloc::string::String,
+    /// A lake row's subjects by their entity IDs, as ReceiveRequest names
+    /// them; a book row's accounts. 0 to 500. None: a lake row is about none,
+    /// so nothing is heard of it; a book row's every account in the read
+    /// scope.
+    #[prost(string, repeated, tag = "3")]
+    pub subjects: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// A lake row's series, by key, as the reads name them (contract v28). None:
+    /// rows keyed by a series are heard only with all_series.
+    #[prost(message, repeated, tag = "4")]
+    pub series_keys: ::prost::alloc::vec::Vec<Identifier>,
+    /// True: rows keyed by any series of the subjects, narrowed by the window.
+    #[prost(bool, tag = "5")]
+    pub all_series: bool,
+    /// Plain dates, inclusive, narrowing all_series to the series expiring in
+    /// the window as the lake's listing holds them; set only with all_series,
+    /// or refused naming expiration_from. Empty: from the earliest; to the
+    /// latest.
+    #[prost(string, tag = "6")]
+    pub expiration_from: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub expiration_to: ::prost::alloc::string::String,
+    /// The dictionary entries of the row's message to hear, 0 to 32, as the
+    /// reads name them; intersected with the plugin's entitled fields. None:
+    /// every field it may read.
+    #[prost(string, repeated, tag = "8")]
+    pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// Subscribe's answer, once the sidecar is delivering what the selector
+/// matches: the plugin then reads its snapshot.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct SubscribeReply {}
+/// A subscription dropped. An id not open is answered as dropped.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UnsubscribeRequest {
+    #[prost(string, tag = "1")]
+    pub subscription_id: ::prost::alloc::string::String,
+}
+/// Unsubscribe's answer: nothing more is queued for it.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct UnsubscribeReply {}
 /// One account a connection reaches, as the custodian presents it.
 /// A mirror of meridian.v1.ExternalAccount.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -11839,6 +11905,18 @@ pub struct CorporateActionsRecordedEvent {
     /// The row as recorded. Never unset.
     #[prost(message, optional, tag = "1")]
     pub action: ::core::option::Option<CorporateActionAnnounced>,
+}
+/// Contract v28, amended 2026-10-30 (W10.5; spec/one-data-access-model,
+/// step 2; rulings 847 and 886): a listed series the lake recorded, new or the
+/// next version of its key, on its dataset's subject, heard by ListSeries'
+/// askers so a copy of a chain follows its listing. Delivered latest value
+/// first per subject, dataset and series key (conflated); after a loss a
+/// reader reads the listing again by its underlying (ListSeries).
+/// A mirror of meridian.v1.SeriesRecordedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SeriesRecordedEvent {
+    #[prost(message, optional, tag = "1")]
+    pub series: ::core::option::Option<ListedSeries>,
 }
 /// An account's kind (contract v11): one coarse kind, the platform's own
 /// words, never a venue's.
@@ -22037,6 +22115,58 @@ pub mod plugin_operations_client {
                 );
             self.inner.server_streaming(req, path, codec).await
         }
+        /// W4.3: a targeted read kept open on the one stream (contract v28,
+        /// amended 2026-10-30; spec/one-data-access-model, step 2).
+        pub async fn subscribe(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SubscribeRequest>,
+        ) -> std::result::Result<tonic::Response<super::SubscribeReply>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/Subscribe",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "Subscribe"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// W4.3: a subscription dropped by its subscription_id.
+        pub async fn unsubscribe(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UnsubscribeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UnsubscribeReply>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/Unsubscribe",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("meridian.plugin.v1.PluginOperations", "Unsubscribe"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -23049,6 +23179,20 @@ pub mod plugin_operations_server {
             &self,
             request: tonic::Request<super::ReceiveRequest>,
         ) -> std::result::Result<tonic::Response<Self::ReceiveStream>, tonic::Status>;
+        /// W4.3: a targeted read kept open on the one stream (contract v28,
+        /// amended 2026-10-30; spec/one-data-access-model, step 2).
+        async fn subscribe(
+            &self,
+            request: tonic::Request<super::SubscribeRequest>,
+        ) -> std::result::Result<tonic::Response<super::SubscribeReply>, tonic::Status>;
+        /// W4.3: a subscription dropped by its subscription_id.
+        async fn unsubscribe(
+            &self,
+            request: tonic::Request<super::UnsubscribeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UnsubscribeReply>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct PluginOperationsServer<T> {
@@ -29136,6 +29280,96 @@ pub mod plugin_operations_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/Subscribe" => {
+                    #[allow(non_camel_case_types)]
+                    struct SubscribeSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::SubscribeRequest>
+                    for SubscribeSvc<T> {
+                        type Response = super::SubscribeReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SubscribeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::subscribe(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SubscribeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/Unsubscribe" => {
+                    #[allow(non_camel_case_types)]
+                    struct UnsubscribeSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::UnsubscribeRequest>
+                    for UnsubscribeSvc<T> {
+                        type Response = super::UnsubscribeReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UnsubscribeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::unsubscribe(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UnsubscribeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)
