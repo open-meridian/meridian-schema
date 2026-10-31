@@ -11267,12 +11267,14 @@ pub struct LifecycleDelivery {
     pub price: ::core::option::Option<Money>,
 }
 /// Contract v28: one value of a signal plugin's own series, naming its rule and
-/// inputs, never presented as a publisher's figure (contract v28).
+/// inputs, never presented as a publisher's figure; from the amendment of
+/// 2026-10-31 (ruling 955), or a publisher's figure a data plugin records,
+/// marked published_by.
 /// A mirror of meridian.v1.DerivedSeries.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DerivedSeries {
-    /// Its key, subject, the signal plugin's own derived dataset, its business
-    /// date and version. Never unset.
+    /// Its key, subject, the recording plugin's own dataset, its business date
+    /// and version. Never unset.
     #[prost(message, optional, tag = "1")]
     pub meta: ::core::option::Option<ObservationMeta>,
     /// Its own name for it: iv30, the index's level, a positioning summary's

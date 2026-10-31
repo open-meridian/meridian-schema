@@ -37356,7 +37356,7 @@
       "type": "message ObservationMeta",
       "empty": "never unset",
       "intent": "carries a derived value's envelope",
-      "meaning": "its key, subject, the signal plugin's own derived dataset, its business date and version",
+      "meaning": "its key, subject, the recording plugin's own dataset -- a signal plugin's derived dataset, or a data plugin's dataset of publishers' figures (amended 2026-10-31) -- its business date and version",
       "not_meaning": "its value",
       "filled": "as-reported",
       "filled_by": "signal",
