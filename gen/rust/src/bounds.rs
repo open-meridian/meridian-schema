@@ -139,7 +139,7 @@ pub const LIST_ALERTS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 5
 
 /// meridian.v1.LifecycleEvent.deliveries: states what changed hands on
 /// physical delivery
-pub const LIFECYCLE_EVENT_DELIVERIES_COUNT: Count = Count { least: 0, most: 16 };
+pub const LIFECYCLE_EVENT_DELIVERIES_COUNT: Count = Count { least: 0, most: 512 };
 
 /// meridian.v1.LifecycleEvent.external_event_id: carries the broker's own
 /// identifier for the event
@@ -159,6 +159,22 @@ pub const RELEASE_LIFECYCLE_EVENT_REQUEST_NOTE_LENGTH: Length = Length { least: 
 
 /// meridian.v1.ListLifecycleEventsRequest.page_size: bounds a page
 pub const LIST_LIFECYCLE_EVENTS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
+
+/// meridian.v1.Execution.parties: carries the trade's other parties (716; FIX
+/// Parties)
+pub const EXECUTION_PARTIES_COUNT: Count = Count { least: 0, most: 8 };
+
+/// meridian.v1.ReportExecutionRequest.parties: carries the trade's other
+/// parties (716; FIX Parties)
+pub const REPORT_EXECUTION_REQUEST_PARTIES_COUNT: Count = Count { least: 0, most: 8 };
+
+/// meridian.v1.Execution.special_price_reason: states why a trade was away
+/// from the market (FIX 5149)
+pub const EXECUTION_SPECIAL_PRICE_REASON_LENGTH: Length = Length { least: 0, most: 50 };
+
+/// meridian.v1.ReportExecutionRequest.special_price_reason: states why a
+/// trade was away from the market (FIX 5149)
+pub const REPORT_EXECUTION_REQUEST_SPECIAL_PRICE_REASON_LENGTH: Length = Length { least: 0, most: 50 };
 
 /// meridian.v1.AccountRecord.custodian: says where the account is held, for a
 /// person to find it by
@@ -292,6 +308,114 @@ pub const SERIES_WANT_SERIES_KEY_COUNT: Count = Count { least: 1, most: 1 };
 /// meridian.v1.ResolveCompanyRequest.identifiers: names a company by its open
 /// identifiers
 pub const RESOLVE_COMPANY_REQUEST_IDENTIFIERS_COUNT: Count = Count { least: 0, most: 4 };
+
+/// meridian.v1.Bond.issuer_company_id: names the issuer (594)
+pub const BOND_ISSUER_COMPANY_ID_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.Bond.guarantor_company_id: names the guarantor (587)
+pub const BOND_GUARANTOR_COMPANY_ID_LENGTH: Length = Length { least: 0, most: 64 };
+
+/// meridian.v1.Bond.governing_law: states the law the indenture is governed
+/// by (587)
+pub const BOND_GOVERNING_LAW_LENGTH: Length = Length { least: 0, most: 6 };
+
+/// meridian.v1.Bond.country_of_issue: states where the bond was issued (FIX
+/// CountryOfIssue, 470)
+pub const BOND_COUNTRY_OF_ISSUE_LENGTH: Length = Length { least: 0, most: 2 };
+
+/// meridian.v1.Bond.state_or_province_of_issue: states the US state a
+/// municipal bond was issued in (FIX StateOrProvinceOfIssue, 471)
+pub const BOND_STATE_OR_PROVINCE_OF_ISSUE_LENGTH: Length = Length { least: 0, most: 3 };
+
+/// meridian.v1.Bond.coupon_frequency: states how many coupons a year (FIX
+/// CouponFrequencyPeriod, 1948, with CouponFrequencyUnit, 1949, which state
+/// it as a period; here payments a year)
+pub const BOND_COUPON_FREQUENCY_RANGE: Range = Range { least: 0, most: 12, capped: false };
+
+/// meridian.v1.Bond.payment_calendar_id: names the calendar payment dates
+/// roll on (678)
+pub const BOND_PAYMENT_CALENDAR_ID_LENGTH: Length = Length { least: 0, most: 64 };
+
+/// meridian.v1.Bond.record_date_days: states the record date's offset
+pub const BOND_RECORD_DATE_DAYS_RANGE: Range = Range { least: 0, most: 60, capped: false };
+
+/// meridian.v1.FloatingRateTerms.reset_frequency: states how often the rate
+/// resets
+pub const FLOATING_RATE_TERMS_RESET_FREQUENCY_RANGE: Range = Range { least: 0, most: 366, capped: false };
+
+/// meridian.v1.FloatingRateTerms.lookback_days: states the lookback an
+/// in-arrears rate is observed with (ARRC's convention)
+pub const FLOATING_RATE_TERMS_LOOKBACK_DAYS_RANGE: Range = Range { least: 0, most: 30, capped: false };
+
+/// meridian.v1.RedemptionWindow.notice_days_min: states the least notice
+pub const REDEMPTION_WINDOW_NOTICE_DAYS_MIN_RANGE: Range = Range { least: 0, most: 366, capped: false };
+
+/// meridian.v1.RedemptionWindow.notice_days_max: states the most notice
+pub const REDEMPTION_WINDOW_NOTICE_DAYS_MAX_RANGE: Range = Range { least: 0, most: 366, capped: false };
+
+/// meridian.v1.MunicipalTerms.obligor_company_id: names the conduit obligor
+pub const MUNICIPAL_TERMS_OBLIGOR_COMPANY_ID_LENGTH: Length = Length { least: 0, most: 64 };
+
+/// meridian.v1.MunicipalTerms.insurer_company_id: names the bond insurer
+pub const MUNICIPAL_TERMS_INSURER_COMPANY_ID_LENGTH: Length = Length { least: 0, most: 64 };
+
+/// meridian.v1.MbsPool.program: names the agency's program
+pub const MBS_POOL_PROGRAM_LENGTH: Length = Length { least: 1, most: 40 };
+
+/// meridian.v1.MbsPool.pool_number: names the pool
+pub const MBS_POOL_POOL_NUMBER_LENGTH: Length = Length { least: 1, most: 20 };
+
+/// meridian.v1.MbsPool.original_term_months: states the loans' original term
+pub const MBS_POOL_ORIGINAL_TERM_MONTHS_RANGE: Range = Range { least: 0, most: 600, capped: false };
+
+/// meridian.v1.MbsPool.payment_delay_days: states the stated payment delay
+/// (680)
+pub const MBS_POOL_PAYMENT_DELAY_DAYS_RANGE: Range = Range { least: 0, most: 90, capped: false };
+
+/// meridian.v1.MbsPool.payment_day: states the day of the month payments fall
+/// on
+pub const MBS_POOL_PAYMENT_DAY_RANGE: Range = Range { least: 0, most: 31, capped: false };
+
+/// meridian.v1.MbsPool.payment_calendar_id: names the payment calendar
+pub const MBS_POOL_PAYMENT_CALENDAR_ID_LENGTH: Length = Length { least: 0, most: 64 };
+
+/// meridian.v1.Tba.program: names the program
+pub const TBA_PROGRAM_LENGTH: Length = Length { least: 1, most: 40 };
+
+/// meridian.v1.Tba.original_term_months: states the term
+pub const TBA_ORIGINAL_TERM_MONTHS_RANGE: Range = Range { least: 1, most: 600, capped: false };
+
+/// meridian.v1.Tba.settlement_month: states the delivery month (FIX
+/// MaturityMonthYear, 200)
+pub const TBA_SETTLEMENT_MONTH_LENGTH: Length = Length { least: 6, most: 6 };
+
+/// meridian.v1.CmoTranche.deal: names the REMIC deal
+pub const CMO_TRANCHE_DEAL_LENGTH: Length = Length { least: 1, most: 40 };
+
+/// meridian.v1.CmoTranche.class_name: names the class within the deal
+pub const CMO_TRANCHE_CLASS_NAME_LENGTH: Length = Length { least: 1, most: 20 };
+
+/// meridian.v1.CmoTranche.payment_delay_days: states the class's own delay
+/// (R1: per class, not per program)
+pub const CMO_TRANCHE_PAYMENT_DELAY_DAYS_RANGE: Range = Range { least: 0, most: 90, capped: false };
+
+/// meridian.v1.CmoTranche.payment_day: states the distribution day of the
+/// month
+pub const CMO_TRANCHE_PAYMENT_DAY_RANGE: Range = Range { least: 0, most: 31, capped: false };
+
+/// meridian.v1.CmoTranche.record_date_days: states the record date's offset
+pub const CMO_TRANCHE_RECORD_DATE_DAYS_RANGE: Range = Range { least: 0, most: 60, capped: false };
+
+/// meridian.v1.CertificateOfDeposit.issuer_company_id: names the issuing bank
+pub const CERTIFICATE_OF_DEPOSIT_ISSUER_COMPANY_ID_LENGTH: Length = Length { least: 1, most: 64 };
+
+/// meridian.v1.CertificateOfDeposit.coupon_frequency: states how many
+/// payments a year
+pub const CERTIFICATE_OF_DEPOSIT_COUPON_FREQUENCY_RANGE: Range = Range { least: 0, most: 12, capped: false };
+
+/// meridian.v1.CertificateOfDeposit.payment_calendar_id: names the payment
+/// calendar
+pub const CERTIFICATE_OF_DEPOSIT_PAYMENT_CALENDAR_ID_LENGTH: Length = Length { least: 0, most: 64 };
 
 /// meridian.v1.ObservationMeta.row_key: names one observation, so recording
 /// it again changes nothing
@@ -598,6 +722,18 @@ pub const LIST_RATING_ACTIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0,
 /// meridian.v1.RecordQualityAssessmentsRequest.assessments: carries a batch
 /// of assessments (W10.12)
 pub const RECORD_QUALITY_ASSESSMENTS_REQUEST_ASSESSMENTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.Factor.factor_month: states the month the factor is for
+pub const FACTOR_FACTOR_MONTH_LENGTH: Length = Length { least: 6, most: 6 };
+
+/// meridian.v1.RecordFactorsRequest.factors: carries a batch of factors
+pub const RECORD_FACTORS_REQUEST_FACTORS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListFactorsRequest.subjects: names the pools and tranches read
+pub const LIST_FACTORS_REQUEST_SUBJECTS_COUNT: Count = Count { least: 1, most: 500 };
+
+/// meridian.v1.ListFactorsRequest.page_size: bounds a page
+pub const LIST_FACTORS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
 /// meridian.v1.AsReported.scheme: says whose vocabulary a value as reported
 /// is in
