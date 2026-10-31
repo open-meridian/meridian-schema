@@ -394,6 +394,7 @@
           "RecordLiveness",
           "RecordSeries",
           "RecordStatistics",
+          "RecordDerivedSeries",
           "RecordFilings",
           "RecordReportedFacts",
           "RecordHoldingsReports",
@@ -2935,6 +2936,7 @@
       "topic": "platform.lake.command.record-derived-series",
       "roles": {
         "publishes": [
+          "data",
           "signal"
         ]
       },

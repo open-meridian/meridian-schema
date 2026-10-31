@@ -6878,6 +6878,12 @@ message BinaryEventContract {
   // price, otherwise the venue's unit word (`degrees_f`, `index_points`,
   // `percent`); empty where neither bound is set.
   string bound_unit = 5;
+
+  // Contract 28, amended 2026-10-31 (W1.1; ruling 954): the venue's primary
+  // category for the market, in its own words -- a Kalshi series' category,
+  // a Polymarket or Polymarket US event's primary tag label -- 0 to 64
+  // characters; empty where the venue states none. No platform enum.
+  string category = 6;
 }
 
 // One bound of a range market (A4): Kalshi's `greater` and
@@ -13144,19 +13150,28 @@ message DerivedSeries {
   ObservationMeta meta = 1;
 
   // Its own name for it: iv30, the index's level, a positioning summary's
-  // part. Never empty.
+  // part; for a publisher's figure, its name for the publisher's series.
+  // Never empty.
   string series = 2;
 
-  // As derived. Never unset.
+  // As derived, or as the publisher states it where published_by is set.
+  // Never unset.
   UnitValue value = 3;
 
-  // A definition and its version, an analytics measure's where one was used.
-  // Never unset.
+  // A definition and its version, an analytics measure's where one was used;
+  // for a publisher's figure, the publisher's definition. Never unset.
   MeasureRef rule = 4;
 
   // Each dataset read and the as-of it was read at, so licences and counts can
-  // follow it. Never empty.
+  // follow it. Never empty on a value the plugin derived; may be empty on a
+  // publisher's figure.
   repeated DerivedInput inputs = 5;
+
+  // Contract 28, amended 2026-10-31 (W10.4; ruling 955): whose figure the
+  // value is, in words, 0 to 64 characters -- a data plugin's row records a
+  // publisher's figure and is refused without it; empty on a signal plugin's
+  // own measure. A page shows it labelled with whose, never as our measure.
+  string published_by = 6;
 }
 
 // Contract v28 (DerivedSeries.inputs): names what the value was derived from.

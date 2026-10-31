@@ -9499,6 +9499,7 @@
       "topic": "platform.lake.command.record-derived-series",
       "roles": {
         "publishes": [
+          "data",
           "signal"
         ]
       },
