@@ -6878,6 +6878,12 @@ message BinaryEventContract {
   // price, otherwise the venue's unit word (`degrees_f`, `index_points`,
   // `percent`); empty where neither bound is set.
   string bound_unit = 5;
+
+  // Contract 28, amended 2026-10-31 (W1.1; ruling 954): the venue's primary
+  // category for the market, in its own words -- a Kalshi series' category,
+  // a Polymarket or Polymarket US event's primary tag label -- 0 to 64
+  // characters; empty where the venue states none. No platform enum.
+  string category = 6;
 }
 
 // One bound of a range market (A4): Kalshi's `greater` and
@@ -10651,6 +10657,13 @@ message Price {
   Money price = 3;
 
   PriceBasis basis = 4;
+
+  // The source's stated interval around the price, plus or minus, in the
+  // price's own unit (W10.4; contract 28, amended 2026-10-31, ruling 895):
+  // Pyth's confidence beside its aggregate price. Unset where the source
+  // states none; never negative. A dataset filling it declares
+  // meridian.v1.Price.confidence among its data types.
+  optional Decimal confidence = 5;
 }
 
 // The envelope every row of every data type carries, as its first field
@@ -11324,6 +11337,14 @@ message DatasetDeclaration {
   // age judged against the delay plus the ceiling. 0 for real time. One
   // dataset per timeliness.
   int64 declared_delay_ns = 13;
+
+  // What class of source its prices come from (W10.1; contract 28, amended
+  // 2026-10-31, ruling 906): traded, firm quotes, a composite or evaluated,
+  // unspecified when not stated. A price keeps its real kind -- bid, mid,
+  // ask, close, last -- and the class says what stands behind it: Pyth's is
+  // a mid of class composite. Shown on the Data sources page; no default
+  // read is ordered by it.
+  PriceSourceClass price_source_class = 14;
 }
 
 // How a dataset's rows arrive (the lake intent's Q9 and Q10).
@@ -11394,7 +11415,10 @@ message DatasetLicence {
 
   // §1a: the version of the platform's standard terms filled in; the basis;
   // the timeliness and its delay, with the label shown beside every value;
-  // the licensing source behind the vendor, where one is.
+  // the licensing source behind the vendor, where one is, or, where the
+  // vendor serves an aggregate, whose aggregate it is (contract 28, amended
+  // 2026-10-31, ruling 896: Pyth's aggregate of its publishers), which a data
+  // plugin declares through the SDK's typed declaration.
   string terms_version = 14;
 
   AccessBasis access_basis = 15;
@@ -11668,6 +11692,25 @@ enum DataUse {
   DATA_USE_PERSONAL = 1;
   // A firm's use.
   DATA_USE_COMMERCIAL = 2;
+}
+
+// What class of source a dataset's prices come from (contract 28, amended
+// 2026-10-31, ruling 906).
+// A mirror of meridian.v1.PriceSourceClass.
+enum PriceSourceClass {
+  // Not stated, as in every catalogue before the amendment.
+  PRICE_SOURCE_CLASS_UNSPECIFIED = 0;
+  // Prices of trades done: a venue's last, its close or its settlement.
+  PRICE_SOURCE_CLASS_TRADED = 1;
+  // Prices someone stands ready to deal at: a venue's or a dealer's
+  // executable bid and ask, and the mid between them.
+  PRICE_SOURCE_CLASS_FIRM_QUOTE = 2;
+  // An aggregate of several contributors' prices by the vendor's stated
+  // method, as Pyth's aggregate of its publishers is.
+  PRICE_SOURCE_CLASS_COMPOSITE = 3;
+  // A pricing service's or a model's evaluation, not a price dealt or
+  // offered, as an evaluated bond price or a vendor's model price is.
+  PRICE_SOURCE_CLASS_EVALUATED = 4;
 }
 
 // A dataset's latest sign of life: its source's heartbeat or poll, which
@@ -13099,27 +13142,38 @@ message LifecycleDelivery {
 }
 
 // Contract v28: one value of a signal plugin's own series, naming its rule and
-// inputs, never presented as a publisher's figure (contract v28).
+// inputs, never presented as a publisher's figure; from the amendment of
+// 2026-10-31 (ruling 955), or a publisher's figure a data plugin records,
+// marked published_by.
 // A mirror of meridian.v1.DerivedSeries.
 message DerivedSeries {
-  // Its key, subject, the signal plugin's own derived dataset, its business
-  // date and version. Never unset.
+  // Its key, subject, the recording plugin's own dataset, its business date
+  // and version. Never unset.
   ObservationMeta meta = 1;
 
   // Its own name for it: iv30, the index's level, a positioning summary's
-  // part. Never empty.
+  // part; for a publisher's figure, its name for the publisher's series.
+  // Never empty.
   string series = 2;
 
-  // As derived. Never unset.
+  // As derived, or as the publisher states it where published_by is set.
+  // Never unset.
   UnitValue value = 3;
 
-  // A definition and its version, an analytics measure's where one was used.
-  // Never unset.
+  // A definition and its version, an analytics measure's where one was used;
+  // for a publisher's figure, the publisher's definition. Never unset.
   MeasureRef rule = 4;
 
   // Each dataset read and the as-of it was read at, so licences and counts can
-  // follow it. Never empty.
+  // follow it. Never empty on a value the plugin derived; may be empty on a
+  // publisher's figure.
   repeated DerivedInput inputs = 5;
+
+  // Contract 28, amended 2026-10-31 (W10.4; ruling 955): whose figure the
+  // value is, in words, 0 to 64 characters -- a data plugin's row records a
+  // publisher's figure and is refused without it; empty on a signal plugin's
+  // own measure. A page shows it labelled with whose, never as our measure.
+  string published_by = 6;
 }
 
 // Contract v28 (DerivedSeries.inputs): names what the value was derived from.

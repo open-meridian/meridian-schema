@@ -6525,6 +6525,12 @@ pub struct BinaryEventContract {
     /// `percent`); empty where neither bound is set.
     #[prost(string, tag = "5")]
     pub bound_unit: ::prost::alloc::string::String,
+    /// Contract 28, amended 2026-10-31 (W1.1; ruling 954): the venue's primary
+    /// category for the market, in its own words -- a Kalshi series' category,
+    /// a Polymarket or Polymarket US event's primary tag label -- 0 to 64
+    /// characters; empty where the venue states none. No platform enum.
+    #[prost(string, tag = "6")]
+    pub category: ::prost::alloc::string::String,
 }
 /// One bound of a range market (A4): Kalshi's `greater` and
 /// `greater_or_equal` are inclusive false and true.
@@ -9448,6 +9454,13 @@ pub struct Price {
     pub price: ::core::option::Option<Money>,
     #[prost(enumeration = "PriceBasis", tag = "4")]
     pub basis: i32,
+    /// The source's stated interval around the price, plus or minus, in the
+    /// price's own unit (W10.4; contract 28, amended 2026-10-31, ruling 895):
+    /// Pyth's confidence beside its aggregate price. Unset where the source
+    /// states none; never negative. A dataset filling it declares
+    /// meridian.v1.Price.confidence among its data types.
+    #[prost(message, optional, tag = "5")]
+    pub confidence: ::core::option::Option<Decimal>,
 }
 /// The envelope every row of every data type carries, as its first field
 /// (spec/the-lake, requirement 4).
@@ -9903,6 +9916,14 @@ pub struct DatasetDeclaration {
     /// dataset per timeliness.
     #[prost(int64, tag = "13")]
     pub declared_delay_ns: i64,
+    /// What class of source its prices come from (W10.1; contract 28, amended
+    /// 2026-10-31, ruling 906): traded, firm quotes, a composite or evaluated,
+    /// unspecified when not stated. A price keeps its real kind -- bid, mid,
+    /// ask, close, last -- and the class says what stands behind it: Pyth's is
+    /// a mid of class composite. Shown on the Data sources page; no default
+    /// read is ordered by it.
+    #[prost(enumeration = "PriceSourceClass", tag = "14")]
+    pub price_source_class: i32,
 }
 /// A dataset's licence: its catalogue's default terms (unset dataset and
 /// author), or the deployment's licence a deployment admin set, which is what
@@ -9960,7 +9981,10 @@ pub struct DatasetLicence {
     pub prepared_call_id: ::prost::alloc::string::String,
     /// §1a: the version of the platform's standard terms filled in; the basis;
     /// the timeliness and its delay, with the label shown beside every value;
-    /// the licensing source behind the vendor, where one is.
+    /// the licensing source behind the vendor, where one is, or, where the
+    /// vendor serves an aggregate, whose aggregate it is (contract 28, amended
+    /// 2026-10-31, ruling 896: Pyth's aggregate of its publishers), which a data
+    /// plugin declares through the SDK's typed declaration.
     #[prost(string, tag = "14")]
     pub terms_version: ::prost::alloc::string::String,
     #[prost(enumeration = "AccessBasis", tag = "15")]
@@ -11243,29 +11267,40 @@ pub struct LifecycleDelivery {
     pub price: ::core::option::Option<Money>,
 }
 /// Contract v28: one value of a signal plugin's own series, naming its rule and
-/// inputs, never presented as a publisher's figure (contract v28).
+/// inputs, never presented as a publisher's figure; from the amendment of
+/// 2026-10-31 (ruling 955), or a publisher's figure a data plugin records,
+/// marked published_by.
 /// A mirror of meridian.v1.DerivedSeries.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DerivedSeries {
-    /// Its key, subject, the signal plugin's own derived dataset, its business
-    /// date and version. Never unset.
+    /// Its key, subject, the recording plugin's own dataset, its business date
+    /// and version. Never unset.
     #[prost(message, optional, tag = "1")]
     pub meta: ::core::option::Option<ObservationMeta>,
     /// Its own name for it: iv30, the index's level, a positioning summary's
-    /// part. Never empty.
+    /// part; for a publisher's figure, its name for the publisher's series.
+    /// Never empty.
     #[prost(string, tag = "2")]
     pub series: ::prost::alloc::string::String,
-    /// As derived. Never unset.
+    /// As derived, or as the publisher states it where published_by is set.
+    /// Never unset.
     #[prost(message, optional, tag = "3")]
     pub value: ::core::option::Option<UnitValue>,
-    /// A definition and its version, an analytics measure's where one was used.
-    /// Never unset.
+    /// A definition and its version, an analytics measure's where one was used;
+    /// for a publisher's figure, the publisher's definition. Never unset.
     #[prost(message, optional, tag = "4")]
     pub rule: ::core::option::Option<MeasureRef>,
     /// Each dataset read and the as-of it was read at, so licences and counts can
-    /// follow it. Never empty.
+    /// follow it. Never empty on a value the plugin derived; may be empty on a
+    /// publisher's figure.
     #[prost(message, repeated, tag = "5")]
     pub inputs: ::prost::alloc::vec::Vec<DerivedInput>,
+    /// Contract 28, amended 2026-10-31 (W10.4; ruling 955): whose figure the
+    /// value is, in words, 0 to 64 characters -- a data plugin's row records a
+    /// publisher's figure and is refused without it; empty on a signal plugin's
+    /// own measure. A page shows it labelled with whose, never as our measure.
+    #[prost(string, tag = "6")]
+    pub published_by: ::prost::alloc::string::String,
 }
 /// Contract v28 (DerivedSeries.inputs): names what the value was derived from.
 /// A mirror of meridian.v1.DerivedInput.
@@ -17186,6 +17221,52 @@ impl DataUse {
             "DATA_USE_UNSPECIFIED" => Some(Self::Unspecified),
             "DATA_USE_PERSONAL" => Some(Self::Personal),
             "DATA_USE_COMMERCIAL" => Some(Self::Commercial),
+            _ => None,
+        }
+    }
+}
+/// What class of source a dataset's prices come from (contract 28, amended
+/// 2026-10-31, ruling 906).
+/// A mirror of meridian.v1.PriceSourceClass.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PriceSourceClass {
+    /// Not stated, as in every catalogue before the amendment.
+    Unspecified = 0,
+    /// Prices of trades done: a venue's last, its close or its settlement.
+    Traded = 1,
+    /// Prices someone stands ready to deal at: a venue's or a dealer's
+    /// executable bid and ask, and the mid between them.
+    FirmQuote = 2,
+    /// An aggregate of several contributors' prices by the vendor's stated
+    /// method, as Pyth's aggregate of its publishers is.
+    Composite = 3,
+    /// A pricing service's or a model's evaluation, not a price dealt or
+    /// offered, as an evaluated bond price or a vendor's model price is.
+    Evaluated = 4,
+}
+impl PriceSourceClass {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PRICE_SOURCE_CLASS_UNSPECIFIED",
+            Self::Traded => "PRICE_SOURCE_CLASS_TRADED",
+            Self::FirmQuote => "PRICE_SOURCE_CLASS_FIRM_QUOTE",
+            Self::Composite => "PRICE_SOURCE_CLASS_COMPOSITE",
+            Self::Evaluated => "PRICE_SOURCE_CLASS_EVALUATED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PRICE_SOURCE_CLASS_UNSPECIFIED" => Some(Self::Unspecified),
+            "PRICE_SOURCE_CLASS_TRADED" => Some(Self::Traded),
+            "PRICE_SOURCE_CLASS_FIRM_QUOTE" => Some(Self::FirmQuote),
+            "PRICE_SOURCE_CLASS_COMPOSITE" => Some(Self::Composite),
+            "PRICE_SOURCE_CLASS_EVALUATED" => Some(Self::Evaluated),
             _ => None,
         }
     }
