@@ -495,6 +495,14 @@ pub struct DatasetDeclaration {
     /// dataset per timeliness.
     #[prost(int64, tag = "13")]
     pub declared_delay_ns: i64,
+    /// What class of source its prices come from (W10.1; contract 28, amended
+    /// 2026-10-31, ruling 906): traded, firm quotes, a composite or evaluated,
+    /// unspecified when not stated. A price keeps its real kind -- bid, mid,
+    /// ask, close, last -- and the class says what stands behind it: Pyth's is
+    /// a mid of class composite. Shown on the Data sources page; no default
+    /// read is ordered by it.
+    #[prost(enumeration = "PriceSourceClass", tag = "14")]
+    pub price_source_class: i32,
 }
 /// A dataset's licence: its catalogue's default terms (unset dataset and
 /// author), or the deployment's licence a deployment admin set, which is what
@@ -552,7 +560,10 @@ pub struct DatasetLicence {
     pub prepared_call_id: ::prost::alloc::string::String,
     /// §1a: the version of the platform's standard terms filled in; the basis;
     /// the timeliness and its delay, with the label shown beside every value;
-    /// the licensing source behind the vendor, where one is.
+    /// the licensing source behind the vendor, where one is, or, where the
+    /// vendor serves an aggregate, whose aggregate it is (contract 28, amended
+    /// 2026-10-31, ruling 896: Pyth's aggregate of its publishers), which a data
+    /// plugin declares through the SDK's typed declaration.
     #[prost(string, tag = "14")]
     pub terms_version: ::prost::alloc::string::String,
     #[prost(enumeration = "AccessBasis", tag = "15")]
@@ -1949,6 +1960,51 @@ pub struct DataEligibility {
     /// neither threshold is set; set whenever one is.
     #[prost(string, tag = "4")]
     pub buyer_revenue_currency_code: ::prost::alloc::string::String,
+}
+/// What class of source a dataset's prices come from (contract 28, amended
+/// 2026-10-31, ruling 906).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PriceSourceClass {
+    /// Not stated, as in every catalogue before the amendment.
+    Unspecified = 0,
+    /// Prices of trades done: a venue's last, its close or its settlement.
+    Traded = 1,
+    /// Prices someone stands ready to deal at: a venue's or a dealer's
+    /// executable bid and ask, and the mid between them.
+    FirmQuote = 2,
+    /// An aggregate of several contributors' prices by the vendor's stated
+    /// method, as Pyth's aggregate of its publishers is.
+    Composite = 3,
+    /// A pricing service's or a model's evaluation, not a price dealt or
+    /// offered, as an evaluated bond price or a vendor's model price is.
+    Evaluated = 4,
+}
+impl PriceSourceClass {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PRICE_SOURCE_CLASS_UNSPECIFIED",
+            Self::Traded => "PRICE_SOURCE_CLASS_TRADED",
+            Self::FirmQuote => "PRICE_SOURCE_CLASS_FIRM_QUOTE",
+            Self::Composite => "PRICE_SOURCE_CLASS_COMPOSITE",
+            Self::Evaluated => "PRICE_SOURCE_CLASS_EVALUATED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PRICE_SOURCE_CLASS_UNSPECIFIED" => Some(Self::Unspecified),
+            "PRICE_SOURCE_CLASS_TRADED" => Some(Self::Traded),
+            "PRICE_SOURCE_CLASS_FIRM_QUOTE" => Some(Self::FirmQuote),
+            "PRICE_SOURCE_CLASS_COMPOSITE" => Some(Self::Composite),
+            "PRICE_SOURCE_CLASS_EVALUATED" => Some(Self::Evaluated),
+            _ => None,
+        }
+    }
 }
 /// How a dataset's rows arrive (the lake intent's Q9 and Q10).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

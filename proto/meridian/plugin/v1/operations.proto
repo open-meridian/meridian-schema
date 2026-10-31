@@ -10651,6 +10651,13 @@ message Price {
   Money price = 3;
 
   PriceBasis basis = 4;
+
+  // The source's stated interval around the price, plus or minus, in the
+  // price's own unit (W10.4; contract 28, amended 2026-10-31, ruling 895):
+  // Pyth's confidence beside its aggregate price. Unset where the source
+  // states none; never negative. A dataset filling it declares
+  // meridian.v1.Price.confidence among its data types.
+  optional Decimal confidence = 5;
 }
 
 // The envelope every row of every data type carries, as its first field
@@ -11324,6 +11331,14 @@ message DatasetDeclaration {
   // age judged against the delay plus the ceiling. 0 for real time. One
   // dataset per timeliness.
   int64 declared_delay_ns = 13;
+
+  // What class of source its prices come from (W10.1; contract 28, amended
+  // 2026-10-31, ruling 906): traded, firm quotes, a composite or evaluated,
+  // unspecified when not stated. A price keeps its real kind -- bid, mid,
+  // ask, close, last -- and the class says what stands behind it: Pyth's is
+  // a mid of class composite. Shown on the Data sources page; no default
+  // read is ordered by it.
+  PriceSourceClass price_source_class = 14;
 }
 
 // How a dataset's rows arrive (the lake intent's Q9 and Q10).
@@ -11394,7 +11409,10 @@ message DatasetLicence {
 
   // §1a: the version of the platform's standard terms filled in; the basis;
   // the timeliness and its delay, with the label shown beside every value;
-  // the licensing source behind the vendor, where one is.
+  // the licensing source behind the vendor, where one is, or, where the
+  // vendor serves an aggregate, whose aggregate it is (contract 28, amended
+  // 2026-10-31, ruling 896: Pyth's aggregate of its publishers), which a data
+  // plugin declares through the SDK's typed declaration.
   string terms_version = 14;
 
   AccessBasis access_basis = 15;
@@ -11668,6 +11686,25 @@ enum DataUse {
   DATA_USE_PERSONAL = 1;
   // A firm's use.
   DATA_USE_COMMERCIAL = 2;
+}
+
+// What class of source a dataset's prices come from (contract 28, amended
+// 2026-10-31, ruling 906).
+// A mirror of meridian.v1.PriceSourceClass.
+enum PriceSourceClass {
+  // Not stated, as in every catalogue before the amendment.
+  PRICE_SOURCE_CLASS_UNSPECIFIED = 0;
+  // Prices of trades done: a venue's last, its close or its settlement.
+  PRICE_SOURCE_CLASS_TRADED = 1;
+  // Prices someone stands ready to deal at: a venue's or a dealer's
+  // executable bid and ask, and the mid between them.
+  PRICE_SOURCE_CLASS_FIRM_QUOTE = 2;
+  // An aggregate of several contributors' prices by the vendor's stated
+  // method, as Pyth's aggregate of its publishers is.
+  PRICE_SOURCE_CLASS_COMPOSITE = 3;
+  // A pricing service's or a model's evaluation, not a price dealt or
+  // offered, as an evaluated bond price or a vendor's model price is.
+  PRICE_SOURCE_CLASS_EVALUATED = 4;
 }
 
 // A dataset's latest sign of life: its source's heartbeat or poll, which
