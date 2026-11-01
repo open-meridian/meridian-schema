@@ -47,6 +47,7 @@ builds within, beside the contract it describes:
 |---|---|
 | `roles.json` | the thirteen roles a plugin may hold, each with its persona, functional archetype, duties, what it leaves to which other role, whether it is an edge role, and its scope (the operations it may call, the queries it may ask and the deliveries it hears); the plugin-facing operations with the roles that hold each; what every plugin calls on its sidecar; the combinations a plugin commonly holds; people's access, which is never a role; the design philosophy a request must fit; the method from "I want to do this" to the least roles; and worked examples |
 | `format.json` | the one entry format the data dictionary, a template's fields and a language's terms share, and the shape of each file |
+| `behaviours.json` | each module's behaviour cases (SDK 0.35): what every SDK carrying a helper or a role's common logic does -- a value given inputs, steps on a fake clock, or the rows sent for a delivery -- each naming its subject by a path the same in every SDK, which each SDK vendors and runs in its own tests |
 | `SHA256SUMS` | each file's digest |
 
 The role entries say `proposed` until each is ruled. A role's scope is what
