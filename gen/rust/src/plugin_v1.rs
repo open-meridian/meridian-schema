@@ -1948,13 +1948,17 @@ pub struct ReportExecutionParams {
     /// execution from v29 where the source states its precision.
     #[prost(enumeration = "TimePrecision", tag = "41")]
     pub trade_time_precision: i32,
-    /// Contract v29: states the factor a pool or TBA trade was done at, where not
-    /// the latest (6730(d)(2)(B); FIX Factor, 228): an exact decimal. Unset: the
-    /// latest published Factor row.
+    /// Contract v29 (991): an override of the security's factor, where the trade
+    /// was not done at the one published for its settlement month (6730(d)(2)(B);
+    /// FIX Factor, 228): an exact decimal, final, changed only by a correction of
+    /// the fill. Unset: the factor the agency published for the settlement month,
+    /// which the book takes.
     #[prost(message, optional, tag = "42")]
     pub factor_used: ::core::option::Option<Decimal>,
     /// Contract v29: true for a new-issue municipal traded when issued, so an
-    /// empty date is never ambiguous. False: the settlement date is known.
+    /// empty date is never ambiguous; its cash stays pending, dated nothing, until
+    /// a correction of the fill states the date. False: the settlement date is
+    /// known.
     #[prost(bool, tag = "43")]
     pub settlement_date_unknown: bool,
     /// Contract v29: customer, dealer, non-member affiliate or clearing broker,
@@ -4449,7 +4453,8 @@ pub struct ProposeLifecycleEventsResult {
 /// The params of ReleaseLifecycleEvent: meridian.v1.ReleaseLifecycleEventRequest, less what the sidecar sets.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReleaseLifecycleEventParams {
-    /// A proposal no report answered. Never empty.
+    /// A proposal no report answered; from contract v29 (992) also a factor
+    /// revision's open claim, marked settled. Never empty.
     #[prost(string, tag = "1")]
     pub event_id: ::prost::alloc::string::String,
     /// Kept on the release's entry (decisions/031). Never empty: refused
@@ -7724,6 +7729,12 @@ pub struct Lot {
     /// backfill from its execution.
     #[prost(message, repeated, tag = "9")]
     pub reliefs: ::prost::alloc::vec::Vec<LotRelief>,
+    /// Contract v29 (992): YYYYMM, the factor month whose Factor row the lot's
+    /// cost waits for: a lot opened by a pool's or a tranche's fill, or a booking
+    /// of one, priced at the latest factor published while its settlement month's
+    /// was not, its cost provisional. Empty where final, and on any other lot.
+    #[prost(string, tag = "10")]
+    pub factor_month_awaited: ::prost::alloc::string::String,
 }
 /// One relief of a lot (contract v27; W9.10).
 /// A mirror of meridian.v1.LotRelief.
@@ -9100,13 +9111,17 @@ pub struct Execution {
     /// execution from v29 where the source states its precision.
     #[prost(enumeration = "TimePrecision", tag = "47")]
     pub trade_time_precision: i32,
-    /// Contract v29: states the factor a pool or TBA trade was done at, where not
-    /// the latest (6730(d)(2)(B); FIX Factor, 228): an exact decimal. Unset: the
-    /// latest published Factor row.
+    /// Contract v29 (991): an override of the security's factor, where the trade
+    /// was not done at the one published for its settlement month (6730(d)(2)(B);
+    /// FIX Factor, 228): an exact decimal, final, changed only by a correction of
+    /// the fill. Unset: the factor the agency published for the settlement month,
+    /// which the book takes (factor_taken).
     #[prost(message, optional, tag = "48")]
     pub factor_used: ::core::option::Option<Decimal>,
     /// Contract v29: true for a new-issue municipal traded when issued, so an
-    /// empty date is never ambiguous. False: the settlement date is known.
+    /// empty date is never ambiguous; its cash stays pending, dated nothing, until
+    /// a correction of the fill states the date. False: the settlement date is
+    /// known.
     #[prost(bool, tag = "49")]
     pub settlement_date_unknown: bool,
     /// Contract v29: customer, dealer, non-member affiliate or clearing broker,
@@ -9169,6 +9184,18 @@ pub struct Execution {
     /// market, or hedged. Unspecified: none.
     #[prost(enumeration = "TreasuryTradeModifier", tag = "63")]
     pub treasury_trade_modifier: i32,
+    /// Contract v29 (991, 992): the factor the book priced a pool's or a
+    /// tranche's fill stating no factor_used at: the agency's for its settlement
+    /// month, or while that is unpublished the latest published, provisional.
+    /// Unset where factor_used is stated, and on any other fill.
+    #[prost(message, optional, tag = "64")]
+    pub factor_taken: ::core::option::Option<Decimal>,
+    /// Contract v29 (992): YYYYMM, the factor month whose Factor row a
+    /// provisional factor_taken waits for; its cash, current face and lots are
+    /// provisional until then, when the book revises them (a factor revision,
+    /// LIFECYCLE_EVENT_KIND_FACTOR_REVISION). Empty where final.
+    #[prost(string, tag = "65")]
+    pub factor_month_awaited: ::prost::alloc::string::String,
 }
 /// An execution's finality: a level, and when it reached it.
 /// A mirror of meridian.v1.Finality.
@@ -9400,13 +9427,17 @@ pub struct ReportExecutionRequest {
     /// execution from v29 where the source states its precision.
     #[prost(enumeration = "TimePrecision", tag = "41")]
     pub trade_time_precision: i32,
-    /// Contract v29: states the factor a pool or TBA trade was done at, where not
-    /// the latest (6730(d)(2)(B); FIX Factor, 228): an exact decimal. Unset: the
-    /// latest published Factor row.
+    /// Contract v29 (991): an override of the security's factor, where the trade
+    /// was not done at the one published for its settlement month (6730(d)(2)(B);
+    /// FIX Factor, 228): an exact decimal, final, changed only by a correction of
+    /// the fill. Unset: the factor the agency published for the settlement month,
+    /// which the book takes.
     #[prost(message, optional, tag = "42")]
     pub factor_used: ::core::option::Option<Decimal>,
     /// Contract v29: true for a new-issue municipal traded when issued, so an
-    /// empty date is never ambiguous. False: the settlement date is known.
+    /// empty date is never ambiguous; its cash stays pending, dated nothing, until
+    /// a correction of the fill states the date. False: the settlement date is
+    /// known.
     #[prost(bool, tag = "43")]
     pub settlement_date_unknown: bool,
     /// Contract v29: customer, dealer, non-member affiliate or clearing broker,
@@ -12374,6 +12405,15 @@ pub struct LifecycleEvent {
     /// any kind but accretion.
     #[prost(message, optional, tag = "23")]
     pub face_change: ::core::option::Option<Decimal>,
+    /// Contract v29 (992): signed, the change a factor revision made to the cost
+    /// of the lots the fill opened, rounded to the cent half-even (993). Unset on
+    /// any kind but factor revision.
+    #[prost(message, optional, tag = "24")]
+    pub cost_change: ::core::option::Option<Money>,
+    /// Contract v29 (992): the EXE- execution a factor revision revised. Empty on
+    /// any kind but factor revision.
+    #[prost(string, tag = "25")]
+    pub execution_id: ::prost::alloc::string::String,
 }
 /// Contract v28 (LifecycleEvent.deliveries): states what changed hands on
 /// physical delivery.
@@ -12727,6 +12767,21 @@ pub struct Factor {
     /// or class.
     #[prost(message, optional, tag = "6")]
     pub coupon_rate: ::core::option::Option<Decimal>,
+    /// Contract v29 (995): the pool's or class's weighted average coupon for the
+    /// month, percent per year, as the agency's monthly disclosure states it (FIX
+    /// stipulation WAC). Unset where the agency states none.
+    #[prost(message, optional, tag = "7")]
+    pub wac: ::core::option::Option<Decimal>,
+    /// Contract v29 (995): the weighted average remaining maturity in months, as
+    /// the agency's monthly disclosure states it (FIX stipulation WAM). Unset
+    /// where the agency states none.
+    #[prost(uint32, optional, tag = "8")]
+    pub wam: ::core::option::Option<u32>,
+    /// Contract v29 (995): the weighted average loan age in months, as the
+    /// agency's monthly disclosure states it (FIX stipulation WALA). Unset where
+    /// the agency states none; 0 for a pool in its first month.
+    #[prost(uint32, optional, tag = "9")]
+    pub wala: ::core::option::Option<u32>,
 }
 /// Contract v28, amended 2026-10-28 (W10.6; rulings 856, 858 and 859): one
 /// expiration of an underlying's listed series, as the lake's listing holds it.
@@ -19843,6 +19898,10 @@ pub enum NotEvaluatedReason {
     /// a callable bond without its calls -- so no yield to worst or cash flow is
     /// computed from a guess.
     TermsIncomplete = 14,
+    /// Contract v29 (997): a term v29's engine does not compute, named in detail
+    /// -- a floater's index projection, a TIPS's index ratio, BUS/252, actual/
+    /// actual (AFB) or (ICMA ultimo) -- so no figure is computed from a guess.
+    NotSupported = 15,
 }
 impl NotEvaluatedReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -19868,6 +19927,7 @@ impl NotEvaluatedReason {
             Self::FitFailed => "NOT_EVALUATED_REASON_FIT_FAILED",
             Self::InputQuarantined => "NOT_EVALUATED_REASON_INPUT_QUARANTINED",
             Self::TermsIncomplete => "NOT_EVALUATED_REASON_TERMS_INCOMPLETE",
+            Self::NotSupported => "NOT_EVALUATED_REASON_NOT_SUPPORTED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -19892,6 +19952,7 @@ impl NotEvaluatedReason {
             "NOT_EVALUATED_REASON_FIT_FAILED" => Some(Self::FitFailed),
             "NOT_EVALUATED_REASON_INPUT_QUARANTINED" => Some(Self::InputQuarantined),
             "NOT_EVALUATED_REASON_TERMS_INCOMPLETE" => Some(Self::TermsIncomplete),
+            "NOT_EVALUATED_REASON_NOT_SUPPORTED" => Some(Self::NotSupported),
             _ => None,
         }
     }
@@ -20313,6 +20374,12 @@ pub enum LifecycleEventKind {
     /// Contract v29: reconstitution: STRIPS components exchanged back for the
     /// whole bond.
     Reconstitution = 11,
+    /// Contract v29 (992): factor revision: the book's own record, when the
+    /// factor a pool's or a tranche's fill was provisionally priced at is
+    /// published or republished: the old and new factor, the cash and the lots'
+    /// cost difference, cash pending to the fill's settlement date, or after it an
+    /// open claim (LIFECYCLE_EVENT_STATE_CLAIM_OPEN).
+    FactorRevision = 12,
 }
 impl LifecycleEventKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -20333,6 +20400,7 @@ impl LifecycleEventKind {
             Self::TbaAllocation => "LIFECYCLE_EVENT_KIND_TBA_ALLOCATION",
             Self::Strip => "LIFECYCLE_EVENT_KIND_STRIP",
             Self::Reconstitution => "LIFECYCLE_EVENT_KIND_RECONSTITUTION",
+            Self::FactorRevision => "LIFECYCLE_EVENT_KIND_FACTOR_REVISION",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -20352,6 +20420,7 @@ impl LifecycleEventKind {
             "LIFECYCLE_EVENT_KIND_TBA_ALLOCATION" => Some(Self::TbaAllocation),
             "LIFECYCLE_EVENT_KIND_STRIP" => Some(Self::Strip),
             "LIFECYCLE_EVENT_KIND_RECONSTITUTION" => Some(Self::Reconstitution),
+            "LIFECYCLE_EVENT_KIND_FACTOR_REVISION" => Some(Self::FactorRevision),
             _ => None,
         }
     }
@@ -20370,6 +20439,10 @@ pub enum LifecycleEventState {
     Booked = 3,
     /// A booked event a later correction names.
     Superseded = 4,
+    /// Contract v29 (992): a factor revision written after the fill settled: its
+    /// cash difference an open receivable or payable, pending and dated nothing,
+    /// until a person marks it settled (ReleaseLifecycleEvent), when it is booked.
+    ClaimOpen = 5,
 }
 impl LifecycleEventState {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -20383,6 +20456,7 @@ impl LifecycleEventState {
             Self::Answered => "LIFECYCLE_EVENT_STATE_ANSWERED",
             Self::Booked => "LIFECYCLE_EVENT_STATE_BOOKED",
             Self::Superseded => "LIFECYCLE_EVENT_STATE_SUPERSEDED",
+            Self::ClaimOpen => "LIFECYCLE_EVENT_STATE_CLAIM_OPEN",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -20393,6 +20467,7 @@ impl LifecycleEventState {
             "LIFECYCLE_EVENT_STATE_ANSWERED" => Some(Self::Answered),
             "LIFECYCLE_EVENT_STATE_BOOKED" => Some(Self::Booked),
             "LIFECYCLE_EVENT_STATE_SUPERSEDED" => Some(Self::Superseded),
+            "LIFECYCLE_EVENT_STATE_CLAIM_OPEN" => Some(Self::ClaimOpen),
             _ => None,
         }
     }

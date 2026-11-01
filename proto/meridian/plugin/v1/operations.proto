@@ -2188,13 +2188,17 @@ message ReportExecutionParams {
   // execution from v29 where the source states its precision.
   TimePrecision trade_time_precision = 41;
 
-  // Contract v29: states the factor a pool or TBA trade was done at, where not
-  // the latest (6730(d)(2)(B); FIX Factor, 228): an exact decimal. Unset: the
-  // latest published Factor row.
+  // Contract v29 (991): an override of the security's factor, where the trade
+  // was not done at the one published for its settlement month (6730(d)(2)(B);
+  // FIX Factor, 228): an exact decimal, final, changed only by a correction of
+  // the fill. Unset: the factor the agency published for the settlement month,
+  // which the book takes.
   optional Decimal factor_used = 42;
 
   // Contract v29: true for a new-issue municipal traded when issued, so an
-  // empty date is never ambiguous. False: the settlement date is known.
+  // empty date is never ambiguous; its cash stays pending, dated nothing, until
+  // a correction of the fill states the date. False: the settlement date is
+  // known.
   bool settlement_date_unknown = 43;
 
   // Contract v29: customer, dealer, non-member affiliate or clearing broker,
@@ -4580,7 +4584,8 @@ message ProposeLifecycleEventsResult {
 // Contract v28 (W9.18): ReleaseLifecycleEvent's request.
 // The params of ReleaseLifecycleEvent: meridian.v1.ReleaseLifecycleEventRequest, less what the sidecar sets.
 message ReleaseLifecycleEventParams {
-  // A proposal no report answered. Never empty.
+  // A proposal no report answered; from contract v29 (992) also a factor
+  // revision's open claim, marked settled. Never empty.
   string event_id = 1;
 
   // Kept on the release's entry (decisions/031). Never empty: refused
@@ -8419,6 +8424,12 @@ message Lot {
   // never relieved, and for a relief before v27 the upgrade could not
   // backfill from its execution.
   repeated LotRelief reliefs = 9;
+
+  // Contract v29 (992): YYYYMM, the factor month whose Factor row the lot's
+  // cost waits for: a lot opened by a pool's or a tranche's fill, or a booking
+  // of one, priced at the latest factor published while its settlement month's
+  // was not, its cost provisional. Empty where final, and on any other lot.
+  string factor_month_awaited = 10;
 }
 
 // One relief of a lot (contract v27; W9.10).
@@ -10257,13 +10268,17 @@ message Execution {
   // execution from v29 where the source states its precision.
   TimePrecision trade_time_precision = 47;
 
-  // Contract v29: states the factor a pool or TBA trade was done at, where not
-  // the latest (6730(d)(2)(B); FIX Factor, 228): an exact decimal. Unset: the
-  // latest published Factor row.
+  // Contract v29 (991): an override of the security's factor, where the trade
+  // was not done at the one published for its settlement month (6730(d)(2)(B);
+  // FIX Factor, 228): an exact decimal, final, changed only by a correction of
+  // the fill. Unset: the factor the agency published for the settlement month,
+  // which the book takes (factor_taken).
   optional Decimal factor_used = 48;
 
   // Contract v29: true for a new-issue municipal traded when issued, so an
-  // empty date is never ambiguous. False: the settlement date is known.
+  // empty date is never ambiguous; its cash stays pending, dated nothing, until
+  // a correction of the fill states the date. False: the settlement date is
+  // known.
   bool settlement_date_unknown = 49;
 
   // Contract v29: customer, dealer, non-member affiliate or clearing broker,
@@ -10325,6 +10340,18 @@ message Execution {
   // Contract v29: a futures leg in the series, a series not priced at the
   // market, or hedged. Unspecified: none.
   TreasuryTradeModifier treasury_trade_modifier = 63;
+
+  // Contract v29 (991, 992): the factor the book priced a pool's or a
+  // tranche's fill stating no factor_used at: the agency's for its settlement
+  // month, or while that is unpublished the latest published, provisional.
+  // Unset where factor_used is stated, and on any other fill.
+  optional Decimal factor_taken = 64;
+
+  // Contract v29 (992): YYYYMM, the factor month whose Factor row a
+  // provisional factor_taken waits for; its cash, current face and lots are
+  // provisional until then, when the book revises them (a factor revision,
+  // LIFECYCLE_EVENT_KIND_FACTOR_REVISION). Empty where final.
+  string factor_month_awaited = 65;
 
   // Retired in the domain message, and never reused.
   reserved 25;
@@ -10781,13 +10808,17 @@ message ReportExecutionRequest {
   // execution from v29 where the source states its precision.
   TimePrecision trade_time_precision = 41;
 
-  // Contract v29: states the factor a pool or TBA trade was done at, where not
-  // the latest (6730(d)(2)(B); FIX Factor, 228): an exact decimal. Unset: the
-  // latest published Factor row.
+  // Contract v29 (991): an override of the security's factor, where the trade
+  // was not done at the one published for its settlement month (6730(d)(2)(B);
+  // FIX Factor, 228): an exact decimal, final, changed only by a correction of
+  // the fill. Unset: the factor the agency published for the settlement month,
+  // which the book takes.
   optional Decimal factor_used = 42;
 
   // Contract v29: true for a new-issue municipal traded when issued, so an
-  // empty date is never ambiguous. False: the settlement date is known.
+  // empty date is never ambiguous; its cash stays pending, dated nothing, until
+  // a correction of the fill states the date. False: the settlement date is
+  // known.
   bool settlement_date_unknown = 43;
 
   // Contract v29: customer, dealer, non-member affiliate or clearing broker,
@@ -13780,6 +13811,10 @@ enum NotEvaluatedReason {
   // a callable bond without its calls -- so no yield to worst or cash flow is
   // computed from a guess.
   NOT_EVALUATED_REASON_TERMS_INCOMPLETE = 14;
+  // Contract v29 (997): a term v29's engine does not compute, named in detail
+  // -- a floater's index projection, a TIPS's index ratio, BUS/252, actual/
+  // actual (AFB) or (ICMA ultimo) -- so no figure is computed from a guess.
+  NOT_EVALUATED_REASON_NOT_SUPPORTED = 15;
 }
 
 // What an answer was computed from (requirements 4 and 35; Q7). Named so it
@@ -14616,6 +14651,15 @@ message LifecycleEvent {
   // notional fall; no cash moves and the lots stay in original face. Unset on
   // any kind but accretion.
   optional Decimal face_change = 23;
+
+  // Contract v29 (992): signed, the change a factor revision made to the cost
+  // of the lots the fill opened, rounded to the cent half-even (993). Unset on
+  // any kind but factor revision.
+  optional Money cost_change = 24;
+
+  // Contract v29 (992): the EXE- execution a factor revision revised. Empty on
+  // any kind but factor revision.
+  string execution_id = 25;
 }
 
 // A mirror of meridian.v1.LifecycleEventKind.
@@ -14653,6 +14697,12 @@ enum LifecycleEventKind {
   // Contract v29: reconstitution: STRIPS components exchanged back for the
   // whole bond.
   LIFECYCLE_EVENT_KIND_RECONSTITUTION = 11;
+  // Contract v29 (992): factor revision: the book's own record, when the
+  // factor a pool's or a tranche's fill was provisionally priced at is
+  // published or republished: the old and new factor, the cash and the lots'
+  // cost difference, cash pending to the fill's settlement date, or after it an
+  // open claim (LIFECYCLE_EVENT_STATE_CLAIM_OPEN).
+  LIFECYCLE_EVENT_KIND_FACTOR_REVISION = 12;
 }
 
 // A mirror of meridian.v1.LifecycleEventState.
@@ -14667,6 +14717,10 @@ enum LifecycleEventState {
   LIFECYCLE_EVENT_STATE_BOOKED = 3;
   // A booked event a later correction names.
   LIFECYCLE_EVENT_STATE_SUPERSEDED = 4;
+  // Contract v29 (992): a factor revision written after the fill settled: its
+  // cash difference an open receivable or payable, pending and dated nothing,
+  // until a person marks it settled (ReleaseLifecycleEvent), when it is booked.
+  LIFECYCLE_EVENT_STATE_CLAIM_OPEN = 5;
 }
 
 // Contract v28 (LifecycleEvent.deliveries): states what changed hands on
@@ -15083,6 +15137,21 @@ message Factor {
   // The annual rate the agency's reset file states. Unset on a fixed-rate pool
   // or class.
   optional Decimal coupon_rate = 6;
+
+  // Contract v29 (995): the pool's or class's weighted average coupon for the
+  // month, percent per year, as the agency's monthly disclosure states it (FIX
+  // stipulation WAC). Unset where the agency states none.
+  optional Decimal wac = 7;
+
+  // Contract v29 (995): the weighted average remaining maturity in months, as
+  // the agency's monthly disclosure states it (FIX stipulation WAM). Unset
+  // where the agency states none.
+  optional uint32 wam = 8;
+
+  // Contract v29 (995): the weighted average loan age in months, as the
+  // agency's monthly disclosure states it (FIX stipulation WALA). Unset where
+  // the agency states none; 0 for a pool in its first month.
+  optional uint32 wala = 9;
 }
 
 // Contract v28, amended 2026-10-28 (W10.6; rulings 856, 858 and 859): one

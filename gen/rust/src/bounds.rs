@@ -89,6 +89,10 @@ pub const SCENARIO_AXIS_STEPS_COUNT: Count = Count { least: 1, most: 32 };
 /// meridian.v1.Shock.buckets: states a bucketed shock's values
 pub const SHOCK_BUCKETS_COUNT: Count = Count { least: 0, most: 32 };
 
+/// meridian.v1.Lot.factor_month_awaited: marks a lot whose cost is at a
+/// provisional factor (992)
+pub const LOT_FACTOR_MONTH_AWAITED_LENGTH: Length = Length { least: 0, most: 6 };
+
 /// meridian.v1.ListPositionsRequest.page_size: bounds a page
 pub const LIST_POSITIONS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
 
@@ -175,6 +179,10 @@ pub const EXECUTION_SPECIAL_PRICE_REASON_LENGTH: Length = Length { least: 0, mos
 /// meridian.v1.ReportExecutionRequest.special_price_reason: states why a
 /// trade was away from the market (FIX 5149)
 pub const REPORT_EXECUTION_REQUEST_SPECIAL_PRICE_REASON_LENGTH: Length = Length { least: 0, most: 50 };
+
+/// meridian.v1.Execution.factor_month_awaited: marks a fill priced at a
+/// provisional factor (992)
+pub const EXECUTION_FACTOR_MONTH_AWAITED_LENGTH: Length = Length { least: 0, most: 6 };
 
 /// meridian.v1.AccountRecord.custodian: says where the account is held, for a
 /// person to find it by
