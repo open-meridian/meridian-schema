@@ -797,7 +797,7 @@
         "module": {
           "shape": "text",
           "required": true,
-          "says": "the module, its file named for it (sessions, debt, data-wants)"
+          "says": "the module, its file named for it (sessions, calendars, debt, data-wants, data-option-chains)"
         },
         "since": {
           "shape": "text",
@@ -857,7 +857,7 @@
         "steps": {
           "shape": "list of any",
           "required": false,
-          "says": "for a steps case: each step a `call` with its `args`, a `clock` moved to first where it names one, and what it `expect`s: a value, or `at_least` and `at_most` for one within a jitter"
+          "says": "for a steps case: each step a `call` with its `args`, a `clock` moved to first where it names one, and what it `expect`s: a value, or `at_least` and `at_most` for one within a jitter, or `refused` naming the field or word the call is refused by"
         },
         "answers": {
           "shape": "any",
