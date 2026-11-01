@@ -60,6 +60,11 @@
       "write",
       "admin"
     ],
+    "behaviour_kinds": [
+      "value",
+      "steps",
+      "acts"
+    ],
     "stores": [
       "bor",
       "entity",
@@ -786,6 +791,91 @@
         }
       }
     },
+    "behaviours": {
+      "says": "one module's behaviour cases: what every SDK carrying the module's helper or a role's common logic does, held by each SDK's own runner in its own tests; plugins never run them",
+      "parts": {
+        "module": {
+          "shape": "text",
+          "required": true,
+          "says": "the module, its file named for it (sessions, debt, data-wants)"
+        },
+        "since": {
+          "shape": "text",
+          "required": true,
+          "says": "the SDK release the module's first case arrived in (0.35.0)"
+        },
+        "says": {
+          "shape": "text",
+          "required": true,
+          "says": "what the cases hold an SDK to"
+        },
+        "cases": {
+          "shape": "list of behaviour_case",
+          "required": true,
+          "says": "every case; an SDK carrying the module's subject runs them all, and one with no adapter fails"
+        }
+      }
+    },
+    "behaviour_case": {
+      "says": "one behaviour case: a subject given inputs, and what it answers or sends",
+      "parts": {
+        "name": {
+          "shape": "text",
+          "required": true,
+          "says": "unique among every module's cases"
+        },
+        "subject": {
+          "shape": "text",
+          "required": true,
+          "says": "what it holds, by a path the same in every SDK (helpers.sessions.Backoff, roles.data.Wants), each SDK's adapter mapping it to its own"
+        },
+        "kind": {
+          "shape": "one of behaviour_kinds",
+          "required": true,
+          "says": "value: given inputs, the answer or the refusal; steps: calls and clock moves on a fake clock, each with its answer; acts: deliveries and a fake source, the rows sent"
+        },
+        "given": {
+          "shape": "any",
+          "required": false,
+          "says": "what the subject is made with, in the contract's words: a number as a decimal string, a moment in seconds of the fake clock"
+        },
+        "call": {
+          "shape": "text",
+          "required": false,
+          "says": "for a value case: the call, by its language-neutral name"
+        },
+        "args": {
+          "shape": "any",
+          "required": false,
+          "says": "for a value case: the call's arguments, by name"
+        },
+        "expect": {
+          "shape": "any",
+          "required": false,
+          "says": "for a value case: the answer, or `refused` naming the field refused"
+        },
+        "steps": {
+          "shape": "list of any",
+          "required": false,
+          "says": "for a steps case: each step a `call` with its `args`, a `clock` moved to first where it names one, and what it `expect`s: a value, or `at_least` and `at_most` for one within a jitter"
+        },
+        "answers": {
+          "shape": "any",
+          "required": false,
+          "says": "for an acts case: each row the fake source or the store answers, by its row, with the message it answers"
+        },
+        "heard": {
+          "shape": "list of any",
+          "required": false,
+          "says": "for an acts case: each delivery, by its row, with its message"
+        },
+        "sends": {
+          "shape": "list of expectation",
+          "required": false,
+          "says": "for an acts case: the rows sent, each matched as a suite case's expect is"
+        }
+      }
+    },
     "language": {
       "says": "a common language's terms at one version",
       "parts": {
@@ -878,6 +968,13 @@
         "shape": "suite",
         "required": true,
         "says": "one role's conformance suite, its file named for the role"
+      }
+    },
+    "behaviours/*.yaml": {
+      "behaviours": {
+        "shape": "behaviours",
+        "required": true,
+        "says": "one module's behaviour cases (SDK 0.35), its file named for the module"
       }
     }
   }
