@@ -120,7 +120,7 @@
               "row": "DeclineWant",
               "fields": {
                 "want_id": "WNT-1",
-                "reason": "beyond_history",
+                "reason": "UNANSWERED_REASON_BEYOND_HISTORY",
                 "subjects": [
                   {
                     "entity_id": "INS-3"
@@ -132,7 +132,7 @@
               "row": "DeclineWant",
               "fields": {
                 "want_id": "WNT-1",
-                "reason": "not_covered",
+                "reason": "UNANSWERED_REASON_NOT_COVERED",
                 "subjects": [
                   {
                     "entity_id": "INS-2"
@@ -178,7 +178,7 @@
               "row": "DeclineWant",
               "fields": {
                 "want_id": "WNT-2",
-                "reason": "source_silent",
+                "reason": "UNANSWERED_REASON_SOURCE_SILENT",
                 "subjects": [
                   {
                     "entity_id": "INS-1"
