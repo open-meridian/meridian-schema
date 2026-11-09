@@ -1910,6 +1910,13 @@ pub struct Refusal {
     /// names the fields it refused.
     #[prost(string, repeated, tag = "2")]
     pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// How long to wait before sending a request refused for load again, in
+    /// seconds (contract v30; W4.4; the resilience spec's section 10a): at
+    /// least 1 beside REFUSAL_REASON_OVERLOADED and REFUSAL_REASON_RATE_LIMITED,
+    /// 0 on every other refusal. gRPC's RetryInfo, as the MCP bounds'
+    /// retry_after_seconds is; never a wait the sidecar does for the plugin.
+    #[prost(uint32, tag = "3")]
+    pub retry_after_seconds: u32,
 }
 /// The person is the assertion's, the instance the envelope's: neither is a
 /// field.
@@ -3365,6 +3372,17 @@ pub enum RefusalReason {
     /// W11.23, W11.38; contract v26; G1 question 3, approved 2026-10-14);
     /// recorded, as REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED is.
     AgentLiveOrder = 31,
+    /// A component's working budget was full and the request waited its while
+    /// (W4.4; contract v30; the resilience spec's section 10a, approved
+    /// 2026-11-09); sent with RESOURCE_EXHAUSTED and retry_after_seconds,
+    /// nothing recorded.
+    Overloaded = 32,
+    /// The plugin past its own share at its sidecar -- sidecar.limits.inFlight
+    /// requests at once, sidecar.limits.requestsPerSecond, or
+    /// sidecar.limits.answerMiB of answers held or paged in flight for it --
+    /// refused alone (W4.4; contract v30; approved 2026-11-09); sent with
+    /// RESOURCE_EXHAUSTED and retry_after_seconds, nothing recorded.
+    RateLimited = 33,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -3407,6 +3425,8 @@ impl RefusalReason {
             Self::AccountNotInstructed => "REFUSAL_REASON_ACCOUNT_NOT_INSTRUCTED",
             Self::LocalRecordNotAllowed => "REFUSAL_REASON_LOCAL_RECORD_NOT_ALLOWED",
             Self::AgentLiveOrder => "REFUSAL_REASON_AGENT_LIVE_ORDER",
+            Self::Overloaded => "REFUSAL_REASON_OVERLOADED",
+            Self::RateLimited => "REFUSAL_REASON_RATE_LIMITED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -3452,6 +3472,8 @@ impl RefusalReason {
                 Some(Self::LocalRecordNotAllowed)
             }
             "REFUSAL_REASON_AGENT_LIVE_ORDER" => Some(Self::AgentLiveOrder),
+            "REFUSAL_REASON_OVERLOADED" => Some(Self::Overloaded),
+            "REFUSAL_REASON_RATE_LIMITED" => Some(Self::RateLimited),
             _ => None,
         }
     }

@@ -2055,6 +2055,13 @@ message Refusal {
   // them, and a per-record refusal of the deployment's instrument store
   // names the fields it refused.
   repeated string fields = 2;
+
+  // How long to wait before sending a request refused for load again, in
+  // seconds (contract v30; W4.4; the resilience spec's section 10a): at
+  // least 1 beside REFUSAL_REASON_OVERLOADED and REFUSAL_REASON_RATE_LIMITED,
+  // 0 on every other refusal. gRPC's RetryInfo, as the MCP bounds'
+  // retry_after_seconds is; never a wait the sidecar does for the plugin.
+  uint32 retry_after_seconds = 3;
 }
 
 // The typed-operations refusal catalogue (spec/typed-sidecar-operations):
@@ -2242,6 +2249,19 @@ enum RefusalReason {
   // W11.23, W11.38; contract v26; G1 question 3, approved 2026-10-14);
   // recorded, as REFUSAL_REASON_CONNECTIVITY_NOT_ALLOWED is.
   REFUSAL_REASON_AGENT_LIVE_ORDER = 31;
+
+  // A component's working budget was full and the request waited its while
+  // (W4.4; contract v30; the resilience spec's section 10a, approved
+  // 2026-11-09); sent with RESOURCE_EXHAUSTED and retry_after_seconds,
+  // nothing recorded.
+  REFUSAL_REASON_OVERLOADED = 32;
+
+  // The plugin past its own share at its sidecar -- sidecar.limits.inFlight
+  // requests at once, sidecar.limits.requestsPerSecond, or
+  // sidecar.limits.answerMiB of answers held or paged in flight for it --
+  // refused alone (W4.4; contract v30; approved 2026-11-09); sent with
+  // RESOURCE_EXHAUSTED and retry_after_seconds, nothing recorded.
+  REFUSAL_REASON_RATE_LIMITED = 33;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

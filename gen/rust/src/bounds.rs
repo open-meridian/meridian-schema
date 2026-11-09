@@ -1034,6 +1034,10 @@ pub const RECORD_MOVE_REQUEST_RECORD_COUNT_RANGE: Range = Range { least: 1, most
 /// meridian.v1.RecordMoveRequest.rule: names the window that moved the unit
 pub const RECORD_MOVE_REQUEST_RULE_LENGTH: Length = Length { least: 0, most: 200 };
 
+/// meridian.v1.Refusal.retry_after_seconds: says how long to wait before
+/// sending a request refused for load again
+pub const REFUSAL_RETRY_AFTER_SECONDS_RANGE: Range = Range { least: 0, most: 300, capped: false };
+
 /// SidecarReceive.limit: bounds what the sidecar holds for a plugin that
 /// reads slowly
 pub const SIDECAR_RECEIVE_LIMIT_RANGE: Range = Range { least: 0, most: 1024, capped: true };
