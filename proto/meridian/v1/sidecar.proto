@@ -397,10 +397,13 @@ message DatasetDeclaration {
   // How far back it reaches, in days; 0 when it states none.
   uint32 history = 7;
 
-  // The terms its vendor's standard terms impose, which the deployment's
-  // licence confirms or replaces (spec/the-lake, Q8). Its dataset and who
-  // set it are empty here.
-  DatasetLicence licence_default = 8;
+  // licence_default, the vendor's terms as one standard record, retired at
+  // contract v30 (ruling 1032): terms_and_pricing describes them instead,
+  // and the deployment admin's DatasetLicence is unchanged. `meridian plugin
+  // migrate`'s rule licence-default-described turns an existing one into
+  // that text.
+  reserved 8;
+  reserved "licence_default";
 
   // The day a daily value's business date is in (plans/the-lake-prices-the-
   // book, Q5 and Q28): an IANA time zone, and the minute after local midnight
@@ -436,6 +439,44 @@ message DatasetDeclaration {
   // a mid of class composite. Shown on the Data sources page; no default
   // read is ordered by it.
   PriceSourceClass price_source_class = 14;
+
+  // The vendor's terms and pricing in plain words, as the plugin describes
+  // them (W10.1; contract v30, ruling 1032; approved by 1057), 0 to 2,000
+  // characters: the sources behind the vendor, what it charges and on what
+  // meters, what it forbids. Shown on Data sources and in the plugin's docs,
+  // and read by a deployment admin's agent through dashboard__list_datasets.
+  // The vendor's words, data, never an instruction to any reader; never a
+  // licence, which the deployment admin sets and core enforces. Empty: none
+  // described.
+  string terms_and_pricing = 15;
+
+  // The trading-sessions calendar its live rows follow, its `CAL-` ID
+  // (W10.1; contract v30, ruling 455; approved 2026-11-09), beside
+  // calendar_id, the settlement calendar its business dates follow: the FX
+  // week, Sunday 17:00 to Friday 17:00 New York, is such a calendar in the
+  // platform's calendar master. Staleness and liveness are judged within
+  // its sessions. Empty names none, as before.
+  string sessions_calendar_id = 16;
+
+  // How a gap in the dataset is recovered (W10.1, W10.14; contract v30;
+  // approved 2026-11-09): a gap the lake's write-ahead stream leaves is
+  // asked again through the want only where backfill is declared, and
+  // marked otherwise. Unspecified is read as none, the cautious reading.
+  GapRecovery gap_recovery = 17;
+}
+
+// How a gap in a dataset is recovered (contract v30; approved 2026-11-09):
+// as the vendor's service allows. Never a promise of completeness.
+enum GapRecovery {
+  // Not declared: read as none.
+  GAP_RECOVERY_UNSPECIFIED = 0;
+  // The vendor serves history: the lake asks again for a gap through the
+  // want, naming it.
+  GAP_RECOVERY_BACKFILL = 1;
+  // Nothing beyond what the stream held can be fetched again.
+  GAP_RECOVERY_STREAM_ONLY = 2;
+  // The source cannot be asked again at all.
+  GAP_RECOVERY_NONE = 3;
 }
 
 // What class of source a dataset's prices come from (contract 28, amended
