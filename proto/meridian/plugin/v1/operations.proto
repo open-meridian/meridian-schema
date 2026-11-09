@@ -154,6 +154,8 @@ service PluginOperations {
   rpc ListTemplates(ListTemplatesParams) returns (ListTemplatesResult);
   // W3.24: platform.reference.query.read-template (query; preview).
   rpc ReadTemplate(ReadTemplateParams) returns (ReadTemplateResult);
+  // W10.2: platform.lake.query.list-source-priorities (query; preview).
+  rpc ListSourcePriorities(ListSourcePrioritiesParams) returns (ListSourcePrioritiesResult);
   // W10.4: platform.lake.command.record-prices (command; preview).
   rpc RecordPrices(RecordPricesParams) returns (RecordPricesResult);
   // W10.4: platform.lake.command.record-bars (command; preview).
@@ -890,6 +892,13 @@ message ResolveIdentifierParams {
   // records. None where the source stated it. Kept with the offer; a
   // currency supplied or derived never narrows a symbol match.
   repeated Provenance provenance = 9;
+
+  // Contract v30 (W3.1; ruling 1035, with 954; approved by 1057): a binary
+  // event contract's terms as its venue gives them, its category among them.
+  // The store records category the first time it sees the contract and keeps
+  // each stated term as an offer thereafter. Unset is not stated; never a
+  // value in force, as no stated_ field is.
+  BinaryEventContract stated_binary_event_contract = 10;
 }
 
 // The result of ResolveIdentifier: meridian.v1.ResolveIdentifierReply.
@@ -3273,6 +3282,19 @@ message ReadTemplateResult {
   SecurityTemplate template = 1;
 }
 
+// Read by a deployment admin, and from contract v30 by the eight roles that
+// read the lake (W10.2; ruling 454, step 3c's question 7), read-only: each
+// priority answered with the datasets the asker is entitled to, a dataset it
+// may not read left out, a priority with none left not answered.
+// The params of ListSourcePriorities: meridian.v1.ListSourcePrioritiesRequest, less what the sidecar sets.
+message ListSourcePrioritiesParams {
+}
+
+// The result of ListSourcePriorities: meridian.v1.ListSourcePrioritiesReply.
+message ListSourcePrioritiesResult {
+  repeated SourcePriority priorities = 1;
+}
+
 // A batch of prices, recorded whole or refused naming the item and field:
 // 1 to 500.
 // The params of RecordPrices: meridian.v1.RecordPricesRequest, less what the sidecar sets.
@@ -5596,6 +5618,16 @@ message Delivery {
     SeriesRecordedEvent series_recorded = 51;
     // W10.5: platform.lake.{dataset}.event.factors-recorded.
     FactorsRecordedEvent factors_recorded = 52;
+    // W12.4: platform.analytics.event.derived-series-updated.
+    // Reaches a reporting plugin only at the instance its
+    // client_instance_id names (matrix/directed.tsv).
+    // Reaches a portfolio plugin only at the instance its
+    // client_instance_id names (matrix/directed.tsv).
+    // Reaches a compliance plugin only at the instance its
+    // client_instance_id names (matrix/directed.tsv).
+    // Reaches a signal plugin only at the instance its
+    // client_instance_id names (matrix/directed.tsv).
+    DerivedSeriesUpdatedEvent derived_series_updated = 53;
   }
 }
 
@@ -5676,6 +5708,13 @@ message SubscribeRequest {
   // reads name them; intersected with the plugin's entitled fields. None:
   // every field it may read.
   repeated string fields = 8;
+
+  // Contract v30 (W4.3, W12.4; approved by 1057): standing jobs the plugin
+  // registered by RunJob with Job.standing, 0 to 64, set only with the row
+  // DerivedSeriesUpdated; one the plugin did not register is refused
+  // NOT_FOUND naming it. While the subscription is open the sidecar renews
+  // each in RenewJobs. None: not a standing job's results.
+  repeated string job_ids = 9;
 }
 
 // Subscribe's answer, once the sidecar is delivering what the selector
@@ -6766,6 +6805,54 @@ enum InstrumentType {
   INSTRUMENT_TYPE_CERTIFICATE_OF_DEPOSIT = 14;
 }
 
+// A binary event contract's attributes (contract v19; plans/the-lake-prices-
+// the-book, Q38): what it pays and when trading in it closes. Which outcome
+// it pays on stays in its description, the venue's words, until the outcome
+// is an observation (vL1c); the outcome and its settlement are not the
+// record's.
+// A mirror of meridian.v1.BinaryEventContract.
+message BinaryEventContract {
+  // What one contract pays if the event happens, naming its cash instrument:
+  // 1 USD at Kalshi, 1 in the venue's USDC instrument at Polymarket. A
+  // contract's price divided by this is its implied probability, a reader's
+  // computation, never stored. Optional from contract v30 (W3.1, ruling
+  // 1035): a data plugin's stated_binary_event_contract may state its
+  // category and not its payout, unset then not stated; on the record a
+  // payout is never unset. The wire is unchanged.
+  optional Money payout = 1;
+
+  // When trading in it closes, as the venue states it; 0 when it states none.
+  int64 closes_at_ns = 2;
+
+  // Contract v26 (W1.24; spec/the-contract-gaps-v26-and-v27-close, A4,
+  // approved 2026-10-14): a range market's bounds, fields of the binary
+  // event contract template's v26 version, never the group's. An open tail
+  // has one bound only; neither set where the contract is no range.
+  EventContractBound floor = 3;
+
+  EventContractBound cap = 4;
+
+  // The unit both bounds are in: an instrument's ID where the bound is a
+  // price, otherwise the venue's unit word (`degrees_f`, `index_points`,
+  // `percent`); empty where neither bound is set.
+  string bound_unit = 5;
+
+  // Contract 28, amended 2026-10-31 (W1.1; ruling 954): the venue's primary
+  // category for the market, in its own words -- a Kalshi series' category,
+  // a Polymarket or Polymarket US event's primary tag label -- 0 to 64
+  // characters; empty where the venue states none. No platform enum.
+  string category = 6;
+}
+
+// One bound of a range market (A4): Kalshi's `greater` and
+// `greater_or_equal` are inclusive false and true.
+// A mirror of meridian.v1.EventContractBound.
+message EventContractBound {
+  Decimal value = 1;
+
+  bool inclusive = 2;
+}
+
 // Why a resolution did not produce exactly one instrument; on a conflict
 // (contract v19), whether a resolve met it.
 // A mirror of meridian.v1.MissReason.
@@ -6999,6 +7086,8 @@ enum InstrumentField {
   INSTRUMENT_FIELD_MONEY_MARKET_FUND = 6;
   // Contract v19.
   INSTRUMENT_FIELD_BINARY_EVENT_CONTRACT = 7;
+  // Contract v30 (ruling 433; approved 2026-11-09): a bond's terms.
+  INSTRUMENT_FIELD_BOND = 8;
 }
 
 // A value offered for a deployment's record (W3.1, W3.3), shown beside its
@@ -7033,6 +7122,13 @@ message InstrumentValue {
     MoneyMarketFund money_market_fund = 7;
     // Contract v19: on a binary event contract only, its payout stated.
     BinaryEventContract binary_event_contract = 8;
+    // Contract v30 (W3.10; ruling 433, with core #84's term offers;
+    // approved 2026-11-09): a bond's terms as a source offers them or a
+    // deployment admin puts them in force, its source named under
+    // INSTRUMENT_FIELD_BOND; refused on a record whose type is not bond.
+    // Never a bond's prices, yields or current face, which are the lake's
+    // and the engine's.
+    Bond bond = 9;
   }
 
   // Where the value came from, in words: a statement, a prospectus, "ISO
@@ -7100,199 +7196,6 @@ enum LiquidityFeeRegime {
   // No liquidity fee: a government fund that has not chosen one, which
   // neither of the others describes (contract v12).
   LIQUIDITY_FEE_REGIME_NONE = 3;
-}
-
-// A binary event contract's attributes (contract v19; plans/the-lake-prices-
-// the-book, Q38): what it pays and when trading in it closes. Which outcome
-// it pays on stays in its description, the venue's words, until the outcome
-// is an observation (vL1c); the outcome and its settlement are not the
-// record's.
-// A mirror of meridian.v1.BinaryEventContract.
-message BinaryEventContract {
-  // What one contract pays if the event happens, naming its cash instrument:
-  // 1 USD at Kalshi, 1 in the venue's USDC instrument at Polymarket. A
-  // contract's price divided by this is its implied probability, a reader's
-  // computation, never stored.
-  Money payout = 1;
-
-  // When trading in it closes, as the venue states it; 0 when it states none.
-  int64 closes_at_ns = 2;
-
-  // Contract v26 (W1.24; spec/the-contract-gaps-v26-and-v27-close, A4,
-  // approved 2026-10-14): a range market's bounds, fields of the binary
-  // event contract template's v26 version, never the group's. An open tail
-  // has one bound only; neither set where the contract is no range.
-  EventContractBound floor = 3;
-
-  EventContractBound cap = 4;
-
-  // The unit both bounds are in: an instrument's ID where the bound is a
-  // price, otherwise the venue's unit word (`degrees_f`, `index_points`,
-  // `percent`); empty where neither bound is set.
-  string bound_unit = 5;
-
-  // Contract 28, amended 2026-10-31 (W1.1; ruling 954): the venue's primary
-  // category for the market, in its own words -- a Kalshi series' category,
-  // a Polymarket or Polymarket US event's primary tag label -- 0 to 64
-  // characters; empty where the venue states none. No platform enum.
-  string category = 6;
-}
-
-// One bound of a range market (A4): Kalshi's `greater` and
-// `greater_or_equal` are inclusive false and true.
-// A mirror of meridian.v1.EventContractBound.
-message EventContractBound {
-  Decimal value = 1;
-
-  bool inclusive = 2;
-}
-
-// Contract v28 (InstrumentRecord.listed_option): carries a listed option's
-// terms.
-// A mirror of meridian.v1.ListedOption.
-message ListedOption {
-  // The underlying's INS- record: an equity, a fund, an index, or for a
-  // future_option a future record (FIX UnderlyingSecurityID, 309). Never
-  // empty.
-  string underlying_instrument_id = 1;
-
-  // The right the holder has. Unspecified is refused.
-  PutOrCall put_or_call = 2;
-
-  // The price per unit of the underlying at which the option is exercised, as
-  // listed; an adjusted strike is a new version. Never unset.
-  Money strike_price = 3;
-
-  // A plain date, YYYY-MM-DD, the expiration the series is listed for. Never
-  // empty.
-  string expiration_date = 4;
-
-  // A plain date, YYYY-MM-DD. Empty until the platform's source states it: the
-  // record is then incomplete, listing it.
-  string last_trade_date = 5;
-
-  // The style the series is listed with; the calculation package binds its
-  // model by it (ruling 576). Unspecified is refused.
-  ExerciseStyle exercise_style = 6;
-
-  // Physical or cash, as listed. Unspecified is refused.
-  SettlementMethod settlement_method = 7;
-
-  // When the settlement value is fixed, which is where time to expiry counts
-  // to (minutes over 525,600). Unspecified: the record is incomplete on a
-  // cash-settled option, listing it.
-  SettlementTime settlement_time = 8;
-
-  // What one contract's premium is multiplied by: 100 on a standard equity
-  // option; an adjustment may change it apart from the deliverable. Never
-  // unset.
-  Decimal contract_multiplier = 9;
-
-  // Each instrument and its quantity, cash among them as its cash instrument's
-  // quantity: 100 shares on a standard option, 150 after a 3-for-2 split,
-  // shares and cash after a merger. None until the platform's source states
-  // it: the record is then incomplete, listing it; a cash-settled option's
-  // states its cash.
-  repeated DeliverableComponent deliverable = 10;
-
-  // The OCC root (SPX, SPXW, AAPL, AAPL1 once adjusted); on a future option,
-  // the exchange's option product code. Never empty.
-  string option_root = 11;
-
-  // YYYYMM. Empty on a listed_option, and on a future option whose exchange
-  // lists no serial month.
-  string contract_month = 12;
-}
-
-// A mirror of meridian.v1.PutOrCall.
-enum PutOrCall {
-  // Refused.
-  PUT_OR_CALL_UNSPECIFIED = 0;
-  // A put: the right to sell the deliverable at the strike.
-  PUT_OR_CALL_PUT = 1;
-  // A call: the right to buy the deliverable at the strike.
-  PUT_OR_CALL_CALL = 2;
-}
-
-// A mirror of meridian.v1.ExerciseStyle.
-enum ExerciseStyle {
-  // Refused.
-  EXERCISE_STYLE_UNSPECIFIED = 0;
-  // Exercisable on any business day to expiration.
-  EXERCISE_STYLE_AMERICAN = 1;
-  // Exercisable at expiration only.
-  EXERCISE_STYLE_EUROPEAN = 2;
-}
-
-// A mirror of meridian.v1.SettlementMethod.
-enum SettlementMethod {
-  // Refused.
-  SETTLEMENT_METHOD_UNSPECIFIED = 0;
-  // The deliverable changes hands on exercise; for a future option, the
-  // future.
-  SETTLEMENT_METHOD_PHYSICAL = 1;
-  // Cash against the settlement value on exercise.
-  SETTLEMENT_METHOD_CASH = 2;
-}
-
-// A mirror of meridian.v1.SettlementTime.
-enum SettlementTime {
-  // Not stated: on a physically settled option, where it does not apply.
-  SETTLEMENT_TIME_UNSPECIFIED = 0;
-  // Settled on the expiration day's opening prints (SPX's monthly series).
-  SETTLEMENT_TIME_AM = 1;
-  // Settled on the expiration day's close (SPXW).
-  SETTLEMENT_TIME_PM = 2;
-}
-
-// Contract v28 (ListedOption.deliverable): states what one contract delivers
-// on exercise (ruling 559).
-// A mirror of meridian.v1.DeliverableComponent.
-message DeliverableComponent {
-  // An INS- record: the underlying, another company's shares after a merger,
-  // or a currency's cash instrument for cash. Never empty: a component naming
-  // no instrument is refused.
-  string instrument_id = 1;
-
-  // 100 shares; 150 after a 3-for-2 split; for cash, the amount in the cash
-  // instrument's major unit. Never unset.
-  Decimal quantity = 2;
-}
-
-// Contract v28 (InstrumentRecord.future): carries a listed future's terms.
-// A mirror of meridian.v1.FutureContract.
-message FutureContract {
-  // An index, an equity, a rate or a commodity's referential INS- record.
-  // Never empty.
-  string underlying_instrument_id = 1;
-
-  // The exchange's code for the product every month of it shares (ES, CL).
-  // Never empty.
-  string product_code = 2;
-
-  // YYYYMM. Never empty.
-  string contract_month = 3;
-
-  // A plain date, YYYY-MM-DD. Empty until the source states it: the record is
-  // then incomplete.
-  string last_trade_date = 4;
-
-  // A plain date, YYYY-MM-DD: after it the platform marks the record expired
-  // (ruling 579). Empty until the source states it: the record is then
-  // incomplete.
-  string final_settlement_date = 5;
-
-  // Physical or cash, as listed. Unspecified is refused.
-  SettlementMethod settlement_method = 6;
-
-  // What a one-point move in the price is worth per contract: 50 USD on ES.
-  // Never unset.
-  Decimal contract_multiplier = 7;
-
-  // A plain date, YYYY-MM-DD; the oms warns before it (W11.4), since v28 books
-  // no delivery. Empty on a cash-settled future; on a physically delivered one
-  // the record is incomplete until it is stated.
-  string first_notice_date = 8;
 }
 
 // Contract v29 (InstrumentRecord.bond; 676): a bond's terms -- a Treasury, a
@@ -7524,7 +7427,9 @@ enum CouponType {
 // where it has the value.
 // A mirror of meridian.v1.DayCount.
 enum DayCount {
-  // Not stated by the source; refused on an instrument's terms.
+  // Not stated by the source; refused on an instrument's terms. From contract
+  // v30 accepted on a QuotedYield's convention (ruling 433), the yield kept
+  // as quoted and never computed with.
   DAY_COUNT_UNSPECIFIED = 0;
   // Actual days over 360 (FIX CouponDayCount 1950 = 6; CDM ACT/360).
   DAY_COUNT_ACT_360 = 1;
@@ -7789,6 +7694,154 @@ enum RefundingStatus {
   REFUNDING_STATUS_PRE_REFUNDED = 1;
   // Escrowed to maturity.
   REFUNDING_STATUS_ESCROWED_TO_MATURITY = 2;
+}
+
+// Contract v28 (InstrumentRecord.listed_option): carries a listed option's
+// terms.
+// A mirror of meridian.v1.ListedOption.
+message ListedOption {
+  // The underlying's INS- record: an equity, a fund, an index, or for a
+  // future_option a future record (FIX UnderlyingSecurityID, 309). Never
+  // empty.
+  string underlying_instrument_id = 1;
+
+  // The right the holder has. Unspecified is refused.
+  PutOrCall put_or_call = 2;
+
+  // The price per unit of the underlying at which the option is exercised, as
+  // listed; an adjusted strike is a new version. Never unset.
+  Money strike_price = 3;
+
+  // A plain date, YYYY-MM-DD, the expiration the series is listed for. Never
+  // empty.
+  string expiration_date = 4;
+
+  // A plain date, YYYY-MM-DD. Empty until the platform's source states it: the
+  // record is then incomplete, listing it.
+  string last_trade_date = 5;
+
+  // The style the series is listed with; the calculation package binds its
+  // model by it (ruling 576). Unspecified is refused.
+  ExerciseStyle exercise_style = 6;
+
+  // Physical or cash, as listed. Unspecified is refused.
+  SettlementMethod settlement_method = 7;
+
+  // When the settlement value is fixed, which is where time to expiry counts
+  // to (minutes over 525,600). Unspecified: the record is incomplete on a
+  // cash-settled option, listing it.
+  SettlementTime settlement_time = 8;
+
+  // What one contract's premium is multiplied by: 100 on a standard equity
+  // option; an adjustment may change it apart from the deliverable. Never
+  // unset.
+  Decimal contract_multiplier = 9;
+
+  // Each instrument and its quantity, cash among them as its cash instrument's
+  // quantity: 100 shares on a standard option, 150 after a 3-for-2 split,
+  // shares and cash after a merger. None until the platform's source states
+  // it: the record is then incomplete, listing it; a cash-settled option's
+  // states its cash.
+  repeated DeliverableComponent deliverable = 10;
+
+  // The OCC root (SPX, SPXW, AAPL, AAPL1 once adjusted); on a future option,
+  // the exchange's option product code. Never empty.
+  string option_root = 11;
+
+  // YYYYMM. Empty on a listed_option, and on a future option whose exchange
+  // lists no serial month.
+  string contract_month = 12;
+}
+
+// A mirror of meridian.v1.PutOrCall.
+enum PutOrCall {
+  // Refused.
+  PUT_OR_CALL_UNSPECIFIED = 0;
+  // A put: the right to sell the deliverable at the strike.
+  PUT_OR_CALL_PUT = 1;
+  // A call: the right to buy the deliverable at the strike.
+  PUT_OR_CALL_CALL = 2;
+}
+
+// A mirror of meridian.v1.ExerciseStyle.
+enum ExerciseStyle {
+  // Refused.
+  EXERCISE_STYLE_UNSPECIFIED = 0;
+  // Exercisable on any business day to expiration.
+  EXERCISE_STYLE_AMERICAN = 1;
+  // Exercisable at expiration only.
+  EXERCISE_STYLE_EUROPEAN = 2;
+}
+
+// A mirror of meridian.v1.SettlementMethod.
+enum SettlementMethod {
+  // Refused.
+  SETTLEMENT_METHOD_UNSPECIFIED = 0;
+  // The deliverable changes hands on exercise; for a future option, the
+  // future.
+  SETTLEMENT_METHOD_PHYSICAL = 1;
+  // Cash against the settlement value on exercise.
+  SETTLEMENT_METHOD_CASH = 2;
+}
+
+// A mirror of meridian.v1.SettlementTime.
+enum SettlementTime {
+  // Not stated: on a physically settled option, where it does not apply.
+  SETTLEMENT_TIME_UNSPECIFIED = 0;
+  // Settled on the expiration day's opening prints (SPX's monthly series).
+  SETTLEMENT_TIME_AM = 1;
+  // Settled on the expiration day's close (SPXW).
+  SETTLEMENT_TIME_PM = 2;
+}
+
+// Contract v28 (ListedOption.deliverable): states what one contract delivers
+// on exercise (ruling 559).
+// A mirror of meridian.v1.DeliverableComponent.
+message DeliverableComponent {
+  // An INS- record: the underlying, another company's shares after a merger,
+  // or a currency's cash instrument for cash. Never empty: a component naming
+  // no instrument is refused.
+  string instrument_id = 1;
+
+  // 100 shares; 150 after a 3-for-2 split; for cash, the amount in the cash
+  // instrument's major unit. Never unset.
+  Decimal quantity = 2;
+}
+
+// Contract v28 (InstrumentRecord.future): carries a listed future's terms.
+// A mirror of meridian.v1.FutureContract.
+message FutureContract {
+  // An index, an equity, a rate or a commodity's referential INS- record.
+  // Never empty.
+  string underlying_instrument_id = 1;
+
+  // The exchange's code for the product every month of it shares (ES, CL).
+  // Never empty.
+  string product_code = 2;
+
+  // YYYYMM. Never empty.
+  string contract_month = 3;
+
+  // A plain date, YYYY-MM-DD. Empty until the source states it: the record is
+  // then incomplete.
+  string last_trade_date = 4;
+
+  // A plain date, YYYY-MM-DD: after it the platform marks the record expired
+  // (ruling 579). Empty until the source states it: the record is then
+  // incomplete.
+  string final_settlement_date = 5;
+
+  // Physical or cash, as listed. Unspecified is refused.
+  SettlementMethod settlement_method = 6;
+
+  // What a one-point move in the price is worth per contract: 50 USD on ES.
+  // Never unset.
+  Decimal contract_multiplier = 7;
+
+  // A plain date, YYYY-MM-DD; the oms warns before it (W11.4), since v28 books
+  // no delivery. Empty on a cash-settled future; on a physically delivered one
+  // the record is incomplete until it is stated.
+  string first_notice_date = 8;
 }
 
 // Contract v29 (InstrumentRecord.mbs_pool; 680): an agency pass-through pool's
@@ -9234,7 +9287,9 @@ message QuotedYield {
   UnitValue value = 1;
 
   // Semi-annual bond-equivalent for a US Treasury, corporate or agency; its day
-  // count the instrument's. Never unset.
+  // count the instrument's, or from contract v30 unspecified where the source
+  // states none (ruling 433), the yield then kept as quoted and never
+  // computed with. Never unset.
   RateConvention convention = 2;
 
   // To maturity, call, put or worst, current, or discount. Unspecified is
@@ -12112,6 +12167,59 @@ message ModelBinding {
   int32 model_version = 4;
 }
 
+// The deployment's priority for one data type and price kind: an ordered list
+// of datasets a default read takes, with failover (W10.2). Journalled by the
+// lake.
+// A mirror of meridian.v1.SourcePriority.
+message SourcePriority {
+  // By its message's full name: meridian.v1.Price, meridian.v1.Bar, and from
+  // contract v19 meridian.v1.Trade or meridian.v1.Quote.
+  string data_type = 1;
+
+  // For prices, the kind; unspecified for the other data types.
+  PriceKind kind = 2;
+
+  // First to last. At most 16.
+  repeated string datasets = 3;
+
+  string updated_by = 4;
+
+  int64 updated_at_ns = 5;
+
+  string acting_through_delegation = 6;
+
+  string client_name = 7;
+
+  string note = 8;
+
+  // The prepared change it was made from, where a person made it from one
+  // (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+  string prepared_call_id = 9;
+}
+
+// Which price.
+// A mirror of meridian.v1.PriceKind.
+enum PriceKind {
+  // Refused.
+  PRICE_KIND_UNSPECIFIED = 0;
+  // The dataset's declared close for the business date: the official close
+  // where the venue has one, otherwise the last price of the day the
+  // dataset declares.
+  PRICE_KIND_CLOSE = 1;
+  // The last eligible trade's price at the valid time.
+  PRICE_KIND_LAST = 2;
+  // A fund's net asset value per share, for the business date.
+  PRICE_KIND_NAV = 3;
+  // A contract's settlement price, for the business date.
+  PRICE_KIND_SETTLEMENT = 4;
+  // The best bid at the valid time, or the business date's closing bid.
+  PRICE_KIND_BID = 5;
+  // The best ask at the valid time, or the business date's closing ask.
+  PRICE_KIND_ASK = 6;
+  // The mid at the valid time, or the business date's closing mid.
+  PRICE_KIND_MID = 7;
+}
+
 // A price of one kind for one subject. An FX rate is the price of one
 // currency's cash instrument in another (spec/the-lake, Q3); the lake never
 // inverts or crosses a rate.
@@ -12342,29 +12450,6 @@ enum QualityReason {
   // Apart from another dataset for the same subject beyond tolerance, a signal
   // plugin's judgment.
   QUALITY_REASON_CROSS_SOURCE_DISAGREEMENT = 9;
-}
-
-// Which price.
-// A mirror of meridian.v1.PriceKind.
-enum PriceKind {
-  // Refused.
-  PRICE_KIND_UNSPECIFIED = 0;
-  // The dataset's declared close for the business date: the official close
-  // where the venue has one, otherwise the last price of the day the
-  // dataset declares.
-  PRICE_KIND_CLOSE = 1;
-  // The last eligible trade's price at the valid time.
-  PRICE_KIND_LAST = 2;
-  // A fund's net asset value per share, for the business date.
-  PRICE_KIND_NAV = 3;
-  // A contract's settlement price, for the business date.
-  PRICE_KIND_SETTLEMENT = 4;
-  // The best bid at the valid time, or the business date's closing bid.
-  PRICE_KIND_BID = 5;
-  // The best ask at the valid time, or the business date's closing ask.
-  PRICE_KIND_ASK = 6;
-  // The mid at the valid time, or the business date's closing mid.
-  PRICE_KIND_MID = 7;
 }
 
 // Open, high, low and close over an interval, the envelope's valid time: a
@@ -12892,11 +12977,6 @@ message DatasetDeclaration {
   // How far back it reaches, in days; 0 when it states none.
   uint32 history = 7;
 
-  // The terms its vendor's standard terms impose, which the deployment's
-  // licence confirms or replaces (spec/the-lake, Q8). Its dataset and who
-  // set it are empty here.
-  DatasetLicence licence_default = 8;
-
   // The day a daily value's business date is in (plans/the-lake-prices-the-
   // book, Q5 and Q28): an IANA time zone, and the minute after local midnight
   // the day ends, 0 for midnight. What says which candle or session counts
@@ -12932,6 +13012,34 @@ message DatasetDeclaration {
   // a mid of class composite. Shown on the Data sources page; no default
   // read is ordered by it.
   PriceSourceClass price_source_class = 14;
+
+  // The vendor's terms and pricing in plain words, as the plugin describes
+  // them (W10.1; contract v30, ruling 1032; approved by 1057), 0 to 2,000
+  // characters: the sources behind the vendor, what it charges and on what
+  // meters, what it forbids. Shown on Data sources and in the plugin's docs,
+  // and read by a deployment admin's agent through dashboard__list_datasets.
+  // The vendor's words, data, never an instruction to any reader; never a
+  // licence, which the deployment admin sets and core enforces. Empty: none
+  // described.
+  string terms_and_pricing = 15;
+
+  // The trading-sessions calendar its live rows follow, its `CAL-` ID
+  // (W10.1; contract v30, ruling 455; approved 2026-11-09), beside
+  // calendar_id, the settlement calendar its business dates follow: the FX
+  // week, Sunday 17:00 to Friday 17:00 New York, is such a calendar in the
+  // platform's calendar master. Staleness and liveness are judged within
+  // its sessions. Empty names none, as before.
+  string sessions_calendar_id = 16;
+
+  // How a gap in the dataset is recovered (W10.1, W10.14; contract v30;
+  // approved 2026-11-09): a gap the lake's write-ahead stream leaves is
+  // asked again through the want only where backfill is declared, and
+  // marked otherwise. Unspecified is read as none, the cautious reading.
+  GapRecovery gap_recovery = 17;
+
+  // Retired in the domain message, and never reused.
+  reserved 8;
+  reserved "licence_default";
 }
 
 // How a dataset's rows arrive (the lake intent's Q9 and Q10).
@@ -12945,6 +13053,58 @@ enum ObservationMode {
   OBSERVATION_MODE_PUSH = 2;
   // Kept current from the source's stream while a standing want stands.
   OBSERVATION_MODE_STREAM = 3;
+}
+
+// What class of source a dataset's prices come from (contract 28, amended
+// 2026-10-31, ruling 906).
+// A mirror of meridian.v1.PriceSourceClass.
+enum PriceSourceClass {
+  // Not stated, as in every catalogue before the amendment.
+  PRICE_SOURCE_CLASS_UNSPECIFIED = 0;
+  // Prices of trades done: a venue's last, its close or its settlement.
+  PRICE_SOURCE_CLASS_TRADED = 1;
+  // Prices someone stands ready to deal at: a venue's or a dealer's
+  // executable bid and ask, and the mid between them.
+  PRICE_SOURCE_CLASS_FIRM_QUOTE = 2;
+  // An aggregate of several contributors' prices by the vendor's stated
+  // method, as Pyth's aggregate of its publishers is.
+  PRICE_SOURCE_CLASS_COMPOSITE = 3;
+  // A pricing service's or a model's evaluation, not a price dealt or
+  // offered, as an evaluated bond price or a vendor's model price is.
+  PRICE_SOURCE_CLASS_EVALUATED = 4;
+}
+
+// How a gap in a dataset is recovered (contract v30; approved 2026-11-09):
+// as the vendor's service allows. Never a promise of completeness.
+// A mirror of meridian.v1.GapRecovery.
+enum GapRecovery {
+  // Not declared: read as none.
+  GAP_RECOVERY_UNSPECIFIED = 0;
+  // The vendor serves history: the lake asks again for a gap through the
+  // want, naming it.
+  GAP_RECOVERY_BACKFILL = 1;
+  // Nothing beyond what the stream held can be fetched again.
+  GAP_RECOVERY_STREAM_ONLY = 2;
+  // The source cannot be asked again at all.
+  GAP_RECOVERY_NONE = 3;
+}
+
+// A dataset's latest sign of life: its source's heartbeat or poll, which
+// confirms the values in force. Not a row, and never kept as one.
+// A mirror of meridian.v1.DatasetLiveness.
+message DatasetLiveness {
+  // A dataset the recording instance declares, `instance:key`.
+  string dataset = 1;
+
+  // The venue it is for, the venue master's ID; empty for the dataset's
+  // consolidated view.
+  string venue_id = 2;
+
+  // The source's last heartbeat or poll, on the one clock.
+  int64 alive_at_ns = 3;
+
+  // The recording instance, stamped by its sidecar.
+  string instance = 4;
 }
 
 // A dataset's licence: its catalogue's default terms (unset dataset and
@@ -13281,43 +13441,6 @@ enum DataUse {
   DATA_USE_COMMERCIAL = 2;
 }
 
-// What class of source a dataset's prices come from (contract 28, amended
-// 2026-10-31, ruling 906).
-// A mirror of meridian.v1.PriceSourceClass.
-enum PriceSourceClass {
-  // Not stated, as in every catalogue before the amendment.
-  PRICE_SOURCE_CLASS_UNSPECIFIED = 0;
-  // Prices of trades done: a venue's last, its close or its settlement.
-  PRICE_SOURCE_CLASS_TRADED = 1;
-  // Prices someone stands ready to deal at: a venue's or a dealer's
-  // executable bid and ask, and the mid between them.
-  PRICE_SOURCE_CLASS_FIRM_QUOTE = 2;
-  // An aggregate of several contributors' prices by the vendor's stated
-  // method, as Pyth's aggregate of its publishers is.
-  PRICE_SOURCE_CLASS_COMPOSITE = 3;
-  // A pricing service's or a model's evaluation, not a price dealt or
-  // offered, as an evaluated bond price or a vendor's model price is.
-  PRICE_SOURCE_CLASS_EVALUATED = 4;
-}
-
-// A dataset's latest sign of life: its source's heartbeat or poll, which
-// confirms the values in force. Not a row, and never kept as one.
-// A mirror of meridian.v1.DatasetLiveness.
-message DatasetLiveness {
-  // A dataset the recording instance declares, `instance:key`.
-  string dataset = 1;
-
-  // The venue it is for, the venue master's ID; empty for the dataset's
-  // consolidated view.
-  string venue_id = 2;
-
-  // The source's last heartbeat or poll, on the one clock.
-  int64 alive_at_ns = 3;
-
-  // The recording instance, stamped by its sidecar.
-  string instance = 4;
-}
-
 // A plugin instance's entitlement to a dataset, as the conductor keeps it
 // (W10.1). Set by a deployment admin; never sent to the platform.
 // A mirror of meridian.v1.DatasetEntitlement.
@@ -13392,6 +13515,19 @@ message Job {
   // Contract v28: its row key and version in the lake (W12.8); refused beside
   // scenario_set. Unset: no saved scenario.
   ScenarioRef scenario_ref = 9;
+
+  // Contract v30 (W12.1, W12.4; spec/one-data-access-model section 4;
+  // approved by 834): true asks the component to keep the answer current, a
+  // standing job keyed by its canonical form and its client's resolved
+  // inputs, computed once for every client with that key and recomputed as
+  // its inputs change, each measure by its refresh, while a renewal names it
+  // (RenewJobs). Its inputs are live: naming inputs.book_at,
+  // inputs.lake_as_of_ns, business_date or what_if is refused
+  // INVALID_ARGUMENT naming standing, and one past the deployment's most
+  // standing jobs FAILED_PRECONDITION naming standing. Its figures are
+  // published (DerivedSeriesUpdated), never recorded. False: a one-off job,
+  // answered once.
+  bool standing = 10;
 }
 
 // A job's inputs, by reference (requirement 3): one watermark and one as-of
@@ -13428,6 +13564,39 @@ message MeasureRef {
 
   // For an event measure, the event group it is over (W3.30).
   string event_group_id = 4;
+
+  // Contract v30 (W12.1; the field and its two values approved by 834):
+  // when a standing job recomputes the measure, the plugin's declaration per
+  // figure, which wins over its definition's default. Unspecified takes the
+  // definition's default; where the definition states none, refused
+  // INVALID_ARGUMENT naming refresh. Read only on a standing job's measure.
+  Refresh refresh = 5;
+
+  // Contract v30 (W12.1; approved by 834): with REFRESH_CADENCE, the least
+  // time in nanoseconds between two recomputations of a dirty figure, unless
+  // a material move comes first; 0 otherwise.
+  int64 cadence_ns = 6;
+
+  // Contract v30 (W12.1; approved by 834): with REFRESH_CADENCE, a move of
+  // the underlying's reference price since the last fit, in basis points,
+  // at or past which a dirty figure recomputes before its cadence; 0: the
+  // cadence alone.
+  uint32 material_move_bp = 7;
+}
+
+// When a standing job recomputes a measure (contract v30; the values
+// approved by 834, the enum's name 2026-11-09). A one-off job never
+// recomputes.
+// A mirror of meridian.v1.Refresh.
+enum Refresh {
+  // The definition's default refresh.
+  REFRESH_UNSPECIFIED = 0;
+  // Recomputed at once when an input it depends on changes, conflated per
+  // key: FX crosses and spreads, options' implied volatility and greeks.
+  REFRESH_PER_CHANGE = 1;
+  // Recomputed every cadence_ns, or sooner on a material move: realised
+  // volatility, correlation, fits, positioning, the volatility index.
+  REFRESH_CADENCE = 2;
 }
 
 // Trades added to one account's positions for a what-if (W12.5): never a
@@ -14206,6 +14375,10 @@ enum RateKind {
   RATE_KIND_DISCOUNT = 6;
   // A bill's coupon-equivalent (bond-equivalent) yield.
   RATE_KIND_COUPON_EQUIVALENT = 7;
+  // Contract v30 (ruling 431; approved 2026-11-09): an on-the-run
+  // benchmark's yield as its publisher states it, the kind a curve's
+  // benchmarks are quoted in.
+  RATE_KIND_BENCHMARK_YIELD = 8;
 }
 
 // One percentile of a rate's distribution, as the source states it.
@@ -15324,6 +15497,12 @@ message ObservationsWantedEvent {
   // Contract v28, amended 2026-10-28: true: every series of the subjects,
   // narrowed by the window. False: the subjects' own rows only.
   bool all_series = 14;
+
+  // Contract v30 (W10.7, W10.14; approved 2026-11-09): a gap's `GAP-` ID,
+  // set on a want asking again for a backfill dataset's gap, its subjects
+  // and its valid-time range; the rows recorded for it recover the gap.
+  // Empty: not a gap's want. Not a want's ID, which want_id is.
+  string gap_id = 15;
 }
 
 // A standing want no reader has asked within the dataset's cadence.
@@ -15531,4 +15710,39 @@ message SeriesRecordedEvent {
 message FactorsRecordedEvent {
   // Carries a factor after it commits: the row as kept. Never unset.
   Factor factor = 1;
+}
+
+// A standing job's recomputed figures (W12.4; approved by 1057 and
+// 2026-11-09), published to each instance holding the job, one event per
+// holding instance, which alone hears it (matrix/directed.tsv), conflated
+// per job and figure key. Published, never recorded; never over 512 KiB,
+// split where it would be. After a gap in the job's sequence or a loss
+// marker the reader reads the job's whole answer again (ReadJobAnswer) and
+// applies the events above it.
+// A mirror of meridian.v1.DerivedSeriesUpdatedEvent.
+message DerivedSeriesUpdatedEvent {
+  // The standing job, as RunJobReply.job_id: the same for every holder.
+  string job_id = 1;
+
+  // The instance holding the job that alone hears this event (step 3c's
+  // question 2).
+  string client_instance_id = 2;
+
+  // The figures recomputed since the last event, keyed by subject and
+  // series, each naming its rule and its inputs with the as-of each was read
+  // at; 0 to 4,096.
+  repeated DerivedSeries values = 3;
+
+  // The figures recomputed since the last event over an account, a
+  // breakdown or a scenario, each as a job's answer carries it, beside
+  // values (step 3c's question 1); 0 to 4,096.
+  repeated Figure figures = 4;
+
+  // The recomputed figures not evaluated, each with its reason, never zero;
+  // 0 to 4,096.
+  repeated NotEvaluated not_evaluated = 5;
+
+  // The job's own sequence, the same for every holder, so a reader sees a
+  // gap. Never zero.
+  int64 sequence = 6;
 }

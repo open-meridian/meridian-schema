@@ -605,6 +605,13 @@ pub struct ResolveIdentifierParams {
     /// currency supplied or derived never narrows a symbol match.
     #[prost(message, repeated, tag = "9")]
     pub provenance: ::prost::alloc::vec::Vec<Provenance>,
+    /// Contract v30 (W3.1; ruling 1035, with 954; approved by 1057): a binary
+    /// event contract's terms as its venue gives them, its category among them.
+    /// The store records category the first time it sees the contract and keeps
+    /// each stated term as an offer thereafter. Unset is not stated; never a
+    /// value in force, as no stated_ field is.
+    #[prost(message, optional, tag = "10")]
+    pub stated_binary_event_contract: ::core::option::Option<BinaryEventContract>,
 }
 /// The result of ResolveIdentifier: meridian.v1.ResolveIdentifierReply.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3089,6 +3096,19 @@ pub struct ReadTemplateResult {
     #[prost(message, optional, tag = "1")]
     pub template: ::core::option::Option<SecurityTemplate>,
 }
+/// Read by a deployment admin, and from contract v30 by the eight roles that
+/// read the lake (W10.2; ruling 454, step 3c's question 7), read-only: each
+/// priority answered with the datasets the asker is entitled to, a dataset it
+/// may not read left out, a priority with none left not answered.
+/// The params of ListSourcePriorities: meridian.v1.ListSourcePrioritiesRequest, less what the sidecar sets.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListSourcePrioritiesParams {}
+/// The result of ListSourcePriorities: meridian.v1.ListSourcePrioritiesReply.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListSourcePrioritiesResult {
+    #[prost(message, repeated, tag = "1")]
+    pub priorities: ::prost::alloc::vec::Vec<SourcePriority>,
+}
 /// A batch of prices, recorded whole or refused naming the item and field:
 /// 1 to 500.
 /// The params of RecordPrices: meridian.v1.RecordPricesRequest, less what the sidecar sets.
@@ -5419,7 +5439,7 @@ pub struct Delivery {
     pub meta: ::core::option::Option<DeliveryMeta>,
     #[prost(
         oneof = "delivery::Item",
-        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52"
+        tags = "2, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53"
     )]
     pub item: ::core::option::Option<delivery::Item>,
 }
@@ -5556,6 +5576,17 @@ pub mod delivery {
         /// W10.5: platform.lake.{dataset}.event.factors-recorded.
         #[prost(message, tag = "52")]
         FactorsRecorded(super::FactorsRecordedEvent),
+        /// W12.4: platform.analytics.event.derived-series-updated.
+        /// Reaches a reporting plugin only at the instance its
+        /// client_instance_id names (matrix/directed.tsv).
+        /// Reaches a portfolio plugin only at the instance its
+        /// client_instance_id names (matrix/directed.tsv).
+        /// Reaches a compliance plugin only at the instance its
+        /// client_instance_id names (matrix/directed.tsv).
+        /// Reaches a signal plugin only at the instance its
+        /// client_instance_id names (matrix/directed.tsv).
+        #[prost(message, tag = "53")]
+        DerivedSeriesUpdated(super::DerivedSeriesUpdatedEvent),
     }
 }
 /// What is known of a delivery beside its message.
@@ -5644,6 +5675,13 @@ pub struct SubscribeRequest {
     /// every field it may read.
     #[prost(string, repeated, tag = "8")]
     pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Contract v30 (W4.3, W12.4; approved by 1057): standing jobs the plugin
+    /// registered by RunJob with Job.standing, 0 to 64, set only with the row
+    /// DerivedSeriesUpdated; one the plugin did not register is refused
+    /// NOT_FOUND naming it. While the subscription is open the sidecar renews
+    /// each in RenewJobs. None: not a standing job's results.
+    #[prost(string, repeated, tag = "9")]
+    pub job_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Subscribe's answer, once the sidecar is delivering what the selector
 /// matches: the plugin then reads its snapshot.
@@ -6475,6 +6513,56 @@ pub struct SyncStatusEvent {
     #[prost(string, tag = "11")]
     pub history_from: ::prost::alloc::string::String,
 }
+/// A binary event contract's attributes (contract v19; plans/the-lake-prices-
+/// the-book, Q38): what it pays and when trading in it closes. Which outcome
+/// it pays on stays in its description, the venue's words, until the outcome
+/// is an observation (vL1c); the outcome and its settlement are not the
+/// record's.
+/// A mirror of meridian.v1.BinaryEventContract.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BinaryEventContract {
+    /// What one contract pays if the event happens, naming its cash instrument:
+    /// 1 USD at Kalshi, 1 in the venue's USDC instrument at Polymarket. A
+    /// contract's price divided by this is its implied probability, a reader's
+    /// computation, never stored. Optional from contract v30 (W3.1, ruling
+    /// 1035): a data plugin's stated_binary_event_contract may state its
+    /// category and not its payout, unset then not stated; on the record a
+    /// payout is never unset. The wire is unchanged.
+    #[prost(message, optional, tag = "1")]
+    pub payout: ::core::option::Option<Money>,
+    /// When trading in it closes, as the venue states it; 0 when it states none.
+    #[prost(int64, tag = "2")]
+    pub closes_at_ns: i64,
+    /// Contract v26 (W1.24; spec/the-contract-gaps-v26-and-v27-close, A4,
+    /// approved 2026-10-14): a range market's bounds, fields of the binary
+    /// event contract template's v26 version, never the group's. An open tail
+    /// has one bound only; neither set where the contract is no range.
+    #[prost(message, optional, tag = "3")]
+    pub floor: ::core::option::Option<EventContractBound>,
+    #[prost(message, optional, tag = "4")]
+    pub cap: ::core::option::Option<EventContractBound>,
+    /// The unit both bounds are in: an instrument's ID where the bound is a
+    /// price, otherwise the venue's unit word (`degrees_f`, `index_points`,
+    /// `percent`); empty where neither bound is set.
+    #[prost(string, tag = "5")]
+    pub bound_unit: ::prost::alloc::string::String,
+    /// Contract 28, amended 2026-10-31 (W1.1; ruling 954): the venue's primary
+    /// category for the market, in its own words -- a Kalshi series' category,
+    /// a Polymarket or Polymarket US event's primary tag label -- 0 to 64
+    /// characters; empty where the venue states none. No platform enum.
+    #[prost(string, tag = "6")]
+    pub category: ::prost::alloc::string::String,
+}
+/// One bound of a range market (A4): Kalshi's `greater` and
+/// `greater_or_equal` are inclusive false and true.
+/// A mirror of meridian.v1.EventContractBound.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct EventContractBound {
+    #[prost(message, optional, tag = "1")]
+    pub value: ::core::option::Option<Decimal>,
+    #[prost(bool, tag = "2")]
+    pub inclusive: bool,
+}
 /// The canonical instrument record.
 ///
 /// Three time axes, and conflating any two of them produces a resolution bug
@@ -6687,7 +6775,7 @@ pub struct InstrumentValue {
     /// person sets.
     #[prost(string, tag = "5")]
     pub source: ::prost::alloc::string::String,
-    #[prost(oneof = "instrument_value::Value", tags = "1, 2, 3, 4, 6, 7, 8")]
+    #[prost(oneof = "instrument_value::Value", tags = "1, 2, 3, 4, 6, 7, 8, 9")]
     pub value: ::core::option::Option<instrument_value::Value>,
 }
 /// Nested message and enum types in `InstrumentValue`.
@@ -6714,6 +6802,14 @@ pub mod instrument_value {
         /// Contract v19: on a binary event contract only, its payout stated.
         #[prost(message, tag = "8")]
         BinaryEventContract(super::BinaryEventContract),
+        /// Contract v30 (W3.10; ruling 433, with core #84's term offers;
+        /// approved 2026-11-09): a bond's terms as a source offers them or a
+        /// deployment admin puts them in force, its source named under
+        /// INSTRUMENT_FIELD_BOND; refused on a record whose type is not bond.
+        /// Never a bond's prices, yields or current face, which are the lake's
+        /// and the engine's.
+        #[prost(message, tag = "9")]
+        Bond(super::Bond),
     }
 }
 /// A money market fund's attributes, from SEC rule 2a-7 as amended in 2023
@@ -6731,163 +6827,6 @@ pub struct MoneyMarketFund {
     pub nav: i32,
     #[prost(enumeration = "LiquidityFeeRegime", tag = "4")]
     pub liquidity_fee: i32,
-}
-/// A binary event contract's attributes (contract v19; plans/the-lake-prices-
-/// the-book, Q38): what it pays and when trading in it closes. Which outcome
-/// it pays on stays in its description, the venue's words, until the outcome
-/// is an observation (vL1c); the outcome and its settlement are not the
-/// record's.
-/// A mirror of meridian.v1.BinaryEventContract.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BinaryEventContract {
-    /// What one contract pays if the event happens, naming its cash instrument:
-    /// 1 USD at Kalshi, 1 in the venue's USDC instrument at Polymarket. A
-    /// contract's price divided by this is its implied probability, a reader's
-    /// computation, never stored.
-    #[prost(message, optional, tag = "1")]
-    pub payout: ::core::option::Option<Money>,
-    /// When trading in it closes, as the venue states it; 0 when it states none.
-    #[prost(int64, tag = "2")]
-    pub closes_at_ns: i64,
-    /// Contract v26 (W1.24; spec/the-contract-gaps-v26-and-v27-close, A4,
-    /// approved 2026-10-14): a range market's bounds, fields of the binary
-    /// event contract template's v26 version, never the group's. An open tail
-    /// has one bound only; neither set where the contract is no range.
-    #[prost(message, optional, tag = "3")]
-    pub floor: ::core::option::Option<EventContractBound>,
-    #[prost(message, optional, tag = "4")]
-    pub cap: ::core::option::Option<EventContractBound>,
-    /// The unit both bounds are in: an instrument's ID where the bound is a
-    /// price, otherwise the venue's unit word (`degrees_f`, `index_points`,
-    /// `percent`); empty where neither bound is set.
-    #[prost(string, tag = "5")]
-    pub bound_unit: ::prost::alloc::string::String,
-    /// Contract 28, amended 2026-10-31 (W1.1; ruling 954): the venue's primary
-    /// category for the market, in its own words -- a Kalshi series' category,
-    /// a Polymarket or Polymarket US event's primary tag label -- 0 to 64
-    /// characters; empty where the venue states none. No platform enum.
-    #[prost(string, tag = "6")]
-    pub category: ::prost::alloc::string::String,
-}
-/// One bound of a range market (A4): Kalshi's `greater` and
-/// `greater_or_equal` are inclusive false and true.
-/// A mirror of meridian.v1.EventContractBound.
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct EventContractBound {
-    #[prost(message, optional, tag = "1")]
-    pub value: ::core::option::Option<Decimal>,
-    #[prost(bool, tag = "2")]
-    pub inclusive: bool,
-}
-/// Contract v28 (InstrumentRecord.listed_option): carries a listed option's
-/// terms.
-/// A mirror of meridian.v1.ListedOption.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ListedOption {
-    /// The underlying's INS- record: an equity, a fund, an index, or for a
-    /// future_option a future record (FIX UnderlyingSecurityID, 309). Never
-    /// empty.
-    #[prost(string, tag = "1")]
-    pub underlying_instrument_id: ::prost::alloc::string::String,
-    /// The right the holder has. Unspecified is refused.
-    #[prost(enumeration = "PutOrCall", tag = "2")]
-    pub put_or_call: i32,
-    /// The price per unit of the underlying at which the option is exercised, as
-    /// listed; an adjusted strike is a new version. Never unset.
-    #[prost(message, optional, tag = "3")]
-    pub strike_price: ::core::option::Option<Money>,
-    /// A plain date, YYYY-MM-DD, the expiration the series is listed for. Never
-    /// empty.
-    #[prost(string, tag = "4")]
-    pub expiration_date: ::prost::alloc::string::String,
-    /// A plain date, YYYY-MM-DD. Empty until the platform's source states it: the
-    /// record is then incomplete, listing it.
-    #[prost(string, tag = "5")]
-    pub last_trade_date: ::prost::alloc::string::String,
-    /// The style the series is listed with; the calculation package binds its
-    /// model by it (ruling 576). Unspecified is refused.
-    #[prost(enumeration = "ExerciseStyle", tag = "6")]
-    pub exercise_style: i32,
-    /// Physical or cash, as listed. Unspecified is refused.
-    #[prost(enumeration = "SettlementMethod", tag = "7")]
-    pub settlement_method: i32,
-    /// When the settlement value is fixed, which is where time to expiry counts
-    /// to (minutes over 525,600). Unspecified: the record is incomplete on a
-    /// cash-settled option, listing it.
-    #[prost(enumeration = "SettlementTime", tag = "8")]
-    pub settlement_time: i32,
-    /// What one contract's premium is multiplied by: 100 on a standard equity
-    /// option; an adjustment may change it apart from the deliverable. Never
-    /// unset.
-    #[prost(message, optional, tag = "9")]
-    pub contract_multiplier: ::core::option::Option<Decimal>,
-    /// Each instrument and its quantity, cash among them as its cash instrument's
-    /// quantity: 100 shares on a standard option, 150 after a 3-for-2 split,
-    /// shares and cash after a merger. None until the platform's source states
-    /// it: the record is then incomplete, listing it; a cash-settled option's
-    /// states its cash.
-    #[prost(message, repeated, tag = "10")]
-    pub deliverable: ::prost::alloc::vec::Vec<DeliverableComponent>,
-    /// The OCC root (SPX, SPXW, AAPL, AAPL1 once adjusted); on a future option,
-    /// the exchange's option product code. Never empty.
-    #[prost(string, tag = "11")]
-    pub option_root: ::prost::alloc::string::String,
-    /// YYYYMM. Empty on a listed_option, and on a future option whose exchange
-    /// lists no serial month.
-    #[prost(string, tag = "12")]
-    pub contract_month: ::prost::alloc::string::String,
-}
-/// Contract v28 (ListedOption.deliverable): states what one contract delivers
-/// on exercise (ruling 559).
-/// A mirror of meridian.v1.DeliverableComponent.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DeliverableComponent {
-    /// An INS- record: the underlying, another company's shares after a merger,
-    /// or a currency's cash instrument for cash. Never empty: a component naming
-    /// no instrument is refused.
-    #[prost(string, tag = "1")]
-    pub instrument_id: ::prost::alloc::string::String,
-    /// 100 shares; 150 after a 3-for-2 split; for cash, the amount in the cash
-    /// instrument's major unit. Never unset.
-    #[prost(message, optional, tag = "2")]
-    pub quantity: ::core::option::Option<Decimal>,
-}
-/// Contract v28 (InstrumentRecord.future): carries a listed future's terms.
-/// A mirror of meridian.v1.FutureContract.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FutureContract {
-    /// An index, an equity, a rate or a commodity's referential INS- record.
-    /// Never empty.
-    #[prost(string, tag = "1")]
-    pub underlying_instrument_id: ::prost::alloc::string::String,
-    /// The exchange's code for the product every month of it shares (ES, CL).
-    /// Never empty.
-    #[prost(string, tag = "2")]
-    pub product_code: ::prost::alloc::string::String,
-    /// YYYYMM. Never empty.
-    #[prost(string, tag = "3")]
-    pub contract_month: ::prost::alloc::string::String,
-    /// A plain date, YYYY-MM-DD. Empty until the source states it: the record is
-    /// then incomplete.
-    #[prost(string, tag = "4")]
-    pub last_trade_date: ::prost::alloc::string::String,
-    /// A plain date, YYYY-MM-DD: after it the platform marks the record expired
-    /// (ruling 579). Empty until the source states it: the record is then
-    /// incomplete.
-    #[prost(string, tag = "5")]
-    pub final_settlement_date: ::prost::alloc::string::String,
-    /// Physical or cash, as listed. Unspecified is refused.
-    #[prost(enumeration = "SettlementMethod", tag = "6")]
-    pub settlement_method: i32,
-    /// What a one-point move in the price is worth per contract: 50 USD on ES.
-    /// Never unset.
-    #[prost(message, optional, tag = "7")]
-    pub contract_multiplier: ::core::option::Option<Decimal>,
-    /// A plain date, YYYY-MM-DD; the oms warns before it (W11.4), since v28 books
-    /// no delivery. Empty on a cash-settled future; on a physically delivered one
-    /// the record is incomplete until it is stated.
-    #[prost(string, tag = "8")]
-    pub first_notice_date: ::prost::alloc::string::String,
 }
 /// Contract v29 (InstrumentRecord.bond; 676): a bond's terms -- a Treasury, a
 /// STRIPS component, an agency debenture or discount note, a corporate, a
@@ -7168,6 +7107,116 @@ pub struct MunicipalTerms {
     /// unless pre-refunded.
     #[prost(string, tag = "8")]
     pub refunded_to_date: ::prost::alloc::string::String,
+}
+/// Contract v28 (InstrumentRecord.listed_option): carries a listed option's
+/// terms.
+/// A mirror of meridian.v1.ListedOption.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListedOption {
+    /// The underlying's INS- record: an equity, a fund, an index, or for a
+    /// future_option a future record (FIX UnderlyingSecurityID, 309). Never
+    /// empty.
+    #[prost(string, tag = "1")]
+    pub underlying_instrument_id: ::prost::alloc::string::String,
+    /// The right the holder has. Unspecified is refused.
+    #[prost(enumeration = "PutOrCall", tag = "2")]
+    pub put_or_call: i32,
+    /// The price per unit of the underlying at which the option is exercised, as
+    /// listed; an adjusted strike is a new version. Never unset.
+    #[prost(message, optional, tag = "3")]
+    pub strike_price: ::core::option::Option<Money>,
+    /// A plain date, YYYY-MM-DD, the expiration the series is listed for. Never
+    /// empty.
+    #[prost(string, tag = "4")]
+    pub expiration_date: ::prost::alloc::string::String,
+    /// A plain date, YYYY-MM-DD. Empty until the platform's source states it: the
+    /// record is then incomplete, listing it.
+    #[prost(string, tag = "5")]
+    pub last_trade_date: ::prost::alloc::string::String,
+    /// The style the series is listed with; the calculation package binds its
+    /// model by it (ruling 576). Unspecified is refused.
+    #[prost(enumeration = "ExerciseStyle", tag = "6")]
+    pub exercise_style: i32,
+    /// Physical or cash, as listed. Unspecified is refused.
+    #[prost(enumeration = "SettlementMethod", tag = "7")]
+    pub settlement_method: i32,
+    /// When the settlement value is fixed, which is where time to expiry counts
+    /// to (minutes over 525,600). Unspecified: the record is incomplete on a
+    /// cash-settled option, listing it.
+    #[prost(enumeration = "SettlementTime", tag = "8")]
+    pub settlement_time: i32,
+    /// What one contract's premium is multiplied by: 100 on a standard equity
+    /// option; an adjustment may change it apart from the deliverable. Never
+    /// unset.
+    #[prost(message, optional, tag = "9")]
+    pub contract_multiplier: ::core::option::Option<Decimal>,
+    /// Each instrument and its quantity, cash among them as its cash instrument's
+    /// quantity: 100 shares on a standard option, 150 after a 3-for-2 split,
+    /// shares and cash after a merger. None until the platform's source states
+    /// it: the record is then incomplete, listing it; a cash-settled option's
+    /// states its cash.
+    #[prost(message, repeated, tag = "10")]
+    pub deliverable: ::prost::alloc::vec::Vec<DeliverableComponent>,
+    /// The OCC root (SPX, SPXW, AAPL, AAPL1 once adjusted); on a future option,
+    /// the exchange's option product code. Never empty.
+    #[prost(string, tag = "11")]
+    pub option_root: ::prost::alloc::string::String,
+    /// YYYYMM. Empty on a listed_option, and on a future option whose exchange
+    /// lists no serial month.
+    #[prost(string, tag = "12")]
+    pub contract_month: ::prost::alloc::string::String,
+}
+/// Contract v28 (ListedOption.deliverable): states what one contract delivers
+/// on exercise (ruling 559).
+/// A mirror of meridian.v1.DeliverableComponent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DeliverableComponent {
+    /// An INS- record: the underlying, another company's shares after a merger,
+    /// or a currency's cash instrument for cash. Never empty: a component naming
+    /// no instrument is refused.
+    #[prost(string, tag = "1")]
+    pub instrument_id: ::prost::alloc::string::String,
+    /// 100 shares; 150 after a 3-for-2 split; for cash, the amount in the cash
+    /// instrument's major unit. Never unset.
+    #[prost(message, optional, tag = "2")]
+    pub quantity: ::core::option::Option<Decimal>,
+}
+/// Contract v28 (InstrumentRecord.future): carries a listed future's terms.
+/// A mirror of meridian.v1.FutureContract.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FutureContract {
+    /// An index, an equity, a rate or a commodity's referential INS- record.
+    /// Never empty.
+    #[prost(string, tag = "1")]
+    pub underlying_instrument_id: ::prost::alloc::string::String,
+    /// The exchange's code for the product every month of it shares (ES, CL).
+    /// Never empty.
+    #[prost(string, tag = "2")]
+    pub product_code: ::prost::alloc::string::String,
+    /// YYYYMM. Never empty.
+    #[prost(string, tag = "3")]
+    pub contract_month: ::prost::alloc::string::String,
+    /// A plain date, YYYY-MM-DD. Empty until the source states it: the record is
+    /// then incomplete.
+    #[prost(string, tag = "4")]
+    pub last_trade_date: ::prost::alloc::string::String,
+    /// A plain date, YYYY-MM-DD: after it the platform marks the record expired
+    /// (ruling 579). Empty until the source states it: the record is then
+    /// incomplete.
+    #[prost(string, tag = "5")]
+    pub final_settlement_date: ::prost::alloc::string::String,
+    /// Physical or cash, as listed. Unspecified is refused.
+    #[prost(enumeration = "SettlementMethod", tag = "6")]
+    pub settlement_method: i32,
+    /// What a one-point move in the price is worth per contract: 50 USD on ES.
+    /// Never unset.
+    #[prost(message, optional, tag = "7")]
+    pub contract_multiplier: ::core::option::Option<Decimal>,
+    /// A plain date, YYYY-MM-DD; the oms warns before it (W11.4), since v28 books
+    /// no delivery. Empty on a cash-settled future; on a physically delivered one
+    /// the record is incomplete until it is stated.
+    #[prost(string, tag = "8")]
+    pub first_notice_date: ::prost::alloc::string::String,
 }
 /// Contract v29 (InstrumentRecord.mbs_pool; 680): an agency pass-through pool's
 /// terms. Its factor is the lake's Factor row (W10.4), never a term; lots stay
@@ -8358,7 +8407,9 @@ pub struct QuotedYield {
     #[prost(message, optional, tag = "1")]
     pub value: ::core::option::Option<UnitValue>,
     /// Semi-annual bond-equivalent for a US Treasury, corporate or agency; its day
-    /// count the instrument's. Never unset.
+    /// count the instrument's, or from contract v30 unspecified where the source
+    /// states none (ruling 433), the yield then kept as quoted and never
+    /// computed with. Never unset.
     #[prost(message, optional, tag = "2")]
     pub convention: ::core::option::Option<RateConvention>,
     /// To maturity, call, put or worst, current, or discount. Unspecified is
@@ -10505,6 +10556,37 @@ pub struct ModelBinding {
     #[prost(int32, tag = "4")]
     pub model_version: i32,
 }
+/// The deployment's priority for one data type and price kind: an ordered list
+/// of datasets a default read takes, with failover (W10.2). Journalled by the
+/// lake.
+/// A mirror of meridian.v1.SourcePriority.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SourcePriority {
+    /// By its message's full name: meridian.v1.Price, meridian.v1.Bar, and from
+    /// contract v19 meridian.v1.Trade or meridian.v1.Quote.
+    #[prost(string, tag = "1")]
+    pub data_type: ::prost::alloc::string::String,
+    /// For prices, the kind; unspecified for the other data types.
+    #[prost(enumeration = "PriceKind", tag = "2")]
+    pub kind: i32,
+    /// First to last. At most 16.
+    #[prost(string, repeated, tag = "3")]
+    pub datasets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, tag = "4")]
+    pub updated_by: ::prost::alloc::string::String,
+    #[prost(int64, tag = "5")]
+    pub updated_at_ns: i64,
+    #[prost(string, tag = "6")]
+    pub acting_through_delegation: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub client_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub note: ::prost::alloc::string::String,
+    /// The prepared change it was made from, where a person made it from one
+    /// (W6.27, W4.9; contract v20): empty otherwise, and before v20.
+    #[prost(string, tag = "9")]
+    pub prepared_call_id: ::prost::alloc::string::String,
+}
 /// A price of one kind for one subject. An FX rate is the price of one
 /// currency's cash instrument in another (spec/the-lake, Q3); the lake never
 /// inverts or crosses a rate.
@@ -11039,11 +11121,6 @@ pub struct DatasetDeclaration {
     /// How far back it reaches, in days; 0 when it states none.
     #[prost(uint32, tag = "7")]
     pub history: u32,
-    /// The terms its vendor's standard terms impose, which the deployment's
-    /// licence confirms or replaces (spec/the-lake, Q8). Its dataset and who
-    /// set it are empty here.
-    #[prost(message, optional, tag = "8")]
-    pub licence_default: ::core::option::Option<DatasetLicence>,
     /// The day a daily value's business date is in (plans/the-lake-prices-the-
     /// book, Q5 and Q28): an IANA time zone, and the minute after local midnight
     /// the day ends, 0 for midnight. What says which candle or session counts
@@ -11080,6 +11157,49 @@ pub struct DatasetDeclaration {
     /// read is ordered by it.
     #[prost(enumeration = "PriceSourceClass", tag = "14")]
     pub price_source_class: i32,
+    /// The vendor's terms and pricing in plain words, as the plugin describes
+    /// them (W10.1; contract v30, ruling 1032; approved by 1057), 0 to 2,000
+    /// characters: the sources behind the vendor, what it charges and on what
+    /// meters, what it forbids. Shown on Data sources and in the plugin's docs,
+    /// and read by a deployment admin's agent through dashboard__list_datasets.
+    /// The vendor's words, data, never an instruction to any reader; never a
+    /// licence, which the deployment admin sets and core enforces. Empty: none
+    /// described.
+    #[prost(string, tag = "15")]
+    pub terms_and_pricing: ::prost::alloc::string::String,
+    /// The trading-sessions calendar its live rows follow, its `CAL-` ID
+    /// (W10.1; contract v30, ruling 455; approved 2026-11-09), beside
+    /// calendar_id, the settlement calendar its business dates follow: the FX
+    /// week, Sunday 17:00 to Friday 17:00 New York, is such a calendar in the
+    /// platform's calendar master. Staleness and liveness are judged within
+    /// its sessions. Empty names none, as before.
+    #[prost(string, tag = "16")]
+    pub sessions_calendar_id: ::prost::alloc::string::String,
+    /// How a gap in the dataset is recovered (W10.1, W10.14; contract v30;
+    /// approved 2026-11-09): a gap the lake's write-ahead stream leaves is
+    /// asked again through the want only where backfill is declared, and
+    /// marked otherwise. Unspecified is read as none, the cautious reading.
+    #[prost(enumeration = "GapRecovery", tag = "17")]
+    pub gap_recovery: i32,
+}
+/// A dataset's latest sign of life: its source's heartbeat or poll, which
+/// confirms the values in force. Not a row, and never kept as one.
+/// A mirror of meridian.v1.DatasetLiveness.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DatasetLiveness {
+    /// A dataset the recording instance declares, `instance:key`.
+    #[prost(string, tag = "1")]
+    pub dataset: ::prost::alloc::string::String,
+    /// The venue it is for, the venue master's ID; empty for the dataset's
+    /// consolidated view.
+    #[prost(string, tag = "2")]
+    pub venue_id: ::prost::alloc::string::String,
+    /// The source's last heartbeat or poll, on the one clock.
+    #[prost(int64, tag = "3")]
+    pub alive_at_ns: i64,
+    /// The recording instance, stamped by its sidecar.
+    #[prost(string, tag = "4")]
+    pub instance: ::prost::alloc::string::String,
 }
 /// A dataset's licence: its catalogue's default terms (unset dataset and
 /// author), or the deployment's licence a deployment admin set, which is what
@@ -11263,25 +11383,6 @@ pub struct DataEligibility {
     #[prost(string, tag = "4")]
     pub buyer_revenue_currency_code: ::prost::alloc::string::String,
 }
-/// A dataset's latest sign of life: its source's heartbeat or poll, which
-/// confirms the values in force. Not a row, and never kept as one.
-/// A mirror of meridian.v1.DatasetLiveness.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DatasetLiveness {
-    /// A dataset the recording instance declares, `instance:key`.
-    #[prost(string, tag = "1")]
-    pub dataset: ::prost::alloc::string::String,
-    /// The venue it is for, the venue master's ID; empty for the dataset's
-    /// consolidated view.
-    #[prost(string, tag = "2")]
-    pub venue_id: ::prost::alloc::string::String,
-    /// The source's last heartbeat or poll, on the one clock.
-    #[prost(int64, tag = "3")]
-    pub alive_at_ns: i64,
-    /// The recording instance, stamped by its sidecar.
-    #[prost(string, tag = "4")]
-    pub instance: ::prost::alloc::string::String,
-}
 /// A plugin instance's entitlement to a dataset, as the conductor keeps it
 /// (W10.1). Set by a deployment admin; never sent to the platform.
 /// A mirror of meridian.v1.DatasetEntitlement.
@@ -11359,6 +11460,19 @@ pub struct Job {
     /// scenario_set. Unset: no saved scenario.
     #[prost(message, optional, tag = "9")]
     pub scenario_ref: ::core::option::Option<ScenarioRef>,
+    /// Contract v30 (W12.1, W12.4; spec/one-data-access-model section 4;
+    /// approved by 834): true asks the component to keep the answer current, a
+    /// standing job keyed by its canonical form and its client's resolved
+    /// inputs, computed once for every client with that key and recomputed as
+    /// its inputs change, each measure by its refresh, while a renewal names it
+    /// (RenewJobs). Its inputs are live: naming inputs.book_at,
+    /// inputs.lake_as_of_ns, business_date or what_if is refused
+    /// INVALID_ARGUMENT naming standing, and one past the deployment's most
+    /// standing jobs FAILED_PRECONDITION naming standing. Its figures are
+    /// published (DerivedSeriesUpdated), never recorded. False: a one-off job,
+    /// answered once.
+    #[prost(bool, tag = "10")]
+    pub standing: bool,
 }
 /// A job's inputs, by reference (requirement 3): one watermark and one as-of
 /// for the whole job (requirements 7, 8).
@@ -11397,6 +11511,24 @@ pub struct MeasureRef {
     /// For an event measure, the event group it is over (W3.30).
     #[prost(string, tag = "4")]
     pub event_group_id: ::prost::alloc::string::String,
+    /// Contract v30 (W12.1; the field and its two values approved by 834):
+    /// when a standing job recomputes the measure, the plugin's declaration per
+    /// figure, which wins over its definition's default. Unspecified takes the
+    /// definition's default; where the definition states none, refused
+    /// INVALID_ARGUMENT naming refresh. Read only on a standing job's measure.
+    #[prost(enumeration = "Refresh", tag = "5")]
+    pub refresh: i32,
+    /// Contract v30 (W12.1; approved by 834): with REFRESH_CADENCE, the least
+    /// time in nanoseconds between two recomputations of a dirty figure, unless
+    /// a material move comes first; 0 otherwise.
+    #[prost(int64, tag = "6")]
+    pub cadence_ns: i64,
+    /// Contract v30 (W12.1; approved by 834): with REFRESH_CADENCE, a move of
+    /// the underlying's reference price since the last fit, in basis points,
+    /// at or past which a dirty figure recomputes before its cadence; 0: the
+    /// cadence alone.
+    #[prost(uint32, tag = "7")]
+    pub material_move_bp: u32,
 }
 /// Trades added to one account's positions for a what-if (W12.5): never a
 /// book record unless proposed.
@@ -12960,6 +13092,12 @@ pub struct ObservationsWantedEvent {
     /// narrowed by the window. False: the subjects' own rows only.
     #[prost(bool, tag = "14")]
     pub all_series: bool,
+    /// Contract v30 (W10.7, W10.14; approved 2026-11-09): a gap's `GAP-` ID,
+    /// set on a want asking again for a backfill dataset's gap, its subjects
+    /// and its valid-time range; the rows recorded for it recover the gap.
+    /// Empty: not a gap's want. Not a want's ID, which want_id is.
+    #[prost(string, tag = "15")]
+    pub gap_id: ::prost::alloc::string::String,
 }
 /// A standing want no reader has asked within the dataset's cadence.
 /// A mirror of meridian.v1.WantWithdrawnEvent.
@@ -13188,6 +13326,42 @@ pub struct FactorsRecordedEvent {
     /// Carries a factor after it commits: the row as kept. Never unset.
     #[prost(message, optional, tag = "1")]
     pub factor: ::core::option::Option<Factor>,
+}
+/// A standing job's recomputed figures (W12.4; approved by 1057 and
+/// 2026-11-09), published to each instance holding the job, one event per
+/// holding instance, which alone hears it (matrix/directed.tsv), conflated
+/// per job and figure key. Published, never recorded; never over 512 KiB,
+/// split where it would be. After a gap in the job's sequence or a loss
+/// marker the reader reads the job's whole answer again (ReadJobAnswer) and
+/// applies the events above it.
+/// A mirror of meridian.v1.DerivedSeriesUpdatedEvent.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DerivedSeriesUpdatedEvent {
+    /// The standing job, as RunJobReply.job_id: the same for every holder.
+    #[prost(string, tag = "1")]
+    pub job_id: ::prost::alloc::string::String,
+    /// The instance holding the job that alone hears this event (step 3c's
+    /// question 2).
+    #[prost(string, tag = "2")]
+    pub client_instance_id: ::prost::alloc::string::String,
+    /// The figures recomputed since the last event, keyed by subject and
+    /// series, each naming its rule and its inputs with the as-of each was read
+    /// at; 0 to 4,096.
+    #[prost(message, repeated, tag = "3")]
+    pub values: ::prost::alloc::vec::Vec<DerivedSeries>,
+    /// The figures recomputed since the last event over an account, a
+    /// breakdown or a scenario, each as a job's answer carries it, beside
+    /// values (step 3c's question 1); 0 to 4,096.
+    #[prost(message, repeated, tag = "4")]
+    pub figures: ::prost::alloc::vec::Vec<Figure>,
+    /// The recomputed figures not evaluated, each with its reason, never zero;
+    /// 0 to 4,096.
+    #[prost(message, repeated, tag = "5")]
+    pub not_evaluated: ::prost::alloc::vec::Vec<NotEvaluated>,
+    /// The job's own sequence, the same for every holder, so a reader sees a
+    /// gap. Never zero.
+    #[prost(int64, tag = "6")]
+    pub sequence: i64,
 }
 /// An account's kind (contract v11): one coarse kind, the platform's own
 /// words, never a venue's.
@@ -13914,6 +14088,8 @@ pub enum InstrumentField {
     MoneyMarketFund = 6,
     /// Contract v19.
     BinaryEventContract = 7,
+    /// Contract v30 (ruling 433; approved 2026-11-09): a bond's terms.
+    Bond = 8,
 }
 impl InstrumentField {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -13930,6 +14106,7 @@ impl InstrumentField {
             Self::InstrumentType => "INSTRUMENT_FIELD_INSTRUMENT_TYPE",
             Self::MoneyMarketFund => "INSTRUMENT_FIELD_MONEY_MARKET_FUND",
             Self::BinaryEventContract => "INSTRUMENT_FIELD_BINARY_EVENT_CONTRACT",
+            Self::Bond => "INSTRUMENT_FIELD_BOND",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -13943,6 +14120,7 @@ impl InstrumentField {
             "INSTRUMENT_FIELD_INSTRUMENT_TYPE" => Some(Self::InstrumentType),
             "INSTRUMENT_FIELD_MONEY_MARKET_FUND" => Some(Self::MoneyMarketFund),
             "INSTRUMENT_FIELD_BINARY_EVENT_CONTRACT" => Some(Self::BinaryEventContract),
+            "INSTRUMENT_FIELD_BOND" => Some(Self::Bond),
             _ => None,
         }
     }
@@ -14085,139 +14263,6 @@ impl LiquidityFeeRegime {
             "LIQUIDITY_FEE_REGIME_MANDATORY" => Some(Self::Mandatory),
             "LIQUIDITY_FEE_REGIME_DISCRETIONARY" => Some(Self::Discretionary),
             "LIQUIDITY_FEE_REGIME_NONE" => Some(Self::None),
-            _ => None,
-        }
-    }
-}
-/// A mirror of meridian.v1.PutOrCall.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum PutOrCall {
-    /// Refused.
-    Unspecified = 0,
-    /// A put: the right to sell the deliverable at the strike.
-    Put = 1,
-    /// A call: the right to buy the deliverable at the strike.
-    Call = 2,
-}
-impl PutOrCall {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Unspecified => "PUT_OR_CALL_UNSPECIFIED",
-            Self::Put => "PUT_OR_CALL_PUT",
-            Self::Call => "PUT_OR_CALL_CALL",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "PUT_OR_CALL_UNSPECIFIED" => Some(Self::Unspecified),
-            "PUT_OR_CALL_PUT" => Some(Self::Put),
-            "PUT_OR_CALL_CALL" => Some(Self::Call),
-            _ => None,
-        }
-    }
-}
-/// A mirror of meridian.v1.ExerciseStyle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum ExerciseStyle {
-    /// Refused.
-    Unspecified = 0,
-    /// Exercisable on any business day to expiration.
-    American = 1,
-    /// Exercisable at expiration only.
-    European = 2,
-}
-impl ExerciseStyle {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Unspecified => "EXERCISE_STYLE_UNSPECIFIED",
-            Self::American => "EXERCISE_STYLE_AMERICAN",
-            Self::European => "EXERCISE_STYLE_EUROPEAN",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "EXERCISE_STYLE_UNSPECIFIED" => Some(Self::Unspecified),
-            "EXERCISE_STYLE_AMERICAN" => Some(Self::American),
-            "EXERCISE_STYLE_EUROPEAN" => Some(Self::European),
-            _ => None,
-        }
-    }
-}
-/// A mirror of meridian.v1.SettlementMethod.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum SettlementMethod {
-    /// Refused.
-    Unspecified = 0,
-    /// The deliverable changes hands on exercise; for a future option, the
-    /// future.
-    Physical = 1,
-    /// Cash against the settlement value on exercise.
-    Cash = 2,
-}
-impl SettlementMethod {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Unspecified => "SETTLEMENT_METHOD_UNSPECIFIED",
-            Self::Physical => "SETTLEMENT_METHOD_PHYSICAL",
-            Self::Cash => "SETTLEMENT_METHOD_CASH",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "SETTLEMENT_METHOD_UNSPECIFIED" => Some(Self::Unspecified),
-            "SETTLEMENT_METHOD_PHYSICAL" => Some(Self::Physical),
-            "SETTLEMENT_METHOD_CASH" => Some(Self::Cash),
-            _ => None,
-        }
-    }
-}
-/// A mirror of meridian.v1.SettlementTime.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum SettlementTime {
-    /// Not stated: on a physically settled option, where it does not apply.
-    Unspecified = 0,
-    /// Settled on the expiration day's opening prints (SPX's monthly series).
-    Am = 1,
-    /// Settled on the expiration day's close (SPXW).
-    Pm = 2,
-}
-impl SettlementTime {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Unspecified => "SETTLEMENT_TIME_UNSPECIFIED",
-            Self::Am => "SETTLEMENT_TIME_AM",
-            Self::Pm => "SETTLEMENT_TIME_PM",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "SETTLEMENT_TIME_UNSPECIFIED" => Some(Self::Unspecified),
-            "SETTLEMENT_TIME_AM" => Some(Self::Am),
-            "SETTLEMENT_TIME_PM" => Some(Self::Pm),
             _ => None,
         }
     }
@@ -14410,7 +14455,9 @@ impl CouponType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum DayCount {
-    /// Not stated by the source; refused on an instrument's terms.
+    /// Not stated by the source; refused on an instrument's terms. From contract
+    /// v30 accepted on a QuotedYield's convention (ruling 433), the yield kept
+    /// as quoted and never computed with.
     Unspecified = 0,
     /// Actual days over 360 (FIX CouponDayCount 1950 = 6; CDM ACT/360).
     Act360 = 1,
@@ -14787,6 +14834,139 @@ impl RefundingStatus {
             "REFUNDING_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
             "REFUNDING_STATUS_PRE_REFUNDED" => Some(Self::PreRefunded),
             "REFUNDING_STATUS_ESCROWED_TO_MATURITY" => Some(Self::EscrowedToMaturity),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.PutOrCall.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PutOrCall {
+    /// Refused.
+    Unspecified = 0,
+    /// A put: the right to sell the deliverable at the strike.
+    Put = 1,
+    /// A call: the right to buy the deliverable at the strike.
+    Call = 2,
+}
+impl PutOrCall {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PUT_OR_CALL_UNSPECIFIED",
+            Self::Put => "PUT_OR_CALL_PUT",
+            Self::Call => "PUT_OR_CALL_CALL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PUT_OR_CALL_UNSPECIFIED" => Some(Self::Unspecified),
+            "PUT_OR_CALL_PUT" => Some(Self::Put),
+            "PUT_OR_CALL_CALL" => Some(Self::Call),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.ExerciseStyle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ExerciseStyle {
+    /// Refused.
+    Unspecified = 0,
+    /// Exercisable on any business day to expiration.
+    American = 1,
+    /// Exercisable at expiration only.
+    European = 2,
+}
+impl ExerciseStyle {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "EXERCISE_STYLE_UNSPECIFIED",
+            Self::American => "EXERCISE_STYLE_AMERICAN",
+            Self::European => "EXERCISE_STYLE_EUROPEAN",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "EXERCISE_STYLE_UNSPECIFIED" => Some(Self::Unspecified),
+            "EXERCISE_STYLE_AMERICAN" => Some(Self::American),
+            "EXERCISE_STYLE_EUROPEAN" => Some(Self::European),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.SettlementMethod.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SettlementMethod {
+    /// Refused.
+    Unspecified = 0,
+    /// The deliverable changes hands on exercise; for a future option, the
+    /// future.
+    Physical = 1,
+    /// Cash against the settlement value on exercise.
+    Cash = 2,
+}
+impl SettlementMethod {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SETTLEMENT_METHOD_UNSPECIFIED",
+            Self::Physical => "SETTLEMENT_METHOD_PHYSICAL",
+            Self::Cash => "SETTLEMENT_METHOD_CASH",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SETTLEMENT_METHOD_UNSPECIFIED" => Some(Self::Unspecified),
+            "SETTLEMENT_METHOD_PHYSICAL" => Some(Self::Physical),
+            "SETTLEMENT_METHOD_CASH" => Some(Self::Cash),
+            _ => None,
+        }
+    }
+}
+/// A mirror of meridian.v1.SettlementTime.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SettlementTime {
+    /// Not stated: on a physically settled option, where it does not apply.
+    Unspecified = 0,
+    /// Settled on the expiration day's opening prints (SPX's monthly series).
+    Am = 1,
+    /// Settled on the expiration day's close (SPXW).
+    Pm = 2,
+}
+impl SettlementTime {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SETTLEMENT_TIME_UNSPECIFIED",
+            Self::Am => "SETTLEMENT_TIME_AM",
+            Self::Pm => "SETTLEMENT_TIME_PM",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SETTLEMENT_TIME_UNSPECIFIED" => Some(Self::Unspecified),
+            "SETTLEMENT_TIME_AM" => Some(Self::Am),
+            "SETTLEMENT_TIME_PM" => Some(Self::Pm),
             _ => None,
         }
     }
@@ -18266,6 +18446,62 @@ impl FieldRequirement {
         }
     }
 }
+/// Which price.
+/// A mirror of meridian.v1.PriceKind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PriceKind {
+    /// Refused.
+    Unspecified = 0,
+    /// The dataset's declared close for the business date: the official close
+    /// where the venue has one, otherwise the last price of the day the
+    /// dataset declares.
+    Close = 1,
+    /// The last eligible trade's price at the valid time.
+    Last = 2,
+    /// A fund's net asset value per share, for the business date.
+    Nav = 3,
+    /// A contract's settlement price, for the business date.
+    Settlement = 4,
+    /// The best bid at the valid time, or the business date's closing bid.
+    Bid = 5,
+    /// The best ask at the valid time, or the business date's closing ask.
+    Ask = 6,
+    /// The mid at the valid time, or the business date's closing mid.
+    Mid = 7,
+}
+impl PriceKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PRICE_KIND_UNSPECIFIED",
+            Self::Close => "PRICE_KIND_CLOSE",
+            Self::Last => "PRICE_KIND_LAST",
+            Self::Nav => "PRICE_KIND_NAV",
+            Self::Settlement => "PRICE_KIND_SETTLEMENT",
+            Self::Bid => "PRICE_KIND_BID",
+            Self::Ask => "PRICE_KIND_ASK",
+            Self::Mid => "PRICE_KIND_MID",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PRICE_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "PRICE_KIND_CLOSE" => Some(Self::Close),
+            "PRICE_KIND_LAST" => Some(Self::Last),
+            "PRICE_KIND_NAV" => Some(Self::Nav),
+            "PRICE_KIND_SETTLEMENT" => Some(Self::Settlement),
+            "PRICE_KIND_BID" => Some(Self::Bid),
+            "PRICE_KIND_ASK" => Some(Self::Ask),
+            "PRICE_KIND_MID" => Some(Self::Mid),
+            _ => None,
+        }
+    }
+}
 /// A mirror of meridian.v1.SubjectRole.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -18468,62 +18704,6 @@ impl QualityReason {
             "QUALITY_REASON_CROSS_SOURCE_DISAGREEMENT" => {
                 Some(Self::CrossSourceDisagreement)
             }
-            _ => None,
-        }
-    }
-}
-/// Which price.
-/// A mirror of meridian.v1.PriceKind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum PriceKind {
-    /// Refused.
-    Unspecified = 0,
-    /// The dataset's declared close for the business date: the official close
-    /// where the venue has one, otherwise the last price of the day the
-    /// dataset declares.
-    Close = 1,
-    /// The last eligible trade's price at the valid time.
-    Last = 2,
-    /// A fund's net asset value per share, for the business date.
-    Nav = 3,
-    /// A contract's settlement price, for the business date.
-    Settlement = 4,
-    /// The best bid at the valid time, or the business date's closing bid.
-    Bid = 5,
-    /// The best ask at the valid time, or the business date's closing ask.
-    Ask = 6,
-    /// The mid at the valid time, or the business date's closing mid.
-    Mid = 7,
-}
-impl PriceKind {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Unspecified => "PRICE_KIND_UNSPECIFIED",
-            Self::Close => "PRICE_KIND_CLOSE",
-            Self::Last => "PRICE_KIND_LAST",
-            Self::Nav => "PRICE_KIND_NAV",
-            Self::Settlement => "PRICE_KIND_SETTLEMENT",
-            Self::Bid => "PRICE_KIND_BID",
-            Self::Ask => "PRICE_KIND_ASK",
-            Self::Mid => "PRICE_KIND_MID",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "PRICE_KIND_UNSPECIFIED" => Some(Self::Unspecified),
-            "PRICE_KIND_CLOSE" => Some(Self::Close),
-            "PRICE_KIND_LAST" => Some(Self::Last),
-            "PRICE_KIND_NAV" => Some(Self::Nav),
-            "PRICE_KIND_SETTLEMENT" => Some(Self::Settlement),
-            "PRICE_KIND_BID" => Some(Self::Bid),
-            "PRICE_KIND_ASK" => Some(Self::Ask),
-            "PRICE_KIND_MID" => Some(Self::Mid),
             _ => None,
         }
     }
@@ -18968,6 +19148,92 @@ impl ObservationMode {
             "OBSERVATION_MODE_PULL" => Some(Self::Pull),
             "OBSERVATION_MODE_PUSH" => Some(Self::Push),
             "OBSERVATION_MODE_STREAM" => Some(Self::Stream),
+            _ => None,
+        }
+    }
+}
+/// What class of source a dataset's prices come from (contract 28, amended
+/// 2026-10-31, ruling 906).
+/// A mirror of meridian.v1.PriceSourceClass.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PriceSourceClass {
+    /// Not stated, as in every catalogue before the amendment.
+    Unspecified = 0,
+    /// Prices of trades done: a venue's last, its close or its settlement.
+    Traded = 1,
+    /// Prices someone stands ready to deal at: a venue's or a dealer's
+    /// executable bid and ask, and the mid between them.
+    FirmQuote = 2,
+    /// An aggregate of several contributors' prices by the vendor's stated
+    /// method, as Pyth's aggregate of its publishers is.
+    Composite = 3,
+    /// A pricing service's or a model's evaluation, not a price dealt or
+    /// offered, as an evaluated bond price or a vendor's model price is.
+    Evaluated = 4,
+}
+impl PriceSourceClass {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PRICE_SOURCE_CLASS_UNSPECIFIED",
+            Self::Traded => "PRICE_SOURCE_CLASS_TRADED",
+            Self::FirmQuote => "PRICE_SOURCE_CLASS_FIRM_QUOTE",
+            Self::Composite => "PRICE_SOURCE_CLASS_COMPOSITE",
+            Self::Evaluated => "PRICE_SOURCE_CLASS_EVALUATED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PRICE_SOURCE_CLASS_UNSPECIFIED" => Some(Self::Unspecified),
+            "PRICE_SOURCE_CLASS_TRADED" => Some(Self::Traded),
+            "PRICE_SOURCE_CLASS_FIRM_QUOTE" => Some(Self::FirmQuote),
+            "PRICE_SOURCE_CLASS_COMPOSITE" => Some(Self::Composite),
+            "PRICE_SOURCE_CLASS_EVALUATED" => Some(Self::Evaluated),
+            _ => None,
+        }
+    }
+}
+/// How a gap in a dataset is recovered (contract v30; approved 2026-11-09):
+/// as the vendor's service allows. Never a promise of completeness.
+/// A mirror of meridian.v1.GapRecovery.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum GapRecovery {
+    /// Not declared: read as none.
+    Unspecified = 0,
+    /// The vendor serves history: the lake asks again for a gap through the
+    /// want, naming it.
+    Backfill = 1,
+    /// Nothing beyond what the stream held can be fetched again.
+    StreamOnly = 2,
+    /// The source cannot be asked again at all.
+    None = 3,
+}
+impl GapRecovery {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "GAP_RECOVERY_UNSPECIFIED",
+            Self::Backfill => "GAP_RECOVERY_BACKFILL",
+            Self::StreamOnly => "GAP_RECOVERY_STREAM_ONLY",
+            Self::None => "GAP_RECOVERY_NONE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "GAP_RECOVERY_UNSPECIFIED" => Some(Self::Unspecified),
+            "GAP_RECOVERY_BACKFILL" => Some(Self::Backfill),
+            "GAP_RECOVERY_STREAM_ONLY" => Some(Self::StreamOnly),
+            "GAP_RECOVERY_NONE" => Some(Self::None),
             _ => None,
         }
     }
@@ -19589,48 +19855,40 @@ impl DataUse {
         }
     }
 }
-/// What class of source a dataset's prices come from (contract 28, amended
-/// 2026-10-31, ruling 906).
-/// A mirror of meridian.v1.PriceSourceClass.
+/// When a standing job recomputes a measure (contract v30; the values
+/// approved by 834, the enum's name 2026-11-09). A one-off job never
+/// recomputes.
+/// A mirror of meridian.v1.Refresh.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
-pub enum PriceSourceClass {
-    /// Not stated, as in every catalogue before the amendment.
+pub enum Refresh {
+    /// The definition's default refresh.
     Unspecified = 0,
-    /// Prices of trades done: a venue's last, its close or its settlement.
-    Traded = 1,
-    /// Prices someone stands ready to deal at: a venue's or a dealer's
-    /// executable bid and ask, and the mid between them.
-    FirmQuote = 2,
-    /// An aggregate of several contributors' prices by the vendor's stated
-    /// method, as Pyth's aggregate of its publishers is.
-    Composite = 3,
-    /// A pricing service's or a model's evaluation, not a price dealt or
-    /// offered, as an evaluated bond price or a vendor's model price is.
-    Evaluated = 4,
+    /// Recomputed at once when an input it depends on changes, conflated per
+    /// key: FX crosses and spreads, options' implied volatility and greeks.
+    PerChange = 1,
+    /// Recomputed every cadence_ns, or sooner on a material move: realised
+    /// volatility, correlation, fits, positioning, the volatility index.
+    Cadence = 2,
 }
-impl PriceSourceClass {
+impl Refresh {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
     /// The values are not transformed in any way and thus are considered stable
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            Self::Unspecified => "PRICE_SOURCE_CLASS_UNSPECIFIED",
-            Self::Traded => "PRICE_SOURCE_CLASS_TRADED",
-            Self::FirmQuote => "PRICE_SOURCE_CLASS_FIRM_QUOTE",
-            Self::Composite => "PRICE_SOURCE_CLASS_COMPOSITE",
-            Self::Evaluated => "PRICE_SOURCE_CLASS_EVALUATED",
+            Self::Unspecified => "REFRESH_UNSPECIFIED",
+            Self::PerChange => "REFRESH_PER_CHANGE",
+            Self::Cadence => "REFRESH_CADENCE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "PRICE_SOURCE_CLASS_UNSPECIFIED" => Some(Self::Unspecified),
-            "PRICE_SOURCE_CLASS_TRADED" => Some(Self::Traded),
-            "PRICE_SOURCE_CLASS_FIRM_QUOTE" => Some(Self::FirmQuote),
-            "PRICE_SOURCE_CLASS_COMPOSITE" => Some(Self::Composite),
-            "PRICE_SOURCE_CLASS_EVALUATED" => Some(Self::Evaluated),
+            "REFRESH_UNSPECIFIED" => Some(Self::Unspecified),
+            "REFRESH_PER_CHANGE" => Some(Self::PerChange),
+            "REFRESH_CADENCE" => Some(Self::Cadence),
             _ => None,
         }
     }
@@ -20053,6 +20311,10 @@ pub enum RateKind {
     Discount = 6,
     /// A bill's coupon-equivalent (bond-equivalent) yield.
     CouponEquivalent = 7,
+    /// Contract v30 (ruling 431; approved 2026-11-09): an on-the-run
+    /// benchmark's yield as its publisher states it, the kind a curve's
+    /// benchmarks are quoted in.
+    BenchmarkYield = 8,
 }
 impl RateKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -20069,6 +20331,7 @@ impl RateKind {
             Self::Zero => "RATE_KIND_ZERO",
             Self::Discount => "RATE_KIND_DISCOUNT",
             Self::CouponEquivalent => "RATE_KIND_COUPON_EQUIVALENT",
+            Self::BenchmarkYield => "RATE_KIND_BENCHMARK_YIELD",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -20082,6 +20345,7 @@ impl RateKind {
             "RATE_KIND_ZERO" => Some(Self::Zero),
             "RATE_KIND_DISCOUNT" => Some(Self::Discount),
             "RATE_KIND_COUPON_EQUIVALENT" => Some(Self::CouponEquivalent),
+            "RATE_KIND_BENCHMARK_YIELD" => Some(Self::BenchmarkYield),
             _ => None,
         }
     }
@@ -22836,6 +23100,36 @@ pub mod plugin_operations_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// W10.2: platform.lake.query.list-source-priorities (query; preview).
+        pub async fn list_source_priorities(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListSourcePrioritiesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListSourcePrioritiesResult>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/meridian.plugin.v1.PluginOperations/ListSourcePriorities",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "meridian.plugin.v1.PluginOperations",
+                        "ListSourcePriorities",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// W10.4: platform.lake.command.record-prices (command; preview).
         pub async fn record_prices(
             &mut self,
@@ -25197,6 +25491,14 @@ pub mod plugin_operations_server {
             request: tonic::Request<super::ReadTemplateParams>,
         ) -> std::result::Result<
             tonic::Response<super::ReadTemplateResult>,
+            tonic::Status,
+        >;
+        /// W10.2: platform.lake.query.list-source-priorities (query; preview).
+        async fn list_source_priorities(
+            &self,
+            request: tonic::Request<super::ListSourcePrioritiesParams>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListSourcePrioritiesResult>,
             tonic::Status,
         >;
         /// W10.4: platform.lake.command.record-prices (command; preview).
@@ -29035,6 +29337,55 @@ pub mod plugin_operations_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ReadTemplateSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/meridian.plugin.v1.PluginOperations/ListSourcePriorities" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListSourcePrioritiesSvc<T: PluginOperations>(pub Arc<T>);
+                    impl<
+                        T: PluginOperations,
+                    > tonic::server::UnaryService<super::ListSourcePrioritiesParams>
+                    for ListSourcePrioritiesSvc<T> {
+                        type Response = super::ListSourcePrioritiesResult;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListSourcePrioritiesParams>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PluginOperations>::list_source_priorities(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListSourcePrioritiesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
