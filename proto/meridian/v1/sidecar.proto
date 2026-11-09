@@ -313,6 +313,15 @@ message PluginDeclaration {
   // deployment admin's routing is checked. Refused on a version not holding
   // pricing; 1 to 32 on one that does, each model id and version once.
   repeated PricingModelDeclaration pricing_models = 12;
+
+  // The most pods of one instance the plugin's vendor allows (W8.1;
+  // contract v30; spec/a-deployment-scales-out-and-fails-over-by-
+  // configuration section 7; approved by 1057), 0 to 64: the most shards a
+  // deployment admin may launch an instance with, each shard a pod of the
+  // one instance, its datasets, licence, settings, access and records the
+  // instance's. 0 or 1: not shardable. Never a promise the vendor allows it:
+  // the vendor's terms are the deployment's to keep.
+  uint32 most_shards = 13;
 }
 
 // One pricing model a version answers (contract v27).
