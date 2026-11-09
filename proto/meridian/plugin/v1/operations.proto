@@ -3900,6 +3900,13 @@ message ReadJobAnswerResult {
   // last page, and on an answer RunJob gave inline, which is always whole
   // (contract v28's amendment, ruling 794).
   string next_cursor = 5;
+
+  // Contract v30 (W12.4; approved 2026-11-09): a standing job's figures keyed
+  // by subject and series, each as DerivedSeriesUpdatedEvent.values carries
+  // it, set only for a standing job, so a catch-up after a gap or a loss
+  // marker returns what the events carry. Paged after the figures, before
+  // what was not evaluated. None for a one-off job.
+  repeated DerivedSeries values = 6;
 }
 
 // W3.29: a venue's data plugin reports the grouping its venue states.
@@ -13800,6 +13807,13 @@ message JobAnswer {
   // last page, and on an answer RunJob gave inline, which is always whole
   // (contract v28's amendment, ruling 794).
   string next_cursor = 5;
+
+  // Contract v30 (W12.4; approved 2026-11-09): a standing job's figures keyed
+  // by subject and series, each as DerivedSeriesUpdatedEvent.values carries
+  // it, set only for a standing job, so a catch-up after a gap or a loss
+  // marker returns what the events carry. Paged after the figures, before
+  // what was not evaluated. None for a one-off job.
+  repeated DerivedSeries values = 6;
 }
 
 // One figure (requirement 5; the first release's Q13 and Q14).
@@ -14119,6 +14133,57 @@ enum ConversionDerivation {
   CONVERSION_DERIVATION_INVERTED = 2;
   // Through a pivot, by the deployment's pivot order.
   CONVERSION_DERIVATION_CROSSED = 3;
+}
+
+// Contract v28: one value of a signal plugin's own series, naming its rule and
+// inputs, never presented as a publisher's figure; from the amendment of
+// 2026-10-31 (ruling 955), or a publisher's figure a data plugin records,
+// marked published_by.
+// A mirror of meridian.v1.DerivedSeries.
+message DerivedSeries {
+  // Its key, subject, the recording plugin's own dataset, its business date
+  // and version. Never unset.
+  ObservationMeta meta = 1;
+
+  // Its own name for it: iv30, the index's level, a positioning summary's
+  // part; for a publisher's figure, its name for the publisher's series.
+  // Never empty.
+  string series = 2;
+
+  // As derived, or as the publisher states it where published_by is set.
+  // Never unset; from contract v29 (638) unset where the value is an amount
+  // of money, which money_value carries.
+  UnitValue value = 3;
+
+  // A definition and its version, an analytics measure's where one was used;
+  // for a publisher's figure, the publisher's definition. Never unset.
+  MeasureRef rule = 4;
+
+  // Each dataset read and the as-of it was read at, so licences and counts can
+  // follow it. Never empty on a value the plugin derived; may be empty on a
+  // publisher's figure.
+  repeated DerivedInput inputs = 5;
+
+  // Contract 28, amended 2026-10-31 (W10.4; ruling 955): whose figure the
+  // value is, in words, 0 to 64 characters -- a data plugin's row records a
+  // publisher's figure and is refused without it; empty on a signal plugin's
+  // own measure. A page shows it labelled with whose, never as our measure.
+  string published_by = 6;
+
+  // Contract v29: a Money naming its cash instrument: a dollar volume, an
+  // expected move in the underlying's currency. Unset unless the series is an
+  // amount of money; value is then unset.
+  optional Money money_value = 7;
+}
+
+// Contract v28 (DerivedSeries.inputs): names what the value was derived from.
+// A mirror of meridian.v1.DerivedInput.
+message DerivedInput {
+  // As the lake named it. Never empty.
+  string dataset = 1;
+
+  // Nanoseconds since the epoch. 0: not pinned.
+  int64 as_of_ns = 2;
 }
 
 // A measure's versioned definition (requirements 14 to 17; Q15): shipped
@@ -14931,57 +14996,6 @@ enum RedemptionEventKind {
   REDEMPTION_EVENT_KIND_PUT = 4;
   // A mandatory sinking-fund draw: no CDM type, held more.
   REDEMPTION_EVENT_KIND_SINKING_FUND = 5;
-}
-
-// Contract v28: one value of a signal plugin's own series, naming its rule and
-// inputs, never presented as a publisher's figure; from the amendment of
-// 2026-10-31 (ruling 955), or a publisher's figure a data plugin records,
-// marked published_by.
-// A mirror of meridian.v1.DerivedSeries.
-message DerivedSeries {
-  // Its key, subject, the recording plugin's own dataset, its business date
-  // and version. Never unset.
-  ObservationMeta meta = 1;
-
-  // Its own name for it: iv30, the index's level, a positioning summary's
-  // part; for a publisher's figure, its name for the publisher's series.
-  // Never empty.
-  string series = 2;
-
-  // As derived, or as the publisher states it where published_by is set.
-  // Never unset; from contract v29 (638) unset where the value is an amount
-  // of money, which money_value carries.
-  UnitValue value = 3;
-
-  // A definition and its version, an analytics measure's where one was used;
-  // for a publisher's figure, the publisher's definition. Never unset.
-  MeasureRef rule = 4;
-
-  // Each dataset read and the as-of it was read at, so licences and counts can
-  // follow it. Never empty on a value the plugin derived; may be empty on a
-  // publisher's figure.
-  repeated DerivedInput inputs = 5;
-
-  // Contract 28, amended 2026-10-31 (W10.4; ruling 955): whose figure the
-  // value is, in words, 0 to 64 characters -- a data plugin's row records a
-  // publisher's figure and is refused without it; empty on a signal plugin's
-  // own measure. A page shows it labelled with whose, never as our measure.
-  string published_by = 6;
-
-  // Contract v29: a Money naming its cash instrument: a dollar volume, an
-  // expected move in the underlying's currency. Unset unless the series is an
-  // amount of money; value is then unset.
-  optional Money money_value = 7;
-}
-
-// Contract v28 (DerivedSeries.inputs): names what the value was derived from.
-// A mirror of meridian.v1.DerivedInput.
-message DerivedInput {
-  // As the lake named it. Never empty.
-  string dataset = 1;
-
-  // Nanoseconds since the epoch. 0: not pinned.
-  int64 as_of_ns = 2;
 }
 
 // Contract v28: a scenario or scenario set a signal plugin saved, each change

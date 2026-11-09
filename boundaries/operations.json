@@ -8939,6 +8939,14 @@
           "required": false,
           "required_unless": "",
           "bounds": {}
+        },
+        {
+          "name": "values",
+          "type": "repeated message DerivedSeries",
+          "repeated": true,
+          "required": false,
+          "required_unless": "",
+          "bounds": {}
         }
       ],
       "refusals": [],

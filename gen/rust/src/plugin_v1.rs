@@ -3741,6 +3741,13 @@ pub struct ReadJobAnswerResult {
     /// (contract v28's amendment, ruling 794).
     #[prost(string, tag = "5")]
     pub next_cursor: ::prost::alloc::string::String,
+    /// Contract v30 (W12.4; approved 2026-11-09): a standing job's figures keyed
+    /// by subject and series, each as DerivedSeriesUpdatedEvent.values carries
+    /// it, set only for a standing job, so a catch-up after a gap or a loss
+    /// marker returns what the events carry. Paged after the figures, before
+    /// what was not evaluated. None for a one-off job.
+    #[prost(message, repeated, tag = "6")]
+    pub values: ::prost::alloc::vec::Vec<DerivedSeries>,
 }
 /// W3.29: a venue's data plugin reports the grouping its venue states.
 /// The params of ReportEventGroup: meridian.v1.ReportEventGroupRequest, less what the sidecar sets.
@@ -11694,6 +11701,13 @@ pub struct JobAnswer {
     /// (contract v28's amendment, ruling 794).
     #[prost(string, tag = "5")]
     pub next_cursor: ::prost::alloc::string::String,
+    /// Contract v30 (W12.4; approved 2026-11-09): a standing job's figures keyed
+    /// by subject and series, each as DerivedSeriesUpdatedEvent.values carries
+    /// it, set only for a standing job, so a catch-up after a gap or a loss
+    /// marker returns what the events carry. Paged after the figures, before
+    /// what was not evaluated. None for a one-off job.
+    #[prost(message, repeated, tag = "6")]
+    pub values: ::prost::alloc::vec::Vec<DerivedSeries>,
 }
 /// One figure (requirement 5; the first release's Q13 and Q14).
 /// A mirror of meridian.v1.Figure.
@@ -11931,6 +11945,59 @@ pub struct ConversionLeg {
     /// The dataset the lake's rate came from.
     #[prost(string, tag = "6")]
     pub dataset: ::prost::alloc::string::String,
+}
+/// Contract v28: one value of a signal plugin's own series, naming its rule and
+/// inputs, never presented as a publisher's figure; from the amendment of
+/// 2026-10-31 (ruling 955), or a publisher's figure a data plugin records,
+/// marked published_by.
+/// A mirror of meridian.v1.DerivedSeries.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DerivedSeries {
+    /// Its key, subject, the recording plugin's own dataset, its business date
+    /// and version. Never unset.
+    #[prost(message, optional, tag = "1")]
+    pub meta: ::core::option::Option<ObservationMeta>,
+    /// Its own name for it: iv30, the index's level, a positioning summary's
+    /// part; for a publisher's figure, its name for the publisher's series.
+    /// Never empty.
+    #[prost(string, tag = "2")]
+    pub series: ::prost::alloc::string::String,
+    /// As derived, or as the publisher states it where published_by is set.
+    /// Never unset; from contract v29 (638) unset where the value is an amount
+    /// of money, which money_value carries.
+    #[prost(message, optional, tag = "3")]
+    pub value: ::core::option::Option<UnitValue>,
+    /// A definition and its version, an analytics measure's where one was used;
+    /// for a publisher's figure, the publisher's definition. Never unset.
+    #[prost(message, optional, tag = "4")]
+    pub rule: ::core::option::Option<MeasureRef>,
+    /// Each dataset read and the as-of it was read at, so licences and counts can
+    /// follow it. Never empty on a value the plugin derived; may be empty on a
+    /// publisher's figure.
+    #[prost(message, repeated, tag = "5")]
+    pub inputs: ::prost::alloc::vec::Vec<DerivedInput>,
+    /// Contract 28, amended 2026-10-31 (W10.4; ruling 955): whose figure the
+    /// value is, in words, 0 to 64 characters -- a data plugin's row records a
+    /// publisher's figure and is refused without it; empty on a signal plugin's
+    /// own measure. A page shows it labelled with whose, never as our measure.
+    #[prost(string, tag = "6")]
+    pub published_by: ::prost::alloc::string::String,
+    /// Contract v29: a Money naming its cash instrument: a dollar volume, an
+    /// expected move in the underlying's currency. Unset unless the series is an
+    /// amount of money; value is then unset.
+    #[prost(message, optional, tag = "7")]
+    pub money_value: ::core::option::Option<Money>,
+}
+/// Contract v28 (DerivedSeries.inputs): names what the value was derived from.
+/// A mirror of meridian.v1.DerivedInput.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DerivedInput {
+    /// As the lake named it. Never empty.
+    #[prost(string, tag = "1")]
+    pub dataset: ::prost::alloc::string::String,
+    /// Nanoseconds since the epoch. 0: not pinned.
+    #[prost(int64, tag = "2")]
+    pub as_of_ns: i64,
 }
 /// A measure's versioned definition (requirements 14 to 17; Q15): shipped
 /// with the component, each fixing every parameter that changes its number.
@@ -12566,59 +12633,6 @@ pub struct LifecycleDelivery {
     /// by the option's terms.
     #[prost(message, optional, tag = "3")]
     pub price: ::core::option::Option<Money>,
-}
-/// Contract v28: one value of a signal plugin's own series, naming its rule and
-/// inputs, never presented as a publisher's figure; from the amendment of
-/// 2026-10-31 (ruling 955), or a publisher's figure a data plugin records,
-/// marked published_by.
-/// A mirror of meridian.v1.DerivedSeries.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DerivedSeries {
-    /// Its key, subject, the recording plugin's own dataset, its business date
-    /// and version. Never unset.
-    #[prost(message, optional, tag = "1")]
-    pub meta: ::core::option::Option<ObservationMeta>,
-    /// Its own name for it: iv30, the index's level, a positioning summary's
-    /// part; for a publisher's figure, its name for the publisher's series.
-    /// Never empty.
-    #[prost(string, tag = "2")]
-    pub series: ::prost::alloc::string::String,
-    /// As derived, or as the publisher states it where published_by is set.
-    /// Never unset; from contract v29 (638) unset where the value is an amount
-    /// of money, which money_value carries.
-    #[prost(message, optional, tag = "3")]
-    pub value: ::core::option::Option<UnitValue>,
-    /// A definition and its version, an analytics measure's where one was used;
-    /// for a publisher's figure, the publisher's definition. Never unset.
-    #[prost(message, optional, tag = "4")]
-    pub rule: ::core::option::Option<MeasureRef>,
-    /// Each dataset read and the as-of it was read at, so licences and counts can
-    /// follow it. Never empty on a value the plugin derived; may be empty on a
-    /// publisher's figure.
-    #[prost(message, repeated, tag = "5")]
-    pub inputs: ::prost::alloc::vec::Vec<DerivedInput>,
-    /// Contract 28, amended 2026-10-31 (W10.4; ruling 955): whose figure the
-    /// value is, in words, 0 to 64 characters -- a data plugin's row records a
-    /// publisher's figure and is refused without it; empty on a signal plugin's
-    /// own measure. A page shows it labelled with whose, never as our measure.
-    #[prost(string, tag = "6")]
-    pub published_by: ::prost::alloc::string::String,
-    /// Contract v29: a Money naming its cash instrument: a dollar volume, an
-    /// expected move in the underlying's currency. Unset unless the series is an
-    /// amount of money; value is then unset.
-    #[prost(message, optional, tag = "7")]
-    pub money_value: ::core::option::Option<Money>,
-}
-/// Contract v28 (DerivedSeries.inputs): names what the value was derived from.
-/// A mirror of meridian.v1.DerivedInput.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct DerivedInput {
-    /// As the lake named it. Never empty.
-    #[prost(string, tag = "1")]
-    pub dataset: ::prost::alloc::string::String,
-    /// Nanoseconds since the epoch. 0: not pinned.
-    #[prost(int64, tag = "2")]
-    pub as_of_ns: i64,
 }
 /// Contract v28: a scenario or scenario set a signal plugin saved, each change
 /// the next version of its key (contract v28, W12.8).

@@ -180,15 +180,18 @@ pub struct MessageMeta {
     /// from anything but the analytics component.
     #[prost(string, tag = "19")]
     pub on_behalf_of_instance_id: ::prost::alloc::string::String,
-    /// Set on a read by the SDK (W4.4; contract v30;
-    /// spec/a-deployment-scales-out-and-fails-over-by-configuration section 5;
-    /// approved by 1057): the watermark the read must not be answered behind,
-    /// the plugin's last act or delivery on the store's partitions, so
-    /// read-your-writes holds where the SDK knows it wrote. A member behind it
-    /// waits up to its bound, then hands the read to the writer, and never
-    /// answers from behind it. Unset: the nearest member answers, eventually
-    /// consistent, its reply's watermark saying how current it is. Not a point
-    /// in time to read as of, which a read's as_of_ns or book_at names.
+    /// Stamped by the sidecar on a plugin's read, never set by a plugin (W4.4;
+    /// contract v30; spec/a-deployment-scales-out-and-fails-over-by-
+    /// configuration section 5; approved by 1057, stamped as approved
+    /// 2026-11-09): the watermark the read must not be answered behind, the
+    /// highest the sidecar has seen for the instance on the store's
+    /// partitions, from its acknowledged writes and the deliveries it passed
+    /// on -- session consistency, read-your-writes and monotonic reads. A
+    /// member behind it waits up to its bound, then hands the read to the
+    /// writer, and never answers from behind it. Unset: the nearest member
+    /// answers, eventually consistent, its reply's watermark saying how current
+    /// it is. Not a point in time to read as of, which as_of_ns or book_at
+    /// names.
     #[prost(message, optional, tag = "20")]
     pub read_after: ::core::option::Option<Watermark>,
 }
