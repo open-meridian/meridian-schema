@@ -795,6 +795,11 @@ pub const DATASET_GAP_GAP_ID_LENGTH: Length = Length { least: 1, most: 64 };
 /// approved 2026-11-09)
 pub const DATASET_GAP_SUBJECTS_COUNT: Count = Count { least: 0, most: 500 };
 
+/// meridian.v1.DatasetGap.found_in_gap_id: links a dataset's gap to the
+/// unattributed gap it was found from (the resilience spec's section 4, "A
+/// gap is found when the stream skips"; approved 2026-11-11)
+pub const DATASET_GAP_FOUND_IN_GAP_ID_LENGTH: Length = Length { least: 0, most: 64 };
+
 /// meridian.v1.ListDatasetGapsRequest.page_size: bounds a page of gaps
 /// (W10.14; approved 2026-11-09)
 pub const LIST_DATASET_GAPS_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0, most: 500, capped: true };
