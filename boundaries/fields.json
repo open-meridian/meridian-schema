@@ -26038,11 +26038,15 @@
         {
           "value": "TAKEOVER_REASON_MOVED",
           "meaning": "a partition moved to this member's group"
+        },
+        {
+          "value": "TAKEOVER_REASON_DATABASE_TIMELINE",
+          "meaning": "the writer found its database on a new timeline or system identifier, after a failover or a restore that can have lost a committed tail, and raised the epoch (approved 2026-11-11)"
         }
       ],
       "empty": "never unspecified",
       "intent": "says why the writer was taken over (W6.39; approved 2026-11-09)",
-      "meaning": "the lease lapsed, the writer stepped down, or a move",
+      "meaning": "the lease lapsed, the writer stepped down, a move, or a new database timeline",
       "not_meaning": "a pod's exit code",
       "filled": "decided",
       "filled_by": "conductor",
