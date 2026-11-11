@@ -13372,8 +13372,10 @@ pub struct DerivedSeriesUpdatedEvent {
     /// 0 to 4,096.
     #[prost(message, repeated, tag = "5")]
     pub not_evaluated: ::prost::alloc::vec::Vec<NotEvaluated>,
-    /// The job's own sequence, the same for every holder, so a reader sees a
-    /// gap. Never zero.
+    /// The job's sequence for one holding instance, dense per holder, so a
+    /// reader sees a gap; after a gap or a loss marker the reader reads the
+    /// job's whole current answer again by ReadJobAnswer and applies events
+    /// above it. Not a lake row's sequence. Never zero.
     #[prost(int64, tag = "6")]
     pub sequence: i64,
 }
