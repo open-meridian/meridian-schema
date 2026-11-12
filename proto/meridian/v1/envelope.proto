@@ -15,6 +15,9 @@ syntax = "proto3";
 
 package meridian.v1;
 
+// Watermark, for read_after (contract v30).
+import "meridian/v1/journal.proto";
+
 // MessageMeta travels with every bus message.
 //
 // Kept deliberately small. Each field earns its place by being needed to
@@ -145,6 +148,22 @@ message MessageMeta {
   // account_scope. Never set by a sidecar; a store ignores it on a message
   // from anything but the analytics component.
   string on_behalf_of_instance_id = 19;
+
+  // Stamped by the sidecar on a plugin's read, never set by a plugin (W4.4;
+  // contract v30; spec/a-deployment-scales-out-and-fails-over-by-
+  // configuration section 5; approved by 1057, stamped as approved
+  // 2026-11-09 and 2026-11-10): the watermark the read must not be answered
+  // behind, the highest the sidecar has seen for the instance on the
+  // store's partitions, from its acknowledged writes, the deliveries it
+  // passed on and the watermark each of its reads was answered at --
+  // session consistency, read-your-writes and monotonic reads. A member
+  // behind it waits up to its bound or the call's remaining deadline,
+  // whichever is sooner, then answers from the store's primary database; a
+  // writer that still cannot reach it refuses UNAVAILABLE; no member answers
+  // from behind it. Unset: the nearest member answers, eventually
+  // consistent, its reply's watermark saying how current it is. Not a point
+  // in time to read as of, which as_of_ns or book_at names.
+  Watermark read_after = 20;
 }
 
 // The kind of user a subject is (contract v21): in the claims, whom the
