@@ -58075,6 +58075,20 @@
       "store": "sidecar"
     },
     {
+      "name": "meridian.v1.SidecarLimits.write_mib_per_second",
+      "type": "integer",
+      "unit": "MiB a second",
+      "empty": "0: the chart's sidecar.limits.writeMiBPerSecond",
+      "intent": "sets a data plugin's lake write share at its sidecar (W8.3; spec section 6.9; approved 2026-11-12)",
+      "meaning": "MiB a second of the plugin's lake writes; past its share the sidecar delays the acknowledgement up to the caller's deadline, then refuses RATE_LIMITED with a retry-after, keeping order, other plugins' writes untouched; kept on the launch from 3c, held to from 3d",
+      "not_meaning": "a cap on the plugin's reads, or on another plugin's writes",
+      "filled": "entered",
+      "filled_by": "dashboard",
+      "since": "v30",
+      "stability": "preview",
+      "store": "sidecar"
+    },
+    {
       "name": "meridian.v1.DatasetDeclaration.gap_recovery",
       "type": "enum GapRecovery",
       "allowed": [
