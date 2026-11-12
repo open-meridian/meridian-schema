@@ -788,6 +788,10 @@ pub const LIST_SOURCE_SWITCHES_REQUEST_PAGE_SIZE_RANGE: Range = Range { least: 0
 /// (W6.39; approved 2026-11-09)
 pub const MOVE_PARTITION_REQUEST_REASON_LENGTH: Length = Length { least: 1, most: 2000 };
 
+/// meridian.v1.SplitPartitionRequest.reason: says why a lake range is split
+/// (W6.39; the act approved 2026-11-12)
+pub const SPLIT_PARTITION_REQUEST_REASON_LENGTH: Length = Length { least: 1, most: 2000 };
+
 /// meridian.v1.DatasetGap.gap_id: names a gap (W10.14; approved 2026-11-09)
 pub const DATASET_GAP_GAP_ID_LENGTH: Length = Length { least: 1, most: 64 };
 

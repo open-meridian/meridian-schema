@@ -779,6 +779,10 @@ MOVE_PARTITION_REQUEST_REASON_LENGTH = Length(least=1, most=2000)
 """meridian.v1.MovePartitionRequest.reason: says why a partition is moved
 (W6.39; approved 2026-11-09)"""
 
+SPLIT_PARTITION_REQUEST_REASON_LENGTH = Length(least=1, most=2000)
+"""meridian.v1.SplitPartitionRequest.reason: says why a lake range is split
+(W6.39; the act approved 2026-11-12)"""
+
 DATASET_GAP_GAP_ID_LENGTH = Length(least=1, most=64)
 """meridian.v1.DatasetGap.gap_id: names a gap (W10.14; approved 2026-11-09)"""
 
