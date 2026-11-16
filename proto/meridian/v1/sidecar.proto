@@ -2262,6 +2262,15 @@ enum RefusalReason {
   // refused alone (W4.4; contract v30; approved 2026-11-09); sent with
   // RESOURCE_EXHAUSTED and retry_after_seconds, nothing recorded.
   REFUSAL_REASON_RATE_LIMITED = 33;
+
+  // FAILED_PRECONDITION. A write stamped with an epoch lower than the one
+  // the store holds for its shard (MessageMeta.shard_epoch): another pod
+  // took the shard's Lease and the lake raised its epoch (W8.3; contract
+  // v30; approved 2026-11-15 and 2026-11-16). Refused alone, nothing of it
+  // recorded, worded "fenced: this shard's epoch is no longer the
+  // instance's"; the sidecar then exits, as on a lost Lease, and its pod
+  // comes back as the standby.
+  REFUSAL_REASON_SHARD_FENCED = 34;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

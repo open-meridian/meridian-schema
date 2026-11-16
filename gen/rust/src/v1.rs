@@ -196,6 +196,22 @@ pub struct MessageMeta {
     /// in time to read as of, which as_of_ns or book_at names.
     #[prost(message, optional, tag = "20")]
     pub read_after: ::core::option::Option<Watermark>,
+    /// Stamped by the sidecar on every message it sends for its plugin while
+    /// it holds a shard's Lease, never set by a plugin (W8.3; contract v30;
+    /// step 3d, checkpoint 5, item 32; approved 2026-11-15): the shard of its
+    /// instance that pod is. 0, with shard_epoch 0, from an instance that runs
+    /// one pod, which takes no Lease.
+    #[prost(uint32, tag = "21")]
+    pub shard: u32,
+    /// Stamped beside shard, never set by a plugin (W8.3; contract v30;
+    /// approved 2026-11-15): the shard's epoch, its fencing token, as the lake
+    /// answered the sidecar's TakeShard when it took the shard's Lease. Each
+    /// lake and book writer group's database checks it in the write's own
+    /// transaction against the highest it holds for the shard: lower is
+    /// refused FAILED_PRECONDITION with REFUSAL_REASON_SHARD_FENCED, equal
+    /// passes, higher raises it. 0 is checked by nothing.
+    #[prost(uint64, tag = "22")]
+    pub shard_epoch: u64,
 }
 /// The kind of user a subject is (contract v21): in the claims, whom the
 /// dashboard vouched for; on the envelope, whom a command was sent for.
@@ -3385,6 +3401,14 @@ pub enum RefusalReason {
     /// refused alone (W4.4; contract v30; approved 2026-11-09); sent with
     /// RESOURCE_EXHAUSTED and retry_after_seconds, nothing recorded.
     RateLimited = 33,
+    /// FAILED_PRECONDITION. A write stamped with an epoch lower than the one
+    /// the store holds for its shard (MessageMeta.shard_epoch): another pod
+    /// took the shard's Lease and the lake raised its epoch (W8.3; contract
+    /// v30; approved 2026-11-15 and 2026-11-16). Refused alone, nothing of it
+    /// recorded, worded "fenced: this shard's epoch is no longer the
+    /// instance's"; the sidecar then exits, as on a lost Lease, and its pod
+    /// comes back as the standby.
+    ShardFenced = 34,
 }
 impl RefusalReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -3429,6 +3453,7 @@ impl RefusalReason {
             Self::AgentLiveOrder => "REFUSAL_REASON_AGENT_LIVE_ORDER",
             Self::Overloaded => "REFUSAL_REASON_OVERLOADED",
             Self::RateLimited => "REFUSAL_REASON_RATE_LIMITED",
+            Self::ShardFenced => "REFUSAL_REASON_SHARD_FENCED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -3476,6 +3501,7 @@ impl RefusalReason {
             "REFUSAL_REASON_AGENT_LIVE_ORDER" => Some(Self::AgentLiveOrder),
             "REFUSAL_REASON_OVERLOADED" => Some(Self::Overloaded),
             "REFUSAL_REASON_RATE_LIMITED" => Some(Self::RateLimited),
+            "REFUSAL_REASON_SHARD_FENCED" => Some(Self::ShardFenced),
             _ => None,
         }
     }

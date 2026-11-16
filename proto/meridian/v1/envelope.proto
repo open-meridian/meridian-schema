@@ -164,6 +164,22 @@ message MessageMeta {
   // consistent, its reply's watermark saying how current it is. Not a point
   // in time to read as of, which as_of_ns or book_at names.
   Watermark read_after = 20;
+
+  // Stamped by the sidecar on every message it sends for its plugin while
+  // it holds a shard's Lease, never set by a plugin (W8.3; contract v30;
+  // step 3d, checkpoint 5, item 32; approved 2026-11-15): the shard of its
+  // instance that pod is. 0, with shard_epoch 0, from an instance that runs
+  // one pod, which takes no Lease.
+  uint32 shard = 21;
+
+  // Stamped beside shard, never set by a plugin (W8.3; contract v30;
+  // approved 2026-11-15): the shard's epoch, its fencing token, as the lake
+  // answered the sidecar's TakeShard when it took the shard's Lease. Each
+  // lake and book writer group's database checks it in the write's own
+  // transaction against the highest it holds for the shard: lower is
+  // refused FAILED_PRECONDITION with REFUSAL_REASON_SHARD_FENCED, equal
+  // passes, higher raises it. 0 is checked by nothing.
+  uint64 shard_epoch = 22;
 }
 
 // The kind of user a subject is (contract v21): in the claims, whom the
