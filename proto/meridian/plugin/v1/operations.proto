@@ -2315,6 +2315,8 @@ message ReportChargeParams {
 
   RawRecordRef raw_record = 5;
 
+  string idempotency_key = 6;
+
   // W4.9: the person this is sent for, as the assertion the plugin was
   // handed for them (the Meridian-Caller header, decoded). Unset, the plugin
   // acts as itself. Set, the sidecar admits a command on an account only
@@ -10991,6 +10993,8 @@ message ReportChargeRequest {
   string settlement_date = 4;
 
   RawRecordRef raw_record = 5;
+
+  string idempotency_key = 6;
 }
 
 // W11.18. By the fund's connectivity plugin; the answer later on the same
