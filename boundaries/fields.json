@@ -58629,9 +58629,9 @@
     {
       "name": "meridian.v1.PluginLaunch.storage_copied",
       "type": "message PluginStorageCopied",
-      "empty": "unset where the launch copied no storage, or not yet: until one of its pods is heard registered",
+      "empty": "unset where the launch copied no storage, or not yet: until a pod of the instance is heard registered after it",
       "intent": "records that the instance's own storage claim was copied into its shared storage before this launch's pods started",
-      "meaning": "the PluginStorageCopied record of this launch, its own record (decisions/031), kept once per claim copied",
+      "meaning": "the PluginStorageCopied record of this launch, its own record (decisions/031), kept once per launch that copied",
       "not_meaning": "that the old claim was removed: it is kept as it was",
       "filled": "decided",
       "filled_by": "conductor",
