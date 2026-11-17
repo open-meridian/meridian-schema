@@ -1034,6 +1034,17 @@ pub struct RegisterReply {
     /// A set since contract version 2; a single `role` before it.
     #[prost(string, repeated, tag = "9")]
     pub roles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Step 3d, checkpoint 5, item 30 (contract v30): which shard of its
+    /// instance this pod serves, and how many shards the instance runs, as its
+    /// sidecar took the shard's Lease. The pods of an instance are identical, so
+    /// the plugin learns them here: it writes its storage under shard-<shard>/
+    /// of its instance's shared storage and reads every shard's. shards 0 is an
+    /// instance of one pod, which holds no Lease, shard then 0; 1 for a standby
+    /// pod alone. A pod that loses its shard and takes another registers again.
+    #[prost(uint32, tag = "10")]
+    pub shard: u32,
+    #[prost(uint32, tag = "11")]
+    pub shards: u32,
 }
 /// Self-reported, and therefore only half the picture. A plugin that has stopped
 /// sending these at all is the more informative signal, and the sidecar is what
