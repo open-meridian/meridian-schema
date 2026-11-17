@@ -58745,6 +58745,19 @@
       "store": "sidecar"
     },
     {
+      "name": "meridian.v1.CreatePluginReply.ran_shared",
+      "type": "boolean",
+      "empty": "false: the launch ran on the instance's own claim, or it keeps no storage",
+      "intent": "tells the conductor whether the launcher ran the launch on the instance's shared storage (PO item 91)",
+      "meaning": "true where the launcher made the instance's pods on its shared storage: several pods, or one pod as one shard of storage shared since it ran as several; kept on the launch's record, so only a later launch on the instance's own claim, not failed, keeps an earlier copy unrecorded",
+      "not_meaning": "that the copy is whole yet: those pods start once it is",
+      "filled": "decided",
+      "filled_by": "launcher",
+      "since": "v30",
+      "stability": "preview",
+      "store": "sidecar"
+    },
+    {
       "name": "meridian.v1.CreatePluginRequest.limits",
       "type": "message SidecarLimits",
       "empty": "unset: every limit the chart's sidecar.limits",
