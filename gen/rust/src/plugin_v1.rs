@@ -2071,6 +2071,8 @@ pub struct ReportChargeParams {
     pub settlement_date: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "5")]
     pub raw_record: ::core::option::Option<RawRecordRef>,
+    #[prost(string, tag = "6")]
+    pub idempotency_key: ::prost::alloc::string::String,
     /// W4.9: the person this is sent for, as the assertion the plugin was
     /// handed for them (the Meridian-Caller header, decoded). Unset, the plugin
     /// acts as itself. Set, the sidecar admits a command on an account only
@@ -9605,6 +9607,8 @@ pub struct ReportChargeRequest {
     pub settlement_date: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "5")]
     pub raw_record: ::core::option::Option<RawRecordRef>,
+    #[prost(string, tag = "6")]
+    pub idempotency_key: ::prost::alloc::string::String,
 }
 /// W11.18. By the fund's connectivity plugin; the answer later on the same
 /// record as its own entry.

@@ -1183,6 +1183,10 @@ pub const PLUGIN_DECLARATION_MOST_SHARDS_RANGE: Range = Range { least: 0, most: 
 /// (W8.3; the launch setting approved by 1057)
 pub const LAUNCH_PLUGIN_REQUEST_SHARDS_RANGE: Range = Range { least: 0, most: 64, capped: false };
 
+/// meridian.v1.CreatePluginRequest.shards: tells the launcher the shards an
+/// instance was launched with (W8.3; approved 2026-11-15)
+pub const CREATE_PLUGIN_REQUEST_SHARDS_RANGE: Range = Range { least: 0, most: 64, capped: false };
+
 /// meridian.v1.RecordHoldingsStatementRequest.provenance: says where each
 /// value the plugin closed rather than read came from
 pub const RECORD_HOLDINGS_STATEMENT_REQUEST_PROVENANCE_COUNT: Count = Count { least: 0, most: 32 };
